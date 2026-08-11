@@ -244,7 +244,8 @@ just as much a one-domain job.
 No nightly reset cron is needed: sandbox cleanup and daily template
 rebuilds happen inside the app itself.
 
-The auto-deploy below picks the demo up automatically once it exists:
+The auto-deploy below picks the demo up automatically: it checks the
+server's `.env` for `DEMO_DOMAIN` and, when set, restarts both stacks —
 the image is shared, so shipping a new image updates both.
 
 ## 9. Auto-deploy from GitHub

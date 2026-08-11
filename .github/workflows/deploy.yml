@@ -71,9 +71,19 @@ jobs:
 
       - name: Restart
         # No --build: the freshly loaded image is already on the server.
+        # The demo overlay joins in when the server's .env opts into it
+        # (DEMO_DOMAIN set): the demo shares the image, so it has to be
+        # recreated on deploy too — otherwise it would keep running the
+        # previous image forever.
         run: |
-          ssh "root@${{ secrets.DEPLOY_HOST }}" \
-            'cd /srv/family-hub/app && docker compose -f docker-compose.prod.yml up -d'
+          ssh "root@${{ secrets.DEPLOY_HOST }}" '
+            cd /srv/family-hub/app
+            files="-f docker-compose.prod.yml"
+            if grep -q "^DEMO_DOMAIN=" .env 2>/dev/null; then
+              files="$files -f docker-compose.demo.yml"
+            fi
+            docker compose $files up -d
+          '
 
       - name: Health check
         # Relies on the container's own HEALTHCHECK (GET /api/health),
