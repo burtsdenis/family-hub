@@ -43,7 +43,7 @@ const GOOGLE_MESSAGES: Record<string, string> = {
 };
 
 export function Login() {
-  const { login } = useAuth();
+  const { login, loginDemo } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -88,18 +88,37 @@ export function Login() {
     return <Join />;
   }
 
+  async function enterDemo() {
+    setBusy(true);
+    setError(null);
+    try {
+      await loginDemo();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Не удалось войти'));
+      setBusy(false);
+    }
+  }
+
   if (initialized === null) return null;
   if (!initialized) return <Setup />;
 
+  // Демо: пароля нет, сервер выдаёт каждому личную песочницу по кнопке
+  if (demo) {
+    return (
+      <Frame title={t('Демо')} hint={t('Семейный хаб')}>
+        <p className="mb-5 text-sm text-muted">
+          {t('Это демо с примером данных: у вас будет собственная копия, трогайте что угодно. Через пару часов простоя она исчезнет без следа.')}
+        </p>
+        {error && <p className="mb-4 text-sm text-urgent">{error}</p>}
+        <button type="button" disabled={busy} onClick={() => void enterDemo()} className={buttonClass}>
+          {busy ? t('Открываю') : t('Попробовать демо')}
+        </button>
+      </Frame>
+    );
+  }
+
   return (
     <Frame title={t('Вход')} hint={t('Семейный хаб')}>
-      {demo && (
-        <p className="mb-4 rounded-lg border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
-          {t('Это демо с примером данных, всё можно трогать. Вход:')}{' '}
-          <code className="font-mono text-ink">demo@family.hub</code> /{' '}
-          <code className="font-mono text-ink">demo1234</code>
-        </p>
-      )}
       <form onSubmit={submit} className="space-y-4">
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-ink">{t('Логин')}</span>

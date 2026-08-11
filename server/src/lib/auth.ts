@@ -84,6 +84,8 @@ const PUBLIC_PATHS = new Set([
   '/api/health',
   '/api/auth/login',
   '/api/auth/state',
+  // Вход в демо: создаёт песочницу и сессию, живёт до них обеих
+  '/api/auth/demo',
   // Вход через Google: начало и возврат живут до сессии.
   // Привязки (/google/link) здесь нет намеренно — она требует сессии.
   '/api/auth/google/start',

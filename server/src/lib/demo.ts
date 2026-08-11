@@ -1,27 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import { db, now, today } from '../db/index.js';
 import { hashPassword } from './password.js';
-import { log } from './log.js';
 
 /*
   Демо-режим (DEMO_MODE=true) — публичная песочница «потыкать до установки».
 
-  Две обязанности:
+  Здесь живёт содержимое демо: сидинг правдоподобной семьи (задачи, заметки,
+  календарь, деньги) и список запретов. Жизненный цикл — в sandbox.ts:
+  сидинг наполняет шаблонную базу, а каждый посетитель получает её свежую
+  копию, так что чужого мусора в демо не бывает by design.
 
-  — засеять пустую базу правдоподобной семьёй: задачи, заметки, календарь,
-    деньги. Сидинг срабатывает один раз, при старте с пустой базой;
-    ночной сброс демо — это «стереть каталог данных и перезапустить»,
-    сидинг соберёт всё заново;
-
-  — оградить действия, которыми публичная песочница ломается или
-    захламляется: смену паролей и состава семьи (иначе первый шутник
-    запирает демо для всех до сброса) и загрузку файлов (иначе диск —
-    публичная файлопомойка). Всё остальное нарочно открыто: демо,
-    в котором нельзя создать задачу и трату, ничего не демонстрирует.
+  Запреты стали короче, чем при общей базе: портить содержимое посетитель
+  может только себе. Остаются закрытыми смена паролей и состава семьи
+  (в песочнице они бессмысленны, а инвайт-ссылки вводят в заблуждение)
+  и загрузка файлов — диск общий, файлопомойку никто не отменял.
 */
-
-export const DEMO_EMAIL = 'demo@family.hub';
-export const DEMO_PASSWORD = 'demo1234';
 
 /** Что в демо запрещено. Проверяется в authenticate после входа. */
 export function demoBlocked(method: string, path: string): boolean {
@@ -51,11 +44,15 @@ function day(offset: number): string {
   return `${y}-${m}-${d}`;
 }
 
-export async function seedDemoIfEmpty(): Promise<void> {
+/** Наполняет базу текущего контекста примером семьи. Ожидает пустую базу. */
+export async function seedDemo(): Promise<void> {
   const n = (db.prepare('SELECT count(*) AS n FROM users').get() as { n: number }).n;
   if (n > 0) return;
 
-  const passwordHash = await hashPassword(DEMO_PASSWORD);
+  // Вход в демо автоматический (POST /api/auth/demo), пароль никому
+  // не сообщается — поэтому он случайный. Захардкоженный demo1234 был
+  // короче собственного минимума хаба и жил в двух местах кода.
+  const passwordHash = await hashPassword(randomUUID());
   const alex = id();
   const sam = id();
 
@@ -63,9 +60,9 @@ export async function seedDemoIfEmpty(): Promise<void> {
     // ── Семья ──
     db.prepare(
       `INSERT INTO users (id, email, name, role, password_hash, color, created_at) VALUES
-       (?, ?, 'Alex', 'admin', ?, '#2E6F8E', ?),
+       (?, 'alex@family.hub', 'Alex', 'admin', ?, '#2E6F8E', ?),
        (?, 'sam@family.hub', 'Sam', 'member', ?, '#B4654A', ?)`,
-    ).run(alex, DEMO_EMAIL, passwordHash, now(), sam, passwordHash, now());
+    ).run(alex, passwordHash, now(), sam, passwordHash, now());
 
     // ── Проекты и задачи ──
     const home = id();
@@ -107,7 +104,7 @@ export async function seedDemoIfEmpty(): Promise<void> {
       `INSERT INTO notes (id, title, body_md, folder_id, owner_id, pinned) VALUES
        (?, 'Shopping list', '- Milk\n- Eggs\n- Coffee beans\n- Paint tape (see [[Repaint the hallway]])\n- Something nice for Friday', NULL, ?, 1),
        (?, 'Pizza dough', '**500 g** flour · 325 ml water · 10 g salt · 3 g yeast\n\nKnead, rest overnight in the fridge, bake as hot as the oven goes.', ?, ?, 0),
-       (?, 'House rules for guests', 'Wi-Fi: *familyhub / demo1234*\n\nCoffee machine: one scoop, button, patience.', NULL, ?, 0)`,
+       (?, 'House rules for guests', 'Wi-Fi: *familyhub / pizzafriday*\n\nCoffee machine: one scoop, button, patience.', NULL, ?, 0)`,
     ).run(id(), alex, id(), recipes, sam, id(), alex);
 
     // ── Календарь ──
@@ -193,13 +190,4 @@ export async function seedDemoIfEmpty(): Promise<void> {
   });
 
   seed();
-  log.block([
-    '',
-    '─'.repeat(64),
-    '  DEMO MODE: seeded a sample family.',
-    `  Sign in: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`,
-    '  Destructive actions are disabled; wipe the data dir to reset.',
-    '─'.repeat(64),
-    '',
-  ]);
 }

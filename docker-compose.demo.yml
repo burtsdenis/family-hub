@@ -8,10 +8,10 @@
 #   - DEMO_DOMAIN in .env (e.g. demo.example.com) with a DNS A record
 #   - a demo site block in Caddyfile.prod (see DEPLOY.md, "Public demo")
 #
-# The demo seeds itself with a sample family on first start and blocks
-# destructive actions (passwords, membership, file uploads). A nightly
-# reset is a cron job that wipes the demo data dir and restarts the
-# container — seeding rebuilds everything (see DEPLOY.md).
+# Every visitor gets a private throwaway copy of a seeded sample family;
+# idle sandboxes are dropped and the template is rebuilt daily by the app
+# itself — no reset cron needed. Passwords, membership and file uploads
+# stay blocked (see DEPLOY.md, "Public demo").
 
 services:
   app-demo:

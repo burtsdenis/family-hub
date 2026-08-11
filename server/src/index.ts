@@ -70,13 +70,33 @@ app.setErrorHandler((err: FastifyError, req, reply) => {
 migrate();
 pruneSessions();
 if (env.demoMode) {
-  const { seedDemoIfEmpty } = await import('./lib/demo.js');
-  await seedDemoIfEmpty();
+  const { initDemo } = await import('./lib/sandbox.js');
+  await initDemo();
 } else {
   announceSetupIfEmpty();
 }
 
 await app.register(fastifyCookie);
+
+/*
+  Демо: направляем запрос в песочницу посетителя. Хук стоит сразу после
+  разбора кук и оборачивает остаток обработки в контекст её базы
+  (AsyncLocalStorage, см. db/index.ts) — дальше весь код, включая проверку
+  сессии, прозрачно работает с базой этой песочницы. Кука без живой
+  песочницы (протухла, вытеснена, рестарт) — контекст не ставится,
+  сессия в основной базе не найдётся, клиент получит честный 401
+  и вернётся на экран входа за новой песочницей.
+*/
+if (env.demoMode) {
+  const { SANDBOX_COOKIE, getSandbox } = await import('./lib/sandbox.js');
+  const { runWithDb } = await import('./db/index.js');
+  app.addHook('onRequest', (req, _reply, done) => {
+    const sandboxId = req.cookies[SANDBOX_COOKIE];
+    const sandbox = sandboxId ? getSandbox(sandboxId) : null;
+    if (sandbox) return runWithDb(sandbox.db, done);
+    done();
+  });
+}
 await app.register(fastifyMultipart, {
   limits: { fileSize: MAX_FILE_BYTES, files: 10 },
 });

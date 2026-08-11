@@ -210,9 +210,12 @@ the README.
 ## 8. Public demo (optional)
 
 A sandbox at its own subdomain, running next to production on the same
-VPS. It seeds itself with a sample family (`demo@family.hub` /
-`demo1234`), keeps everything touchable, and blocks what would break a
-public sandbox: password changes, membership changes and file uploads.
+VPS. Every visitor gets their own throwaway copy of a seeded sample
+family — one click to enter, no password. Sandboxes are dropped after a
+couple of idle hours and the sample data is rebuilt daily, so the demo
+cleans itself; visitors can touch everything without ever seeing each
+other's mess. Password and membership changes and file uploads stay
+blocked.
 
 Note: the demo needs the API, so it cannot live on static hosting like
 GitHub Pages — but a second container on the VPS you already have is
@@ -238,13 +241,8 @@ just as much a one-domain job.
    docker compose -f docker-compose.prod.yml -f docker-compose.demo.yml up -d
    ```
 
-5. Nightly reset — wipe and let seeding rebuild:
-
-   ```bash
-   crontab -e
-   # add:
-   0 4 * * * cd /srv/family-hub/app && docker compose -f docker-compose.prod.yml -f docker-compose.demo.yml stop app-demo && rm -rf /srv/family-hub/demo-data/* && docker compose -f docker-compose.prod.yml -f docker-compose.demo.yml start app-demo
-   ```
+No nightly reset cron is needed: sandbox cleanup and daily template
+rebuilds happen inside the app itself.
 
 The auto-deploy below picks the demo up automatically once it exists:
 the image is shared, so shipping a new image updates both.

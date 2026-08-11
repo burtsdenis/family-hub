@@ -62,12 +62,16 @@ const changeInput = z.object({
 export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   /** Есть ли вообще пользователи — чтобы фронт знал, что показывать. */
   app.get('/api/auth/state', () => {
+    // В демо ответ фиксированный: основная база пуста (жизнь идёт
+    // в песочницах), но экран первичной настройки показывать нельзя,
+    // а вход один — кнопка «Попробовать демо».
+    if (env.demoMode) return { initialized: true, google: false, demo: true };
     const n = (db.prepare('SELECT count(*) AS n FROM users').get() as { n: number }).n;
     return {
       initialized: n > 0,
       // Есть ли смысл показывать кнопку «Войти через Google»
       google: Boolean(env.googleClientId && env.googleClientSecret && env.publicUrl),
-      demo: env.demoMode,
+      demo: false,
     };
   });
 
@@ -78,6 +82,11 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   };
 
   app.post('/api/auth/login', loginRateLimit, async (req, reply) => {
+    // В демо входят только через песочницу: у посетителей нет паролей,
+    // а перебор по чужим учёткам публичному стенду ни к чему
+    if (env.demoMode) {
+      return reply.code(403).send({ error: 'Отключено в демо-режиме' });
+    }
     const parsed = loginInput.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: 'Введите логин и пароль' });
@@ -134,12 +143,65 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       .get(user.id);
   });
 
-  app.post('/api/auth/logout', (req, reply) => {
+  app.post('/api/auth/logout', async (req, reply) => {
+    // В демо выход хоронит и песочницу: возвращаться в неё некому,
+    // а свежий заход по кнопке получит чистую копию шаблона
+    if (env.demoMode) {
+      const { SANDBOX_COOKIE, destroySandbox } = await import('../lib/sandbox.js');
+      const sandboxId = req.cookies[SANDBOX_COOKIE];
+      if (sandboxId) destroySandbox(sandboxId);
+      reply.clearCookie(SANDBOX_COOKIE, { path: '/' });
+      clearSessionCookie(reply);
+      return { ok: true };
+    }
     const token = req.cookies[SESSION_COOKIE];
     if (token) destroySession(token);
     clearSessionCookie(reply);
     return { ok: true };
   });
+
+  /*
+    Вход в демо. Создаёт посетителю личную песочницу (копию шаблонной базы)
+    и сессию администратора в ней — без логина и пароля: спрашивать пароль
+    у одноразовой песочницы не у кого и незачем. Лимит частоты жёсткий:
+    каждая песочница — файл на диске, и щедрость здесь была бы дырой.
+  */
+  if (env.demoMode) {
+    const { SANDBOX_COOKIE, createSandbox } = await import('../lib/sandbox.js');
+    const { runWithDb } = await import('../db/index.js');
+
+    app.post(
+      '/api/auth/demo',
+      { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+      (req, reply) => {
+        const sandbox = createSandbox();
+        return runWithDb(sandbox.db, () => {
+          const admin = db
+            .prepare(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`)
+            .get() as { id: string };
+
+          setSessionCookie(reply, createSession(admin.id, req.headers['user-agent']));
+          reply.setCookie(SANDBOX_COOKIE, sandbox.id, {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: env.secureCookies,
+            path: '/',
+            // Дольше TTL песочницы: срок жизни определяет сервер, не кука
+            maxAge: 24 * 60 * 60,
+          });
+          log.info(`демо: вход в песочницу с ${req.ip}`);
+
+          return db
+            .prepare(
+              `SELECT id, email, name, role, color, must_change_password,
+                      (google_sub IS NOT NULL) AS google_linked, password_login_disabled
+                 FROM users WHERE id = ?`,
+            )
+            .get(admin.id);
+        });
+      },
+    );
+  }
 
   // Токен уже проверен в authenticate, пользователь лежит в запросе.
   app.get('/api/auth/me', (req) => req.user);

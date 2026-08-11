@@ -17,6 +17,8 @@ interface AuthState {
   loading: boolean;
   mustChangePassword: boolean;
   login: (email: string, password: string) => Promise<void>;
+  /** Вход в демо: сервер создаёт песочницу и сессию, пароля нет. */
+  loginDemo: () => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -46,6 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me);
   }, []);
 
+  const loginDemo = useCallback(async () => {
+    const me = await api.post<User>('/auth/demo', {});
+    setUser(me);
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout', {});
@@ -61,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         mustChangePassword: Boolean(user?.must_change_password),
         login,
+        loginDemo,
         logout,
         refresh,
       }}

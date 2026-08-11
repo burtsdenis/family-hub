@@ -316,12 +316,15 @@ Once a quarter, unpack a backup into a separate folder and make sure it opens. A
 
 ## Demo mode
 
-`DEMO_MODE=true` turns an empty hub into a public sandbox: it seeds a
-sample family on first start (sign in: `demo@family.hub` / `demo1234`),
-shows the credentials on the sign-in screen, and disables what would
-break a public sandbox — password and membership changes and file
-uploads. Everything else stays touchable. Reset = wipe the data
-directory and restart; seeding rebuilds it. Deployment next to a
+`DEMO_MODE=true` turns the hub into a public sandbox where **every
+visitor gets their own throwaway copy** of a seeded sample family. One
+button to enter — no password. Under the hood the app builds a template
+database at startup (migrations + seeding, rebuilt daily so dates stay
+fresh) and clones it per visitor; a sandbox disappears after a couple of
+idle hours, on sign-out, or when the app restarts. Visitors can create,
+edit and delete anything — nobody else will ever see it, which is the
+point: a shared demo is a graffiti wall by lunchtime. Password and
+membership changes and file uploads stay blocked. Deployment next to a
 production hub: DEPLOY.md, "Public demo".
 
 ## Roadmap

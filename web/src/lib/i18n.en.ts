@@ -625,8 +625,11 @@ export const en: Record<string, string> = {
   'Начало недели': 'Week starts on',
   'Понедельник': 'Monday',
   'Воскресенье': 'Sunday',
-  'Это демо с примером данных, всё можно трогать. Вход:':
-    'This is a demo with sample data — feel free to touch everything. Sign in:',
+  'Демо': 'Demo',
+  'Это демо с примером данных: у вас будет собственная копия, трогайте что угодно. Через пару часов простоя она исчезнет без следа.':
+    'This is a demo with sample data: you get your own private copy, so touch anything you like. After a couple idle hours it vanishes without a trace.',
+  'Попробовать демо': 'Try the demo',
+  'Открываю': 'Opening',
   'Отключено в демо-режиме': 'Disabled in the demo',
   'Язык': 'Language',
   'Настройка этого устройства: телефон и общий стенд могут говорить на разных языках.':
