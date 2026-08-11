@@ -1,0 +1,833 @@
+import { t } from '../lib/i18n';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
+import { onEnter } from '../lib/keys';
+import { formatStamp } from '../lib/format';
+import { useLatest } from '../lib/latest';
+import { today } from '../lib/tasks';
+import { Empty, Page } from '../components/Page';
+import { Editor, type UploadedFile } from '../components/Editor';
+import { EntityDialog } from '../components/EntityDialog';
+import { useDialogs } from '../components/Dialog';
+
+interface Folder {
+  id: string;
+  parent_id: string | null;
+  name: string;
+}
+
+interface NoteStub {
+  id: string;
+  title: string;
+  folder_id: string | null;
+  visibility: 'shared' | 'private';
+  owner_id: string | null;
+  owner_name: string | null;
+  pinned: number;
+  daily_date: string | null;
+  is_template: number;
+  updated_at: string;
+  excerpt: string;
+}
+
+interface NoteLink {
+  target_title: string;
+  target_note_id: string | null;
+  exists_now: number;
+}
+
+interface Note extends NoteStub {
+  body_md: string;
+  outgoing: NoteLink[];
+  backlinks: { id: string; title: string }[];
+  attachments: Attachment[];
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} ${t('Б')}`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ${t('КБ')}`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} ${t('МБ')}`;
+}
+
+interface Attachment {
+  id: string;
+  filename: string;
+  mime: string;
+  size_bytes: number;
+  is_image: number;
+  created_at: string;
+}
+
+interface Version {
+  id: string;
+  title: string;
+  created_at: string;
+  author_name: string | null;
+  size: number;
+}
+
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+const chip = 'rounded-full border px-3 py-1.5 text-sm transition-colors';
+const chipOn = 'border-accent bg-accent-soft text-accent';
+const chipOff = 'border-line text-muted hover:text-ink';
+
+export function Notes() {
+  const { user } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const dialogs = useDialogs();
+  const isLatest = useLatest();
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [notes, setNotes] = useState<NoteStub[] | null>(null);
+  const [templates, setTemplates] = useState<NoteStub[]>([]);
+  const [note, setNote] = useState<Note | null>(null);
+  const [versions, setVersions] = useState<Version[] | null>(null);
+  const [folderId, setFolderId] = useState('');
+  const [query, setQuery] = useState('');
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [revision, setRevision] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  // Незаписанные правки хранятся вместе с идентификатором заметки.
+  // Иначе при быстром переключении отложенное сохранение уезжает в ту
+  // заметку, что открыта сейчас, и переписывает её чужим текстом.
+  const pending = useRef<{ noteId: string; patch: { title?: string; body_md?: string } } | null>(
+    null,
+  );
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noteRef = useRef<Note | null>(null);
+  noteRef.current = note;
+  // flush объявлен ниже openNote, поэтому обращаемся через ссылку
+  const flushRef = useRef<() => Promise<void>>(async () => {});
+
+  const inTemplates = folderId === 'templates';
+
+  const loadNotes = useCallback(async () => {
+    const params = new URLSearchParams();
+    if (folderId === 'templates') params.set('templates', 'true');
+    else if (folderId) params.set('folder_id', folderId);
+    if (query.trim()) params.set('q', query.trim());
+
+    // Поиск отправляет запрос на каждое нажатие; без этой проверки ответ
+    // на «до» может прийти после ответа на «докум» и перетереть выдачу
+    const fresh = isLatest();
+    const rows = await api.get<NoteStub[]>(`/notes?${params}`);
+    if (!fresh()) return;
+    setNotes(rows);
+  }, [folderId, query, isLatest]);
+
+  const loadTemplates = useCallback(async () => {
+    setTemplates(await api.get<NoteStub[]>('/notes?templates=true'));
+  }, []);
+
+  useEffect(() => {
+    void api.get<Folder[]>('/folders').then(setFolders);
+    void loadTemplates();
+  }, [loadTemplates]);
+
+  useEffect(() => {
+    void loadNotes();
+  }, [loadNotes]);
+
+
+  const openNote = useCallback(async (noteId: string) => {
+    // Уходя с заметки, дописываем то, что не успело сохраниться
+    if (pending.current) {
+      if (timer.current) clearTimeout(timer.current);
+      await flushRef.current();
+    }
+    setVersions(null);
+    setSaveState('idle');
+    try {
+      setNote(await api.get<Note>(`/notes/${noteId}`));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Не удалось открыть заметку'));
+    }
+  }, []);
+  // Переход из общего поиска: /notes?open=<id>.
+  // С экрана быстрых действий: /notes?new=1 — сразу новая заметка.
+  useEffect(() => {
+    const target = params.get('open');
+    const wantNew = params.get('new');
+    if (!target && !wantNew) return;
+    if (target) void openNote(target);
+    else void createNote();
+    setParams({}, { replace: true });
+    // createNote объявлена ниже как function declaration и потому доступна
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, openNote, setParams]);
+
+  // ── Автосохранение ──────────────────────────────────────────────────────
+
+  const flush = useCallback(async () => {
+    const entry = pending.current;
+    if (!entry || Object.keys(entry.patch).length === 0) return;
+    pending.current = null;
+    setSaveState('saving');
+    try {
+      await api.patch(`/notes/${entry.noteId}`, entry.patch);
+      setSaveState('saved');
+      void loadNotes();
+
+      // Ссылки пересчитываются на сервере при каждом сохранении, поэтому
+      // панель связей надо обновить — иначе она показывает состояние на
+      // момент открытия заметки. Тело и заголовок при этом не трогаем:
+      // человек продолжает печатать, и перезапись сбросила бы курсор.
+      const fresh = await api.get<Note>(`/notes/${entry.noteId}`);
+      setNote((prev) =>
+        prev && prev.id === fresh.id
+          ? { ...prev, outgoing: fresh.outgoing, backlinks: fresh.backlinks }
+          : prev,
+      );
+    } catch (err) {
+      setSaveState('error');
+      setError(err instanceof Error ? err.message : t('Не удалось сохранить'));
+    }
+  }, [loadNotes]);
+
+  flushRef.current = flush;
+
+  const queueSave = useCallback(
+    (patch: { title?: string; body_md?: string }) => {
+      const current = noteRef.current;
+      if (!current) return;
+
+      // Накопленное для другой заметки записываем немедленно
+      if (pending.current && pending.current.noteId !== current.id) void flush();
+
+      pending.current = {
+        noteId: current.id,
+        patch: {
+          ...(pending.current?.noteId === current.id ? pending.current.patch : {}),
+          ...patch,
+        },
+      };
+      setSaveState('saving');
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => void flush(), 1500);
+    },
+    [flush],
+  );
+
+  // Недописанное не должно теряться при закрытии вкладки или уходе со страницы
+  useEffect(() => {
+    const onLeave = () => {
+      if (pending.current) void flush();
+    };
+    window.addEventListener('beforeunload', onLeave);
+    return () => {
+      window.removeEventListener('beforeunload', onLeave);
+      onLeave();
+    };
+  }, [flush]);
+
+  // ── Действия ────────────────────────────────────────────────────────────
+
+  async function createNote(templateId?: string) {
+    const created = await api.post<Note>('/notes', {
+      // Заголовок при создании из шаблона не передаём: сервер возьмёт его
+      // из шаблона и раскроет подстановки. Явный title их перебил бы.
+      ...(templateId ? {} : { title: inTemplates ? t('Новый шаблон') : t('Без названия') }),
+      folder_id:
+        folderId && folderId !== 'none' && folderId !== 'templates' ? folderId : null,
+      ...(inTemplates ? { is_template: true } : {}),
+      ...(templateId ? { template_id: templateId } : {}),
+    });
+    await loadNotes();
+    if (inTemplates) await loadTemplates();
+    await openNote(created.id);
+  }
+
+  /** Превратить заметку в шаблон и обратно. */
+  async function toggleTemplate() {
+    if (!note) return;
+    const next = !note.is_template;
+    await api.patch(`/notes/${note.id}`, { is_template: next });
+    setNote({ ...note, is_template: next ? 1 : 0 });
+    await loadNotes();
+    await loadTemplates();
+  }
+
+  async function openDaily() {
+    const date = today();
+    try {
+      const daily = await api.get<Note>(`/notes/daily/${date}`);
+      await openNote(daily.id);
+    } catch {
+      // Шаблон дня ищется по названию в данных, а не по языку интерфейса:
+      // 'Day' у свежих баз, 'День' у живших до перевода
+      const template = templates.find((tpl) => tpl.title === 'Day' || tpl.title === 'День');
+      const created = await api.post<Note>('/notes', {
+        daily_date: date,
+        title: date,
+        ...(template ? { template_id: template.id } : {}),
+      });
+      await loadNotes();
+      await openNote(created.id);
+    }
+  }
+
+  const reloadFolders = useCallback(async () => {
+    setFolders(await api.get<Folder[]>('/folders'));
+  }, []);
+
+  async function togglePrivate() {
+    if (!note) return;
+    const next = note.visibility === 'private' ? 'shared' : 'private';
+    try {
+      await api.patch(`/notes/${note.id}`, { visibility: next });
+      await openNote(note.id);
+      await loadNotes();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Не удалось изменить доступ'));
+    }
+  }
+
+  async function removeNote() {
+    if (!note) return;
+    const ok = await dialogs.confirm({
+      title: t('Удалить заметку'),
+      message: t('«{title}» и её вложения будут удалены безвозвратно.', { title: note.title }),
+      confirmLabel: t('Удалить'),
+      danger: true,
+    });
+    if (!ok) return;
+    await api.delete(`/notes/${note.id}`);
+    setNote(null);
+    await loadNotes();
+  }
+
+  /** Переход по [[ссылке]]: если заметки нет — предлагаем создать. */
+  const navigateByTitle = useCallback(
+    async (title: string) => {
+      const found = await api.get<NoteStub[]>(`/notes?q=${encodeURIComponent(title)}`);
+      const exact = found.find((n) => n.title.toLowerCase() === title.toLowerCase());
+      if (exact) {
+        await openNote(exact.id);
+        return;
+      }
+      const ok = await dialogs.confirm({
+        title: t('Заметки пока нет'),
+        message: t('«{title}» ещё не создана. Создать сейчас?', { title }),
+        confirmLabel: t('Создать'),
+      });
+      if (ok) {
+        const created = await api.post<Note>('/notes', { title });
+        await loadNotes();
+        await openNote(created.id);
+      }
+    },
+    [openNote, loadNotes, dialogs],
+  );
+
+  /** Отправка файлов, прикреплённых к текущей заметке. */
+  const uploadFiles = useCallback(
+    async (files: File[]): Promise<UploadedFile[]> => {
+      const current = noteRef.current;
+      if (!current) return [];
+
+      const form = new FormData();
+      for (const file of files) form.append('file', file);
+
+      const res = await fetch(`/api/notes/${current.id}/attachments`, {
+        method: 'POST',
+        body: form,
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? t('Не удалось загрузить файл'));
+        return [];
+      }
+
+      const { uploaded } = (await res.json()) as { uploaded: UploadedFile[] };
+      const fresh = await api.get<Note>(`/notes/${current.id}`);
+      setNote((prev) => (prev && prev.id === fresh.id ? { ...prev, attachments: fresh.attachments } : prev));
+      return uploaded;
+    },
+    [],
+  );
+
+  async function removeAttachment(attachment: Attachment) {
+    if (!note) return;
+    const ok = await dialogs.confirm({
+      title: t('Удалить файл'),
+      message: attachment.filename,
+      confirmLabel: t('Удалить'),
+      danger: true,
+    });
+    if (!ok) return;
+    await api.delete(`/attachments/${attachment.id}`);
+    setNote({ ...note, attachments: note.attachments.filter((a) => a.id !== attachment.id) });
+  }
+
+  async function showVersions() {
+    if (!note) return;
+    if (versions) {
+      setVersions(null);
+      return;
+    }
+    setVersions(await api.get<Version[]>(`/notes/${note.id}/versions`));
+  }
+
+  async function restore(versionId: string) {
+    if (!note) return;
+    const ok = await dialogs.confirm({
+      title: t('Вернуть версию'),
+      message: t('Текущее состояние останется в истории, откат можно будет отменить.'),
+      confirmLabel: t('Вернуть'),
+    });
+    if (!ok) return;
+    // Отложенное сохранение содержит текст ДО отката — его нужно выбросить,
+    // иначе оно вернёт отменённую правку назад
+    pending.current = null;
+    if (timer.current) clearTimeout(timer.current);
+
+    await api.post(`/notes/${note.id}/restore/${versionId}`, {});
+    await openNote(note.id);
+    setRevision((r) => r + 1);
+  }
+
+  const saveLabel = useMemo(
+    () => ({ idle: '', saving: t('Сохраняю…'), saved: t('Сохранено'), error: t('Не сохранено') })[saveState],
+    [saveState],
+  );
+
+  const isOwner = !note?.owner_id || note.owner_id === user?.id;
+
+  return (
+    <Page
+      title={t('Заметки')}
+      eyebrow={t('Что нужно помнить')}
+      action={
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void openDaily()}
+            className="rounded-lg border border-line px-3 py-1.5 text-sm text-muted hover:text-ink"
+          >
+            {t('Сегодня')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void createNote()}
+            className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+          >
+            {t('Новая')}
+          </button>
+        </div>
+      }
+    >
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setFolderId('')}
+          className={`${chip} ${folderId === '' ? chipOn : chipOff}`}
+        >
+          {t('Все')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setFolderId('none')}
+          className={`${chip} ${folderId === 'none' ? chipOn : chipOff}`}
+        >
+          {t('Без папки')}
+        </button>
+        {folders.map((f) => (
+          <span
+            key={f.id}
+            className={`${chip} flex items-center gap-2 ${folderId === f.id ? chipOn : chipOff}`}
+          >
+            <button type="button" onClick={() => setFolderId(f.id)} className="hover:text-ink">
+              {f.name}
+            </button>
+            {folderId === f.id && (
+              <button
+                type="button"
+                onClick={() => setEditingFolder(f)}
+                aria-label={t('Настроить папку {name}', { name: f.name })}
+                className="opacity-60 hover:opacity-100"
+              >
+                <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M12 4v2M12 18v2M20 12h-2M6 12H4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4M17.7 17.7l-1.4-1.4M7.7 7.7 6.3 6.3" />
+                </svg>
+              </button>
+            )}
+          </span>
+        ))}
+        <button
+          type="button"
+          onClick={() => setCreatingFolder(true)}
+          className={`${chip} border-dashed border-line text-muted hover:text-ink`}
+        >
+          {t('+ папка')}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setFolderId(inTemplates ? '' : 'templates');
+            setNote(null);
+          }}
+          className={`${chip} ml-auto ${inTemplates ? chipOn : chipOff}`}
+        >
+          {t('Шаблоны')}
+        </button>
+      </div>
+
+      {error && (
+        <p className="mb-4 rounded-lg border border-urgent bg-urgent/10 px-4 py-2.5 text-sm text-ink">
+          {error}
+        </p>
+      )}
+
+      <div className="grid gap-5 lg:grid-cols-[20rem_minmax(0,1fr)] 2xl:grid-cols-[22rem_minmax(0,1fr)_20rem] 3xl:gap-6">
+        <div className={note ? 'hidden lg:block' : ''}>
+          <input
+            value={query}
+            placeholder={t('Поиск по заметкам')}
+            onChange={(e) => setQuery(e.target.value)}
+            className="mb-3 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+          />
+
+          {notes === null ? (
+            <div className="h-40 animate-pulse rounded-card bg-surface-3" />
+          ) : notes.length === 0 ? (
+            <Empty>{t('Заметок нет. Начните с кнопки «Новая».')}</Empty>
+          ) : (
+            <ul className="overflow-hidden rounded-card border border-line bg-surface">
+              {notes.map((n) => (
+                <li key={n.id}>
+                  <button
+                    type="button"
+                    onClick={() => void openNote(n.id)}
+                    className={`w-full border-b border-line px-4 py-3 text-left last:border-0 ${
+                      note?.id === n.id ? 'bg-accent-soft' : 'hover:bg-surface-2'
+                    }`}
+                  >
+                    <p className="flex items-center gap-2 truncate text-sm font-medium text-ink">
+                      {n.visibility === 'private' && (
+                        <span className="text-muted" title={t('Приватная')}>
+                          ●
+                        </span>
+                      )}
+                      {n.title}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-muted">{n.excerpt || t('Пусто')}</p>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {templates.length > 0 && !inTemplates && (
+            <div className="mt-4">
+              <p className="eyebrow mb-2">{t('Из шаблона')}</p>
+              <div className="flex flex-wrap gap-2">
+                {templates.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => void createNote(t.id)}
+                    className={`${chip} ${chipOff}`}
+                  >
+                    {t.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {note ? (
+          /* Ширину ограничиваем на уровне всей колонки, а не текста внутри
+             карточки: иначе панель инструментов начинается у левого края,
+             а строка — где-то посередине, и это читается как поломка.
+             52rem дают около 95 знаков в строке — верх читаемого. */
+          <div className="w-full max-w-[52rem]">
+            <div className="mb-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setNote(null)}
+                className="text-sm text-muted hover:text-ink lg:hidden"
+              >
+                {t('← Список')}
+              </button>
+
+              <input
+                key={note.id}
+                defaultValue={note.title}
+                onChange={(e) => queueSave({ title: e.target.value })}
+                onKeyDown={onEnter(() => void flush())}
+                className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1.5 font-display text-lg font-semibold text-ink outline-none focus:border-line"
+              />
+
+              <span className="font-mono text-xs text-muted">{saveLabel}</span>
+            </div>
+
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <select
+                value={note.folder_id ?? ''}
+                onChange={(e) => {
+                  const next = e.target.value || null;
+                  setNote({ ...note, folder_id: next });
+                  void api.patch(`/notes/${note.id}`, { folder_id: next }).then(() => loadNotes());
+                }}
+                className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-accent"
+              >
+                <option value="">{t('Без папки')}</option>
+                {folders.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={() => void togglePrivate()}
+                disabled={!isOwner}
+                title={
+                  isOwner
+                    ? t('Приватную заметку видит только её владелец')
+                    : t('Заметка принадлежит другому человеку')
+                }
+                className={`${chip} ${
+                  note.visibility === 'private' ? chipOn : chipOff
+                } disabled:opacity-40`}
+              >
+                {note.visibility === 'private' ? t('Приватная') : t('Общая')}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void toggleTemplate()}
+                title={t('Шаблон не попадает в общий список и предлагается при создании заметки')}
+                className={`${chip} ${note.is_template ? chipOn : chipOff}`}
+              >
+                {note.is_template ? t('Шаблон') : t('Обычная')}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void showVersions()}
+                className={`${chip} ${chipOff}`}
+              >
+                {t('История')}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void removeNote()}
+                className="ml-auto text-sm text-muted underline underline-offset-2 hover:text-urgent"
+              >
+                {t('Удалить')}
+              </button>
+            </div>
+
+            {versions && (
+              <div className="mb-3 overflow-hidden rounded-card border border-line bg-surface">
+                {versions.length === 0 ? (
+                  <p className="px-4 py-3 text-sm text-muted">
+                    {t('История пуста — заметку ещё не правили после создания.')}
+                  </p>
+                ) : (
+                  <ul>
+                    {versions.map((v) => (
+                      <li
+                        key={v.id}
+                        className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0"
+                      >
+                        <span className="font-mono text-xs text-muted">{formatStamp(v.created_at)}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm text-ink">{v.title}</span>
+                        <span className="text-xs text-muted">{v.author_name}</span>
+                        <button
+                          type="button"
+                          onClick={() => void restore(v.id)}
+                          className="text-xs text-accent underline underline-offset-2"
+                        >
+                          {t('Вернуть')}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {note.is_template === 1 && (
+              <p className="mb-3 rounded-lg border border-line bg-surface-2 px-4 py-2.5 text-xs text-muted">
+                {t('Подстановки раскроются при создании заметки:')}{' '}
+                <code className="font-mono text-ink">{t('{{дата}}')}</code>,{' '}
+                <code className="font-mono text-ink">{t('{{время}}')}</code>,{' '}
+                <code className="font-mono text-ink">{t('{{автор}}')}</code>,{' '}
+                <code className="font-mono text-ink">{t('{{изо}}')}</code> — {t('дата в виде 2026-08-02.')}
+                {t('Работают и в заголовке.')}
+              </p>
+            )}
+
+            <Editor
+              noteId={note.id}
+              revision={revision}
+              initialMarkdown={note.body_md}
+              onChange={(markdown) => queueSave({ body_md: markdown })}
+              onNavigate={(title) => void navigateByTitle(title)}
+              onUpload={uploadFiles}
+            />
+
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <label className="cursor-pointer rounded-lg border border-line px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink">
+                {t('Прикрепить файл')}
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    e.target.value = '';
+                    if (files.length) void uploadFiles(files);
+                  }}
+                />
+              </label>
+              <span className="text-xs text-muted">
+                {t('Файлы можно перетащить в текст или вставить из буфера')}
+              </span>
+            </div>
+
+            {note.attachments.length > 0 && (
+              <ul className="mt-3 overflow-hidden rounded-card border border-line bg-surface">
+                {note.attachments.map((a) => (
+                  <li
+                    key={a.id}
+                    className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0"
+                  >
+                    {a.is_image ? (
+                      <img
+                        src={`/api/attachments/${a.id}`}
+                        alt=""
+                        className="size-9 shrink-0 rounded object-cover"
+                      />
+                    ) : (
+                      <span className="grid size-9 shrink-0 place-items-center rounded bg-surface-2 font-mono text-[0.625rem] text-muted uppercase">
+                        {(a.filename.split('.').pop() ?? t('файл')).slice(0, 4)}
+                      </span>
+                    )}
+
+                    <a
+                      href={`/api/attachments/${a.id}?download=true`}
+                      className="min-w-0 flex-1 truncate text-sm text-ink hover:text-accent"
+                    >
+                      {a.filename}
+                    </a>
+
+                    <span className="font-mono text-xs text-muted">
+                      {formatBytes(a.size_bytes)}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => void removeAttachment(a)}
+                      className="text-xs text-muted underline underline-offset-2 hover:text-urgent"
+                    >
+                      {t('Удалить')}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+          </div>
+        ) : (
+          <div className="hidden lg:block">
+            <Empty>{t('Выберите заметку слева или создайте новую.')}</Empty>
+          </div>
+        )}
+
+        {note && (
+          <aside className="lg:col-start-2 2xl:col-start-3 2xl:row-start-1">
+            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-1">
+              {note.outgoing.length > 0 && (
+                <section className="rounded-card border border-line bg-surface p-4">
+                  <h3 className="eyebrow mb-2.5">{t('Ссылается на')}</h3>
+                  <ul className="space-y-1.5">
+                    {note.outgoing.map((l) => (
+                      <li key={l.target_title}>
+                        <button
+                          type="button"
+                          onClick={() => void navigateByTitle(l.target_title)}
+                          className={`text-left text-sm underline underline-offset-2 ${
+                            l.exists_now ? 'text-accent' : 'text-muted'
+                          }`}
+                        >
+                          {l.target_title}
+                          {!l.exists_now && t(' — ещё нет')}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {note.backlinks.length > 0 && (
+                <section className="rounded-card border border-line bg-surface p-4">
+                  <h3 className="eyebrow mb-2.5">{t('Упоминают эту')}</h3>
+                  <ul className="space-y-1.5">
+                    {note.backlinks.map((b) => (
+                      <li key={b.id}>
+                        <button
+                          type="button"
+                          onClick={() => void openNote(b.id)}
+                          className="text-left text-sm text-accent underline underline-offset-2"
+                        >
+                          {b.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </div>
+
+            <p className="mt-4 text-xs text-muted">
+              {t('Ссылка на другую заметку — двойные квадратные скобки. Переход по ней: Cmd или Ctrl и щелчок.')}
+            </p>
+          </aside>
+        )}
+      </div>
+      {creatingFolder && (
+        <EntityDialog
+          title={t('Новая папка')}
+          initial={{ name: '' }}
+          onSave={async (draft) => {
+            await api.post('/folders', { name: draft.name });
+            await reloadFolders();
+          }}
+          onClose={() => setCreatingFolder(false)}
+        />
+      )}
+
+      {editingFolder && (
+        <EntityDialog
+          title={t('Папка')}
+          initial={{ name: editingFolder.name }}
+          deletable
+          onSave={async (draft) => {
+            await api.patch(`/folders/${editingFolder.id}`, { name: draft.name });
+            await reloadFolders();
+          }}
+          onDelete={async () => {
+            await api.delete(`/folders/${editingFolder.id}`);
+            await reloadFolders();
+            setFolderId('');
+          }}
+          onClose={() => setEditingFolder(null)}
+        />
+      )}
+    </Page>
+  );
+}

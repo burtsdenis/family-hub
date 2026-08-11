@@ -1,0 +1,28 @@
+# Production Caddyfile — for a VPS with a real domain.
+#
+# Caddy obtains and renews the certificate itself via Let's Encrypt:
+# nothing to issue by hand — a DNS A record pointing at the server and
+# open ports 80 and 443 are enough (80 is needed for the domain-ownership
+# check and the redirect to HTTPS).
+#
+# The domain comes from the HUB_DOMAIN variable (set in .env).
+
+{$HUB_DOMAIN} {
+	encode zstd gzip
+
+	# TLS terminates here, so HSTS is set here too:
+	# the app behind the proxy knows nothing about HTTPS
+	header Strict-Transport-Security "max-age=31536000"
+
+	reverse_proxy app:8787
+}
+
+# Public demo (optional). Real only when DEMO_DOMAIN is set in .env;
+# the default *.localhost hostname is a safe placeholder: Caddy issues
+# it an internal certificate without ever contacting Let's Encrypt,
+# and nobody visits it.
+{$DEMO_DOMAIN:demo.localhost} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy app-demo:8787
+}

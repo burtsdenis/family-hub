@@ -1,0 +1,19 @@
+# Имя берётся из переменной HUB_HOST — править этот файл руками не нужно.
+# Сертификат выпускает scripts/setup-https.sh, в интернет за ним не ходим.
+
+{$HUB_HOST:hub.local} {
+	tls /certs/hub.pem /certs/hub-key.pem
+	encode zstd gzip
+	reverse_proxy app:8787
+}
+
+# Тот же сертификат по IP — на случай, когда имя не разрешается
+:443 {
+	tls /certs/hub.pem /certs/hub-key.pem
+	encode zstd gzip
+	reverse_proxy app:8787
+}
+
+:80 {
+	redir https://{$HUB_HOST:hub.local}{uri} permanent
+}

@@ -1,0 +1,62 @@
+# Production compose — for a VPS with a real domain.
+# Launch: docker compose -f docker-compose.prod.yml up -d --build
+# Full step-by-step guide: DEPLOY.md
+
+services:
+  app:
+    # The image is built in GitHub Actions and arrives ready-made
+    # (docker load) — a 1 GB machine has no business compiling; a Vite
+    # build used to sink it. The name is fixed so that a manual build
+    # and a CI load land on the same tag.
+    image: family-hub:prod
+    build: .
+    container_name: family-hub
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data
+      TZ: ${TZ:-UTC}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Both flags are mandatory behind Caddy: HTTPS exists,
+      # the client address arrives in a header
+      SECURE_COOKIES: "true"
+      TRUST_PROXY: "true"
+      # For the nightly backup inside the container (see DEPLOY.md)
+      AGE_RECIPIENT: ${AGE_RECIPIENT:-}
+      # Google sign-in (see DEPLOY.md). Empty values disable the feature.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      PUBLIC_URL: https://${HUB_DOMAIN:?Set HUB_DOMAIN in .env}
+    volumes:
+      # The directory must be owned by uid 1000: the container is not root
+      - ${DATA_DIR:-/srv/family-hub/data}:/data
+    # No published ports on purpose: the internet talks only to Caddy.
+    # The app is reachable solely over the compose-internal network.
+    expose:
+      - "8787"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: family-hub-caddy
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      HUB_DOMAIN: ${HUB_DOMAIN:?Set HUB_DOMAIN in .env, e.g. hub.example.com}
+      # Feeds the demo site block in Caddyfile.prod. The compose-level
+      # default keeps the placeholder hostname when no demo is configured.
+      DEMO_DOMAIN: ${DEMO_DOMAIN:-demo.localhost}
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      # Caddy keeps its obtained certificates here — the volume is
+      # mandatory, otherwise every restart would hit Let's Encrypt anew
+      # and quickly run into its rate limits
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

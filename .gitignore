@@ -1,0 +1,20 @@
+node_modules/
+dist/
+data/
+certs/
+.env
+*.log
+.DS_Store
+client_secret*
+
+# Локальный контекст ассистента и IDE — не для публичного репозитория
+CLAUDE.md
+.claude/
+.vscode/
+.idea/
+
+# Артефакты export.mjs и локальные копии базы
+*.tar.gz
+*.db
+
+coverage/

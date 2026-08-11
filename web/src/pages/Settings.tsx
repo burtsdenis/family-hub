@@ -1,0 +1,294 @@
+import { lang, setLang, t } from '../lib/i18n';
+import { setWeekStart, weekStart } from '../lib/format';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
+import { useDialogs } from '../components/Dialog';
+import { plural } from '../lib/format';
+import { Page } from '../components/Page';
+import { onEnter } from '../lib/keys';
+
+/** Сообщения после возврата от Google на привязке — код в ?google= */
+const LINK_MESSAGES: Record<string, string> = {
+  linked: t('Google привязан. Теперь можно входить кнопкой на экране входа.'),
+  taken: t('Этот Google-аккаунт уже привязан к другой учётке.'),
+  error: t('Не получилось привязать Google. Попробуйте ещё раз.'),
+};
+
+/**
+ * Способы входа. Правила серверные, здесь только их отражение:
+ * пароль отключается лишь при привязанном Google и не у администратора,
+ * отвязать Google нельзя, пока пароль отключён.
+ */
+function SignInSection() {
+  const { user, refresh } = useAuth();
+  const dialogs = useDialogs();
+  const [status, setStatus] = useState<string | null>(null);
+  const [googleAvailable, setGoogleAvailable] = useState(false);
+
+  useEffect(() => {
+    void api
+      .get<{ google: boolean }>('/auth/state')
+      .then((s) => setGoogleAvailable(s.google))
+      .catch(() => {});
+    const code = new URLSearchParams(window.location.search).get('google');
+    if (code && LINK_MESSAGES[code]) {
+      setStatus(LINK_MESSAGES[code]);
+      window.history.replaceState(null, '', '/settings');
+    }
+  }, []);
+
+  if (!user) return null;
+  const linked = Boolean(user.google_linked);
+  const passwordOff = Boolean(user.password_login_disabled);
+
+  async function run(action: () => Promise<unknown>) {
+    setStatus(null);
+    try {
+      await action();
+      await refresh();
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : t('Не удалось сохранить'));
+    }
+  }
+
+  const rowButton =
+    'rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition-colors hover:bg-surface-2';
+
+  return (
+    <section className="mt-5 max-w-md rounded-card border border-line bg-surface p-5">
+      <h2 className="eyebrow mb-4">{t('Вход в учётку')}</h2>
+
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-ink">Google</p>
+          <p className="text-xs text-muted">
+            {linked ? t('Привязан') : googleAvailable ? t('Не привязан') : t('Не настроен на сервере')}
+          </p>
+        </div>
+        {googleAvailable && !linked && (
+          <button
+            type="button"
+            className={rowButton}
+            onClick={() => {
+              window.location.href = '/api/auth/google/link';
+            }}
+          >
+            {t('Привязать')}
+          </button>
+        )}
+        {linked && (
+          <button
+            type="button"
+            className={rowButton}
+            disabled={passwordOff}
+            title={passwordOff ? t('Сначала включите вход по паролю') : undefined}
+            onClick={() => void run(() => api.post('/auth/google/unlink', {}))}
+          >
+            {t('Отвязать')}
+          </button>
+        )}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4">
+        <div>
+          <p className="text-sm font-medium text-ink">{t('Вход по паролю')}</p>
+          <p className="text-xs text-muted">
+            {user.role === 'admin'
+              ? t('У администратора не отключается: это аварийный вход')
+              : passwordOff
+                ? t('Отключён — вход только через Google')
+                : linked
+                  ? t('Включён. Можно отключить: Google надёжнее')
+                  : t('Включён. Отключить можно после привязки Google')}
+          </p>
+        </div>
+        {user.role !== 'admin' && (passwordOff || linked) && (
+          <button
+            type="button"
+            className={rowButton}
+            onClick={() =>
+              void run(async () => {
+                if (!passwordOff) {
+                  const sure = await dialogs.confirm({
+                    title: t('Отключить вход по паролю?'),
+                    message: t('Войти можно будет только через Google. Если гугл-аккаунт станет недоступен, вход вернёт администратор сбросом пароля.'),
+                    confirmLabel: t('Отключить'),
+                  });
+                  if (!sure) return;
+                }
+                await api.post('/auth/password-login', { enabled: passwordOff });
+              })
+            }
+          >
+            {passwordOff ? t('Включить') : t('Отключить')}
+          </button>
+        )}
+      </div>
+
+      {status && <p className="mt-3 text-sm text-muted">{status}</p>}
+    </section>
+  );
+}
+
+const FIELDS: { key: string; label: string; hint: string; type: string }[] = [
+  { key: 'move.label', label: t('Название события'), hint: t('Заголовок на табло'), type: 'text' },
+  { key: 'move.target_date', label: t('Дата переезда'), hint: t('От неё считается отсчёт'), type: 'date' },
+  { key: 'savings.label', label: t('Подпись к накоплениям'), hint: '', type: 'text' },
+  { key: 'savings.goal_eur', label: t('Цель, €'), hint: t('Ноль — не показывать прогресс'), type: 'number' },
+  {
+    key: 'money.default_currency',
+    label: t('Валюта по умолчанию'),
+    hint: t('Подставляется в новые счета и лимиты. Любой код ISO 4217'),
+    type: 'text',
+  },
+];
+
+export function Settings() {
+  const { user } = useAuth();
+  const [values, setValues] = useState<Record<string, string> | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [usage, setUsage] = useState<{ used: number; files: number; budget: number } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    void api.get<Record<string, string>>('/settings').then(setValues);
+    void api
+      .get<{ used: number; files: number; budget: number }>('/attachments/usage')
+      .then(setUsage);
+  }, []);
+
+  async function save() {
+    if (!values) return;
+    setStatus(null);
+    try {
+      await api.patch('/settings', values);
+      setStatus(t('Сохранено'));
+    } catch {
+      setStatus(t('Не удалось сохранить'));
+    }
+  }
+
+  if (!values) {
+    return (
+      <Page title={t('Настройки')}>
+        <div className="h-40 animate-pulse rounded-card bg-surface-3" />
+      </Page>
+    );
+  }
+
+  return (
+    <Page title={t('Настройки')} eyebrow={t('Табло и виджеты')}>
+      <div className="max-w-md space-y-5 rounded-card border border-line bg-surface p-5">
+        {FIELDS.map((f) => (
+          <label key={f.key} className="block">
+            <span className="mb-1.5 block text-sm font-medium text-ink">{f.label}</span>
+            <input
+              type={f.type}
+              value={values[f.key] ?? ''}
+              onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
+              onKeyDown={onEnter(() => void save())}
+              className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+            />
+            {f.hint && <span className="mt-1 block text-xs text-muted">{f.hint}</span>}
+          </label>
+        ))}
+
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            type="button"
+            onClick={() => void save()}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            {t('Сохранить')}
+          </button>
+          {status && <span className="text-sm text-muted">{status}</span>}
+        </div>
+      </div>
+
+      <section className="mt-5 max-w-md rounded-card border border-line bg-surface p-5">
+        <h2 className="eyebrow mb-4">{t('Язык')} / Language</h2>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => lang !== 'en' && setLang('en')}
+            className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+              lang === 'en' ? 'border-accent bg-accent-soft text-accent' : 'border-line text-muted hover:text-ink'
+            }`}
+          >
+            English
+          </button>
+          <button
+            type="button"
+            onClick={() => lang !== 'ru' && setLang('ru')}
+            className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+              lang === 'ru' ? 'border-accent bg-accent-soft text-accent' : 'border-line text-muted hover:text-ink'
+            }`}
+          >
+            Русский
+          </button>
+        </div>
+        <p className="mt-3 text-xs text-muted">
+          {t('Настройка этого устройства: телефон и общий стенд могут говорить на разных языках.')}
+        </p>
+
+        <h2 className="eyebrow mt-6 mb-4">{t('Начало недели')}</h2>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => weekStart !== 'mon' && setWeekStart('mon')}
+            className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+              weekStart === 'mon' ? 'border-accent bg-accent-soft text-accent' : 'border-line text-muted hover:text-ink'
+            }`}
+          >
+            {t('Понедельник')}
+          </button>
+          <button
+            type="button"
+            onClick={() => weekStart !== 'sun' && setWeekStart('sun')}
+            className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+              weekStart === 'sun' ? 'border-accent bg-accent-soft text-accent' : 'border-line text-muted hover:text-ink'
+            }`}
+          >
+            {t('Воскресенье')}
+          </button>
+        </div>
+      </section>
+
+      <SignInSection />
+
+      {usage && (
+        <section className="mt-5 max-w-md rounded-card border border-line bg-surface p-5">
+          <h2 className="eyebrow mb-3">{t('Вложения')}</h2>
+          <p className="text-sm text-ink">
+            {usage.files} {plural(usage.files, 'файл', 'файла', 'файлов')} ·{' '}
+            {(usage.used / 1024 / 1024).toFixed(1)} {t('МБ')}
+          </p>
+          <div className="mt-3 h-1 overflow-hidden rounded-full bg-surface-3">
+            <div
+              className="h-full bg-accent"
+              style={{ width: `${Math.min(100, (usage.used / usage.budget) * 100).toFixed(2)}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            {t('Ориентир — {n} ГБ. Жёсткого запрета нет, но за ростом стоит следить: вложения не попадают в бэкап на GitHub.', { n: Math.round(usage.budget / 1024 / 1024 / 1024) })}
+          </p>
+        </section>
+      )}
+
+      {user?.role === 'admin' && (
+        <Link
+          to="/users"
+          className="mt-5 block max-w-md rounded-card border border-line bg-surface px-5 py-4 text-sm text-ink hover:border-accent"
+        >
+          {t('Пользователи')}
+          <span className="mt-1 block text-xs text-muted">
+            {t('Завести учётку, сбросить пароль, отключить доступ')}
+          </span>
+        </Link>
+      )}
+    </Page>
+  );
+}

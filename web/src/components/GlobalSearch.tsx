@@ -1,0 +1,204 @@
+import { t } from '../lib/i18n';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../lib/api';
+import { formatDate } from '../lib/format';
+import { projectTitle } from '../lib/tasks';
+
+interface Result {
+  kind: 'task' | 'note' | 'event' | 'project' | 'attachment';
+  id: string;
+  title: string;
+  subtitle: string;
+  /** У задач — для перевода подписи «Входящие» по известному id. */
+  project_id?: string;
+  excerpt: string;
+  color: string | null;
+  badge: string | null;
+  url: string;
+}
+
+const KIND_LABEL: Record<Result['kind'], string> = {
+  task: t('Задача'),
+  note: t('Заметка'),
+  event: t('Событие'),
+  project: t('Проект'),
+  attachment: t('Файл'),
+};
+
+/*
+  Подписи приходят с сервера по-русски. Пользовательские названия (проект,
+  папка) переводить нельзя, а служебные константы — нужно. Переводим только
+  известный конечный список; названия проектов задач решает projectTitle по id.
+*/
+const SERVER_SUBTITLES = new Set(['Приватная', 'Без папки', 'Проект']);
+
+function subtitleOf(r: Result): string {
+  if (r.kind === 'task') return projectTitle(r.project_id, r.subtitle);
+  return SERVER_SUBTITLES.has(r.subtitle) ? t(r.subtitle) : r.subtitle;
+}
+
+export function GlobalSearch({
+  open: openProp,
+  onOpenChange,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const navigate = useNavigate();
+  const [openLocal, setOpenLocal] = useState(false);
+  const open = openProp ?? openLocal;
+  const setOpen = (value: boolean) => {
+    setOpenLocal(value);
+    onOpenChange?.(value);
+  };
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Result[] | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
+  const [cursor, setCursor] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Cmd+K уже занят быстрым добавлением, поэтому поиск на Cmd+Shift+F.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setOpen(true);
+      }
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 0);
+  }, [open]);
+
+  // Поиск с задержкой: иначе каждый символ уходит в базу
+  useEffect(() => {
+    if (!open) return;
+    const trimmed = query.trim();
+    if (trimmed.length < 3) {
+      setResults(null);
+      setHint(trimmed.length === 0 ? null : t('Нужно минимум три символа'));
+      return;
+    }
+    const timer = setTimeout(() => {
+      void api
+        .get<{ results: Result[] }>(`/search?q=${encodeURIComponent(trimmed)}`)
+        .then((res) => {
+          setResults(res.results);
+          setCursor(0);
+          setHint(res.results.length === 0 ? t('Ничего не нашлось') : null);
+        })
+        .catch((err: Error) => setHint(err.message));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query, open]);
+
+  function go(result: Result) {
+    setOpen(false);
+    setQuery('');
+    if (result.url.startsWith('/api/')) window.open(result.url, '_blank');
+    else navigate(result.url);
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-2 rounded-lg border border-line px-3 py-2 text-left text-sm text-muted transition-colors hover:text-ink"
+      >
+        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m16 16 4 4" strokeLinecap="round" />
+        </svg>
+        {t('Поиск')}
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center px-5 pt-20">
+          <button
+            type="button"
+            aria-label={t('Закрыть')}
+            onClick={() => setOpen(false)}
+            className="absolute inset-0 bg-black/40"
+          />
+
+          <div className="relative flex max-h-[70vh] w-full max-w-2xl flex-col overflow-hidden rounded-card border border-line bg-surface shadow-xl">
+            <input
+              ref={inputRef}
+              value={query}
+              placeholder={t('Искать по задачам, заметкам, событиям и файлам')}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (!results?.length) return;
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setCursor((c) => Math.min(c + 1, results.length - 1));
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setCursor((c) => Math.max(c - 1, 0));
+                }
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const chosen = results[cursor];
+                  if (chosen) go(chosen);
+                }
+              }}
+              className="border-b border-line bg-transparent px-5 py-4 text-base text-ink outline-none"
+            />
+
+            {hint && <p className="px-5 py-4 text-sm text-muted">{hint}</p>}
+
+            {results && results.length > 0 && (
+              <ul className="overflow-y-auto">
+                {results.map((r, index) => (
+                  <li key={`${r.kind}-${r.id}`}>
+                    <button
+                      type="button"
+                      onClick={() => go(r)}
+                      onMouseEnter={() => setCursor(index)}
+                      className={`flex w-full items-center gap-3 border-b border-line px-5 py-3 text-left last:border-0 ${
+                        index === cursor ? 'bg-accent-soft' : ''
+                      }`}
+                    >
+                      <span
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: r.color ?? 'var(--c-text-muted)' }}
+                        aria-hidden
+                      />
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-ink">
+                          {r.kind === 'project' ? projectTitle(r.id, r.title) : r.title}
+                        </span>
+                        <span className="block truncate text-xs text-muted">
+                          {KIND_LABEL[r.kind]} · {subtitleOf(r)}
+                          {r.excerpt && ` · ${r.excerpt}`}
+                        </span>
+                      </span>
+
+                      {r.badge && (
+                        <span className="shrink-0 font-mono text-xs text-muted">
+                          {formatDate(r.badge)}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <p className="border-t border-line px-5 py-2.5 font-mono text-xs text-muted">
+              {t('Cmd + Shift + F · стрелки и Enter')}
+            </p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

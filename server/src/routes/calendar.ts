@@ -1,0 +1,479 @@
+import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
+import { db, id, now } from '../db/index.js';
+import { expandOccurrences, isValidRecurrence } from '../lib/recurrence.js';
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+/**
+ * Время хранится как местное настенное, без перевода в UTC.
+ *
+ * Так делает большинство календарей для событий с фиксированным временем:
+ * «каждый вторник в 10:00» должно оставаться в 10:00 и после перевода часов.
+ * Хранение в UTC заставило бы пересчитывать каждый экземпляр серии через
+ * правила летнего времени — источник тонких ошибок на ровном месте.
+ * Дом находится в одном часовом поясе, а Белград и Аликанте — это к тому же
+ * один и тот же пояс, так что переезд ничего не меняет.
+ *
+ * Событие на весь день:  starts_at = 'ГГГГ-ММ-ДД'
+ * Событие со временем:   starts_at = 'ГГГГ-ММ-ДДTЧЧ:ММ'
+ */
+const eventBase = z.object({
+  calendar_id: z.string().uuid(),
+  title: z.string().min(1, 'У события должно быть название').max(300),
+  description: z.string().max(10_000).nullable().optional(),
+  location: z.string().max(300).nullable().optional(),
+  starts_at: z.string().regex(new RegExp(`${DATE.source.slice(0, -1)}(T\\d{2}:\\d{2})?$`)),
+  ends_at: z.string().regex(new RegExp(`${DATE.source.slice(0, -1)}(T\\d{2}:\\d{2})?$`)),
+  all_day: z.boolean().optional(),
+  recurrence_rule: z.string().max(100).nullable().optional(),
+  project_id: z.string().uuid().nullable().optional(),
+  remind_days_before: z.number().int().min(0).max(365).nullable().optional(),
+  birth_year: z.number().int().min(1900).max(2200).nullable().optional(),
+  participants: z.array(z.string().uuid()).max(10).optional(),
+});
+
+const endsAfterStart = (v: { starts_at?: string; ends_at?: string }) =>
+  v.starts_at === undefined || v.ends_at === undefined || v.ends_at >= v.starts_at;
+
+const eventInput = eventBase.refine(endsAfterStart, {
+  message: 'Конец события раньше начала',
+  path: ['ends_at'],
+});
+
+// Частичное изменение проверяет ту же инвариантность, но только когда
+// в запросе пришли обе границы
+const eventPatch = eventBase.partial().refine(endsAfterStart, {
+  message: 'Конец события раньше начала',
+  path: ['ends_at'],
+});
+
+interface EventRow {
+  id: string;
+  calendar_id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day: number;
+  recurrence_rule: string | null;
+  project_id: string | null;
+  remind_days_before: number | null;
+  birth_year: number | null;
+  calendar_name: string;
+  calendar_color: string;
+  project_title: string | null;
+}
+
+/** Календарь виден, если он общий или принадлежит спрашивающему. */
+const CALENDAR_VISIBLE = '(c.shared = 1 OR c.owner_id = ?)';
+
+function shiftDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function daysBetween(from: string, to: string): number {
+  return Math.round(
+    (new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / 86_400_000,
+  );
+}
+
+export interface Occurrence {
+  id: string;
+  event_id: string;
+  date: string;
+  starts_at: string;
+  ends_at: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  all_day: number;
+  is_recurring: boolean;
+  calendar_id: string;
+  calendar_name: string;
+  calendar_color: string;
+  project_id: string | null;
+  project_title: string | null;
+  remind_days_before: number | null;
+  age: number | null;
+  participants: { id: string; name: string; color: string }[];
+}
+
+/**
+ * Развёрнутые экземпляры всех видимых событий в диапазоне дат.
+ * Используется и календарём, и дашбордом — чтобы «сегодня» считалось
+ * ровно так же, как показывается в сетке.
+ */
+export function listOccurrences(userId: string, from: string, to: string): Occurrence[] {
+  const events = db
+    .prepare(
+      `SELECT e.*, c.name AS calendar_name, c.color AS calendar_color,
+              p.title AS project_title
+         FROM events e
+         JOIN calendars c ON c.id = e.calendar_id
+         LEFT JOIN projects p ON p.id = e.project_id
+        WHERE ${CALENDAR_VISIBLE}
+          AND (
+                e.recurrence_rule IS NOT NULL
+                OR (substr(e.ends_at, 1, 10) >= ? AND substr(e.starts_at, 1, 10) <= ?)
+              )`,
+    )
+    .all(userId, from, to) as EventRow[];
+
+  const participantsOf = db.prepare(
+    `SELECT u.id, u.name, u.color FROM event_participants ep
+       JOIN users u ON u.id = ep.user_id
+      WHERE ep.event_id = ?`,
+  );
+  const exceptionsOf = db.prepare('SELECT excluded_date FROM event_exceptions WHERE event_id = ?');
+
+  const result: Occurrence[] = [];
+
+  for (const event of events) {
+    const anchor = event.starts_at.slice(0, 10);
+    const span = daysBetween(anchor, event.ends_at.slice(0, 10));
+
+    // Длинное событие могло начаться до окна — отступаем на его длительность
+    const searchFrom = shiftDays(from, -Math.max(span, 0));
+    const dates = expandOccurrences(anchor, event.recurrence_rule, searchFrom, to);
+
+    const skipped = new Set(
+      (exceptionsOf.all(event.id) as { excluded_date: string }[]).map((r) => r.excluded_date),
+    );
+    const participants = participantsOf.all(event.id) as {
+      id: string;
+      name: string;
+      color: string;
+    }[];
+
+    for (const date of dates) {
+      if (skipped.has(date)) continue;
+      const endDate = shiftDays(date, span);
+      if (endDate < from) continue;
+
+      result.push({
+        id: `${event.id}#${date}`,
+        event_id: event.id,
+        date,
+        starts_at: event.all_day ? date : `${date}T${event.starts_at.slice(11)}`,
+        ends_at: event.all_day ? endDate : `${endDate}T${event.ends_at.slice(11)}`,
+        title: event.title,
+        description: event.description,
+        location: event.location,
+        all_day: event.all_day,
+        is_recurring: Boolean(event.recurrence_rule),
+        calendar_id: event.calendar_id,
+        calendar_name: event.calendar_name,
+        calendar_color: event.calendar_color,
+        project_id: event.project_id,
+        project_title: event.project_title,
+        remind_days_before: event.remind_days_before,
+        age: event.birth_year ? Number(date.slice(0, 4)) - event.birth_year : null,
+        participants,
+      });
+    }
+  }
+
+  return result.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+}
+
+/** События, о которых пора предупредить именно сегодня. */
+export function remindersFor(userId: string, today: string): Occurrence[] {
+  return listOccurrences(userId, today, shiftDays(today, 365)).filter(
+    (o) =>
+      o.remind_days_before !== null &&
+      o.date > today &&
+      daysBetween(today, o.date) === o.remind_days_before,
+  );
+}
+
+export async function registerCalendarRoutes(app: FastifyInstance): Promise<void> {
+  // ── Календари ───────────────────────────────────────────────────────────
+
+  app.get('/api/calendars', (req) =>
+    db
+      .prepare(
+        `SELECT c.*, (SELECT count(*) FROM events e WHERE e.calendar_id = c.id) AS event_count
+           FROM calendars c
+          WHERE ${CALENDAR_VISIBLE}
+          ORDER BY c.shared DESC, c.position, c.name`,
+      )
+      .all(req.user?.id ?? ''),
+  );
+
+  app.post('/api/calendars', (req, reply) => {
+    const parsed = z
+      .object({
+        name: z.string().min(1, 'Укажите название календаря').max(100),
+        color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+        shared: z.boolean().optional(),
+      })
+      .safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+    }
+
+    const calendarId = id();
+    db.prepare(
+      `INSERT INTO calendars (id, name, color, owner_id, shared, position)
+       VALUES (?, ?, ?, ?, ?, (SELECT coalesce(max(position), 0) + 1 FROM calendars))`,
+    ).run(
+      calendarId,
+      parsed.data.name.trim(),
+      parsed.data.color ?? '#2E6F8E',
+      req.user?.id ?? null,
+      parsed.data.shared === false ? 0 : 1,
+    );
+    return reply.code(201).send(db.prepare('SELECT * FROM calendars WHERE id = ?').get(calendarId));
+  });
+
+  app.patch('/api/calendars/:id', (req, reply) => {
+    const { id: calendarId } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const parsed = z
+      .object({
+        name: z.string().min(1).max(100).optional(),
+        color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+        shared: z.boolean().optional(),
+      })
+      .safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Проверьте поля' });
+
+    const calendar = db
+      .prepare(`SELECT c.* FROM calendars c WHERE c.id = ? AND ${CALENDAR_VISIBLE}`)
+      .get(calendarId, req.user?.id ?? '') as { owner_id: string | null } | undefined;
+    if (!calendar) return reply.code(404).send({ error: 'Календарь не найден' });
+
+    // Личным календарём распоряжается только владелец
+    if (calendar.owner_id && calendar.owner_id !== req.user?.id) {
+      return reply.code(403).send({ error: 'Этот календарь принадлежит другому человеку' });
+    }
+
+    const fields: [string, unknown][] = [];
+    if (parsed.data.name !== undefined) fields.push(['name', parsed.data.name.trim()]);
+    if (parsed.data.color !== undefined) fields.push(['color', parsed.data.color]);
+    if (parsed.data.shared !== undefined) fields.push(['shared', parsed.data.shared ? 1 : 0]);
+    if (fields.length === 0) return reply.code(400).send({ error: 'Нечего менять' });
+
+    db.prepare(`UPDATE calendars SET ${fields.map(([k]) => `${k} = ?`).join(', ')} WHERE id = ?`).run(
+      ...fields.map(([, v]) => v as string | number),
+      calendarId,
+    );
+    return db.prepare('SELECT * FROM calendars WHERE id = ?').get(calendarId);
+  });
+
+  app.delete('/api/calendars/:id', (req, reply) => {
+    const { id: calendarId } = z.object({ id: z.string().uuid() }).parse(req.params);
+
+    const count = (
+      db.prepare('SELECT count(*) AS n FROM events WHERE calendar_id = ?').get(calendarId) as {
+        n: number;
+      }
+    ).n;
+    if (count > 0) {
+      return reply
+        .code(409)
+        .send({ error: `В календаре ${count} событий. Удаление календаря удалит и события` });
+    }
+
+    const result = db.prepare('DELETE FROM calendars WHERE id = ?').run(calendarId);
+    if (result.changes === 0) return reply.code(404).send({ error: 'Календарь не найден' });
+    return { ok: true };
+  });
+
+  // ── События ─────────────────────────────────────────────────────────────
+
+  app.get('/api/events', (req, reply) => {
+    const parsed = z
+      .object({ from: z.string().regex(DATE), to: z.string().regex(DATE) })
+      .safeParse(req.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'Нужны границы диапазона from и to' });
+    }
+    if (daysBetween(parsed.data.from, parsed.data.to) > 400) {
+      return reply.code(400).send({ error: 'Диапазон больше года запрашивать незачем' });
+    }
+    return listOccurrences(req.user?.id ?? '', parsed.data.from, parsed.data.to);
+  });
+
+  /** Полное событие серии — правило повтора и прочее, чего нет в экземпляре. */
+  app.get('/api/events/:id', (req, reply) => {
+    const { id: eventId } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const event = db
+      .prepare(
+        `SELECT e.* FROM events e JOIN calendars c ON c.id = e.calendar_id
+          WHERE e.id = ? AND ${CALENDAR_VISIBLE}`,
+      )
+      .get(eventId, req.user?.id ?? '');
+    if (!event) return reply.code(404).send({ error: 'Событие не найдено' });
+
+    const participants = db
+      .prepare(
+        `SELECT u.id, u.name, u.color FROM event_participants ep
+           JOIN users u ON u.id = ep.user_id
+          WHERE ep.event_id = ?`,
+      )
+      .all(eventId);
+    return { ...(event as object), participants };
+  });
+
+  app.post('/api/events', (req, reply) => {
+    const parsed = eventInput.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+    }
+    const d = parsed.data;
+
+    const calendar = db
+      .prepare(`SELECT c.id FROM calendars c WHERE c.id = ? AND ${CALENDAR_VISIBLE}`)
+      .get(d.calendar_id, req.user?.id ?? '');
+    if (!calendar) return reply.code(400).send({ error: 'Календарь не найден' });
+
+    if (d.recurrence_rule && !isValidRecurrence(d.recurrence_rule)) {
+      return reply.code(400).send({ error: 'Правило повтора не разобрать' });
+    }
+    const allDay = d.all_day ?? !DATETIME.test(d.starts_at);
+    if (!allDay && (!DATETIME.test(d.starts_at) || !DATETIME.test(d.ends_at))) {
+      return reply.code(400).send({ error: 'У события со временем нужны часы и минуты' });
+    }
+
+    const eventId = id();
+    const run = db.transaction(() => {
+      db.prepare(
+        `INSERT INTO events (id, calendar_id, title, description, location, starts_at, ends_at,
+                             all_day, recurrence_rule, project_id, remind_days_before, birth_year,
+                             created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        eventId,
+        d.calendar_id,
+        d.title.trim(),
+        d.description ?? null,
+        d.location ?? null,
+        allDay ? d.starts_at.slice(0, 10) : d.starts_at,
+        allDay ? d.ends_at.slice(0, 10) : d.ends_at,
+        allDay ? 1 : 0,
+        d.recurrence_rule ?? null,
+        d.project_id ?? null,
+        d.remind_days_before ?? null,
+        d.birth_year ?? null,
+        req.user?.id ?? null,
+        now(),
+        now(),
+      );
+      for (const userId of d.participants ?? []) {
+        db.prepare(
+          'INSERT OR IGNORE INTO event_participants (event_id, user_id) VALUES (?, ?)',
+        ).run(eventId, userId);
+      }
+    });
+    run();
+
+    return reply.code(201).send(db.prepare('SELECT * FROM events WHERE id = ?').get(eventId));
+  });
+
+  app.patch('/api/events/:id', (req, reply) => {
+    const { id: eventId } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const parsed = eventPatch.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+    }
+
+    const event = db
+      .prepare(
+        `SELECT e.* FROM events e JOIN calendars c ON c.id = e.calendar_id
+          WHERE e.id = ? AND ${CALENDAR_VISIBLE}`,
+      )
+      .get(eventId, req.user?.id ?? '') as EventRow | undefined;
+    if (!event) return reply.code(404).send({ error: 'Событие не найдено' });
+
+    const d = parsed.data;
+    if (d.recurrence_rule && !isValidRecurrence(d.recurrence_rule)) {
+      return reply.code(400).send({ error: 'Правило повтора не разобрать' });
+    }
+
+    const run = db.transaction(() => {
+      const fields: [string, unknown][] = [];
+      const set = (key: string, value: unknown) => fields.push([key, value]);
+
+      if (d.calendar_id !== undefined) set('calendar_id', d.calendar_id);
+      if (d.title !== undefined) set('title', d.title.trim());
+      if (d.description !== undefined) set('description', d.description);
+      if (d.location !== undefined) set('location', d.location);
+      if (d.all_day !== undefined) set('all_day', d.all_day ? 1 : 0);
+      if (d.starts_at !== undefined) set('starts_at', d.starts_at);
+      if (d.ends_at !== undefined) set('ends_at', d.ends_at);
+      if (d.recurrence_rule !== undefined) set('recurrence_rule', d.recurrence_rule);
+      if (d.project_id !== undefined) set('project_id', d.project_id);
+      if (d.remind_days_before !== undefined) set('remind_days_before', d.remind_days_before);
+      if (d.birth_year !== undefined) set('birth_year', d.birth_year);
+
+      if (fields.length > 0) {
+        db.prepare(
+          `UPDATE events SET ${fields.map(([k]) => `${k} = ?`).join(', ')}, updated_at = ?
+            WHERE id = ?`,
+        ).run(...fields.map(([, v]) => v as string | number | null), now(), eventId);
+      }
+
+      if (d.participants !== undefined) {
+        db.prepare('DELETE FROM event_participants WHERE event_id = ?').run(eventId);
+        for (const userId of d.participants) {
+          db.prepare(
+            'INSERT OR IGNORE INTO event_participants (event_id, user_id) VALUES (?, ?)',
+          ).run(eventId, userId);
+        }
+      }
+
+      // Сдвиг серии обнуляет исключения: старые даты больше ни к чему не относятся
+      if (d.starts_at !== undefined || d.recurrence_rule !== undefined) {
+        db.prepare('DELETE FROM event_exceptions WHERE event_id = ?').run(eventId);
+      }
+    });
+    run();
+
+    return db.prepare('SELECT * FROM events WHERE id = ?').get(eventId);
+  });
+
+  app.delete('/api/events/:id', (req, reply) => {
+    const { id: eventId } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const event = db
+      .prepare(
+        `SELECT e.id FROM events e JOIN calendars c ON c.id = e.calendar_id
+          WHERE e.id = ? AND ${CALENDAR_VISIBLE}`,
+      )
+      .get(eventId, req.user?.id ?? '');
+    if (!event) return reply.code(404).send({ error: 'Событие не найдено' });
+
+    db.prepare('DELETE FROM events WHERE id = ?').run(eventId);
+    return { ok: true };
+  });
+
+  /** Отменить один экземпляр серии, не трогая саму серию. */
+  app.delete('/api/events/:id/occurrences/:date', (req, reply) => {
+    const { id: eventId, date } = z
+      .object({ id: z.string().uuid(), date: z.string().regex(DATE) })
+      .parse(req.params);
+
+    const event = db
+      .prepare(
+        `SELECT e.recurrence_rule FROM events e JOIN calendars c ON c.id = e.calendar_id
+          WHERE e.id = ? AND ${CALENDAR_VISIBLE}`,
+      )
+      .get(eventId, req.user?.id ?? '') as { recurrence_rule: string | null } | undefined;
+    if (!event) return reply.code(404).send({ error: 'Событие не найдено' });
+
+    if (!event.recurrence_rule) {
+      return reply
+        .code(400)
+        .send({ error: 'Событие не повторяется — удалите его целиком' });
+    }
+
+    db.prepare(
+      'INSERT OR IGNORE INTO event_exceptions (event_id, excluded_date) VALUES (?, ?)',
+    ).run(eventId, date);
+    return { ok: true };
+  });
+}

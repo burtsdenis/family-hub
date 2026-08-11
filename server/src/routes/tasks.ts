@@ -1,0 +1,334 @@
+import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
+import { db, id, now } from '../db/index.js';
+import { isValidRecurrence, occurrenceAfter } from '../lib/recurrence.js';
+
+const STATUSES = ['backlog', 'todo', 'in_progress', 'done', 'cancelled'] as const;
+const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+interface TaskRow {
+  id: string;
+  project_id: string;
+  parent_id: string | null;
+  level: number;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  due_date: string | null;
+  assignee_id: string | null;
+  recurrence_rule: string | null;
+  recurrence_parent_id: string | null;
+  position: number;
+}
+
+const createInput = z.object({
+  project_id: z.string().uuid(),
+  parent_id: z.string().uuid().nullable().optional(),
+  title: z.string().min(1, 'У задачи должно быть название').max(300),
+  description: z.string().max(10_000).nullable().optional(),
+  status: z.enum(STATUSES).optional(),
+  priority: z.enum(PRIORITIES).optional(),
+  due_date: z.string().regex(DATE, 'Дата в формате ГГГГ-ММ-ДД').nullable().optional(),
+  assignee_id: z.string().uuid().nullable().optional(),
+  recurrence_rule: z.string().max(100).nullable().optional(),
+});
+
+const patchInput = createInput.partial().omit({ project_id: true });
+
+/** Глубина поддерева относительно самой задачи: 0 — детей нет. */
+function subtreeDepth(taskId: string): number {
+  const row = db
+    .prepare(
+      `WITH RECURSIVE sub(id, depth) AS (
+         SELECT id, 0 FROM tasks WHERE id = ?
+         UNION ALL
+         SELECT t.id, sub.depth + 1 FROM tasks t JOIN sub ON t.parent_id = sub.id
+       )
+       SELECT max(depth) AS d FROM sub`,
+    )
+    .get(taskId) as { d: number | null };
+  return row.d ?? 0;
+}
+
+function isDescendant(candidateId: string, ofTaskId: string): boolean {
+  const row = db
+    .prepare(
+      `WITH RECURSIVE sub(id) AS (
+         SELECT id FROM tasks WHERE id = ?
+         UNION ALL
+         SELECT t.id FROM tasks t JOIN sub ON t.parent_id = sub.id
+       )
+       SELECT 1 AS hit FROM sub WHERE id = ? LIMIT 1`,
+    )
+    .get(ofTaskId, candidateId) as { hit: number } | undefined;
+  return Boolean(row);
+}
+
+function shiftSubtreeLevels(taskId: string, delta: number): void {
+  if (delta === 0) return;
+  db.prepare(
+    `WITH RECURSIVE sub(id) AS (
+       SELECT id FROM tasks WHERE id = ?
+       UNION ALL
+       SELECT t.id FROM tasks t JOIN sub ON t.parent_id = sub.id
+     )
+     UPDATE tasks SET level = level + ? WHERE id IN (SELECT id FROM sub)`,
+  ).run(taskId, delta);
+}
+
+export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/api/tasks', (req) => {
+    const q = z
+      .object({
+        project_id: z.string().uuid().optional(),
+        status: z.string().optional(),
+        assignee_id: z.string().optional(),
+        priority: z.enum(PRIORITIES).optional(),
+        due_before: z.string().regex(DATE).optional(),
+        due_after: z.string().regex(DATE).optional(),
+        include_done: z.enum(['true', 'false']).optional(),
+        search: z.string().max(200).optional(),
+      })
+      .parse(req.query);
+
+    const where: string[] = [];
+    const args: unknown[] = [];
+
+    if (q.project_id) {
+      where.push('t.project_id = ?');
+      args.push(q.project_id);
+    }
+    if (q.status) {
+      const list = q.status.split(',').filter((s) => (STATUSES as readonly string[]).includes(s));
+      if (list.length) {
+        where.push(`t.status IN (${list.map(() => '?').join(',')})`);
+        args.push(...list);
+      }
+    } else if (q.include_done !== 'true') {
+      where.push("t.status NOT IN ('done','cancelled')");
+    }
+    if (q.assignee_id) {
+      where.push(q.assignee_id === 'none' ? 't.assignee_id IS NULL' : 't.assignee_id = ?');
+      if (q.assignee_id !== 'none') args.push(q.assignee_id);
+    }
+    if (q.priority) {
+      where.push('t.priority = ?');
+      args.push(q.priority);
+    }
+    if (q.due_before) {
+      where.push('t.due_date IS NOT NULL AND t.due_date <= ?');
+      args.push(q.due_before);
+    }
+    if (q.due_after) {
+      where.push('t.due_date IS NOT NULL AND t.due_date >= ?');
+      args.push(q.due_after);
+    }
+    if (q.search) {
+      where.push('ci_contains(t.title, ?)');
+      args.push(q.search);
+    }
+
+    const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    return db
+      .prepare(
+        `SELECT t.*, p.title AS project_title, p.color AS project_color,
+                u.name AS assignee_name, u.color AS assignee_color,
+                (SELECT count(*) FROM tasks c WHERE c.parent_id = t.id) AS child_count,
+                (SELECT count(*) FROM tasks c
+                  WHERE c.parent_id = t.id AND c.status = 'done') AS child_done
+           FROM tasks t
+           JOIN projects p ON p.id = t.project_id
+           LEFT JOIN users u ON u.id = t.assignee_id
+           ${clause}
+          ORDER BY t.position, t.created_at`,
+      )
+      .all(...args);
+  });
+
+  app.post('/api/tasks', (req, reply) => {
+    const parsed = createInput.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+    }
+    const d = parsed.data;
+
+    if (!db.prepare('SELECT 1 FROM projects WHERE id = ?').get(d.project_id)) {
+      return reply.code(400).send({ error: 'Проект не найден' });
+    }
+    if (d.recurrence_rule && !isValidRecurrence(d.recurrence_rule)) {
+      return reply.code(400).send({ error: 'Правило повтора не разобрать' });
+    }
+
+    let level = 0;
+    if (d.parent_id) {
+      const parent = db.prepare('SELECT level, project_id FROM tasks WHERE id = ?').get(d.parent_id) as
+        | { level: number; project_id: string }
+        | undefined;
+      if (!parent) return reply.code(400).send({ error: 'Родительская задача не найдена' });
+      if (parent.project_id !== d.project_id) {
+        return reply.code(400).send({ error: 'Родительская задача из другого проекта' });
+      }
+      if (parent.level >= 2) {
+        return reply
+          .code(400)
+          .send({ error: 'Глубже трёх уровней задачи не вкладываются: стори, таск, сабтаск' });
+      }
+      level = parent.level + 1;
+    }
+
+    const taskId = id();
+    db.prepare(
+      `INSERT INTO tasks (id, project_id, parent_id, level, title, description, status, priority,
+                          due_date, assignee_id, recurrence_rule, position, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+               (SELECT coalesce(max(position), 0) + 1 FROM tasks WHERE project_id = ?), ?)`,
+    ).run(
+      taskId,
+      d.project_id,
+      d.parent_id ?? null,
+      level,
+      d.title.trim(),
+      d.description ?? null,
+      d.status ?? 'todo',
+      d.priority ?? 'normal',
+      d.due_date ?? null,
+      d.assignee_id ?? null,
+      d.recurrence_rule ?? null,
+      d.project_id,
+      req.user?.id ?? null,
+    );
+    return reply.code(201).send(db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId));
+  });
+
+  app.patch('/api/tasks/:id', (req, reply) => {
+    const { id: taskId } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const parsed = patchInput.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+    }
+
+    const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId) as TaskRow | undefined;
+    if (!task) return reply.code(404).send({ error: 'Задача не найдена' });
+
+    const d = parsed.data;
+    if (d.recurrence_rule && !isValidRecurrence(d.recurrence_rule)) {
+      return reply.code(400).send({ error: 'Правило повтора не разобрать' });
+    }
+
+    // Смена родителя пересчитывает уровень всего поддерева
+    let levelDelta = 0;
+    if (d.parent_id !== undefined && d.parent_id !== task.parent_id) {
+      let newLevel = 0;
+      if (d.parent_id) {
+        if (d.parent_id === taskId || isDescendant(d.parent_id, taskId)) {
+          return reply.code(400).send({ error: 'Задачу нельзя вложить в саму себя' });
+        }
+        const parent = db.prepare('SELECT level, project_id FROM tasks WHERE id = ?').get(d.parent_id) as
+          | { level: number; project_id: string }
+          | undefined;
+        if (!parent) return reply.code(400).send({ error: 'Родительская задача не найдена' });
+        if (parent.project_id !== task.project_id) {
+          return reply.code(400).send({ error: 'Родительская задача из другого проекта' });
+        }
+        newLevel = parent.level + 1;
+      }
+      if (newLevel + subtreeDepth(taskId) > 2) {
+        return reply
+          .code(400)
+          .send({ error: 'Не помещается: глубже трёх уровней задачи не вкладываются' });
+      }
+      levelDelta = newLevel - task.level;
+    }
+
+    const fields = Object.entries(d).filter(([, v]) => v !== undefined);
+    const run = db.transaction(() => {
+      if (fields.length > 0) {
+        const set = fields.map(([k]) => `${k} = ?`).join(', ');
+        db.prepare(`UPDATE tasks SET ${set}, updated_at = ? WHERE id = ?`).run(
+          ...fields.map(([, v]) => v as string | null),
+          now(),
+          taskId,
+        );
+      }
+      if (levelDelta !== 0) shiftSubtreeLevels(taskId, levelDelta);
+
+      if (d.status !== undefined) {
+        db.prepare('UPDATE tasks SET completed_at = ? WHERE id = ?').run(
+          d.status === 'done' ? now() : null,
+          taskId,
+        );
+      }
+    });
+    run();
+
+    // Повторяющаяся задача при закрытии порождает следующую
+    let spawned: unknown = null;
+    if (d.status === 'done' && task.recurrence_rule && task.due_date) {
+      // Начало серии — исходная задача, от неё и считаем.
+      const rootId = task.recurrence_parent_id ?? taskId;
+      const root = db.prepare('SELECT due_date FROM tasks WHERE id = ?').get(rootId) as
+        | { due_date: string | null }
+        | undefined;
+      const anchor = root?.due_date ?? task.due_date;
+      const next = occurrenceAfter(anchor, task.due_date, task.recurrence_rule);
+      if (next) {
+        const nextId = id();
+        db.prepare(
+          `INSERT INTO tasks (id, project_id, parent_id, level, title, description, status,
+                              priority, due_date, assignee_id, recurrence_rule,
+                              recurrence_parent_id, position, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, 'todo', ?, ?, ?, ?, ?,
+                   (SELECT coalesce(max(position), 0) + 1 FROM tasks WHERE project_id = ?), ?)`,
+        ).run(
+          nextId,
+          task.project_id,
+          task.parent_id,
+          task.level,
+          task.title,
+          task.description,
+          task.priority,
+          next,
+          task.assignee_id,
+          task.recurrence_rule,
+          task.recurrence_parent_id ?? taskId,
+          task.project_id,
+          req.user?.id ?? null,
+        );
+        spawned = db.prepare('SELECT * FROM tasks WHERE id = ?').get(nextId);
+      }
+    }
+
+    return { task: db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId), spawned };
+  });
+
+  /**
+   * Порядок задаётся списком идентификаторов целиком.
+   * Проще и надёжнее, чем вычислять дробные позиции между соседями:
+   * на домашних объёмах переписать полсотни строк ничего не стоит,
+   * зато позиции не расползаются со временем.
+   */
+  app.post('/api/tasks/reorder', (req, reply) => {
+    const parsed = z.object({ ids: z.array(z.string().uuid()).max(500) }).safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Ожидается список задач' });
+
+    const stmt = db.prepare('UPDATE tasks SET position = ? WHERE id = ?');
+    const run = db.transaction((ids: string[]) => {
+      ids.forEach((taskId, index) => stmt.run(index, taskId));
+    });
+    run(parsed.data.ids);
+    return { ok: true };
+  });
+
+  app.delete('/api/tasks/:id', (req, reply) => {
+    const { id: taskId } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const children = (
+      db.prepare('SELECT count(*) AS n FROM tasks WHERE parent_id = ?').get(taskId) as { n: number }
+    ).n;
+
+    const result = db.prepare('DELETE FROM tasks WHERE id = ?').run(taskId);
+    if (result.changes === 0) return reply.code(404).send({ error: 'Задача не найдена' });
+    return { ok: true, deleted_children: children };
+  });
+}

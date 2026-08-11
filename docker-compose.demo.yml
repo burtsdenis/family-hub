@@ -1,0 +1,33 @@
+# Demo overlay — a public sandbox next to the production hub,
+# on the same VPS and behind the same Caddy.
+#
+# Launch together with production:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.demo.yml up -d
+#
+# Requirements:
+#   - DEMO_DOMAIN in .env (e.g. demo.example.com) with a DNS A record
+#   - a demo site block in Caddyfile.prod (see DEPLOY.md, "Public demo")
+#
+# The demo seeds itself with a sample family on first start and blocks
+# destructive actions (passwords, membership, file uploads). A nightly
+# reset is a cron job that wipes the demo data dir and restarts the
+# container — seeding rebuilds everything (see DEPLOY.md).
+
+services:
+  app-demo:
+    image: family-hub:prod
+    build: .
+    container_name: family-hub-demo
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data
+      TZ: ${TZ:-UTC}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SECURE_COOKIES: "true"
+      TRUST_PROXY: "true"
+      DEMO_MODE: "true"
+    volumes:
+      - ${DEMO_DATA_DIR:-/srv/family-hub/demo-data}:/data
+    expose:
+      - "8787"

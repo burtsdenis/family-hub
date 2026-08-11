@@ -1,0 +1,45 @@
+services:
+  app:
+    build: .
+    container_name: family-hub
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data
+      TZ: ${TZ:-UTC}
+      LOG_LEVEL: ${LOG_LEVEL:-warn}
+      # Enable only once HTTPS works, otherwise the browser rejects the cookie
+      SECURE_COOKIES: ${SECURE_COOKIES:-false}
+    volumes:
+      # Outside the project folder: the folder is replaced wholesale on update
+      - ${HOME}/.family-hub:/data
+    # The port is exposed directly so the hub works right away, without
+    # HTTPS. Otherwise docker compose up would start an unreachable container.
+    ports:
+      - "${PORT:-8787}:8787"
+
+  # HTTPS is a separate profile: Caddy will not start without a
+  # certificate, and one only appears after ./scripts/setup-https.sh.
+  # Start with it: docker compose --profile https up -d
+  caddy:
+    image: caddy:2-alpine
+    container_name: family-hub-caddy
+    restart: unless-stopped
+    profiles:
+      - https
+    depends_on:
+      - app
+    ports:
+      - "443:443"
+      - "80:80"
+    environment:
+      # The hub's network name. Must match the machine's Bonjour name,
+      # or other devices will not resolve it — see scripts/setup-https.sh
+      HUB_HOST: ${HUB_HOST:-hub.local}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy-data:/data
+
+volumes:
+  caddy-data:

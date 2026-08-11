@@ -1,0 +1,26 @@
+{
+  "name": "family-hub",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n сервер,интерфейс -c blue,magenta \"npm:dev --workspace=server\" \"npm:dev --workspace=web\"",
+    "build": "npm run build --workspace=web && npm run build --workspace=server",
+    "start": "npm run start --workspace=server",
+    "typecheck": "npm run typecheck --workspace=server && npm run typecheck --workspace=web",
+    "export": "node scripts/export.mjs",
+    "import": "node scripts/import.mjs",
+    "admin:reset": "node scripts/admin-reset.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

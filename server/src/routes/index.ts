@@ -1,0 +1,258 @@
+import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
+import { db, now, today as localToday } from '../db/index.js';
+import { listOccurrences, remindersFor } from './calendar.js';
+
+export async function registerRoutes(app: FastifyInstance): Promise<void> {
+  // Наружу — только факт жизни. Версия и прочие подробности публичному
+  // интернету ни к чему: чем меньше сканер узнаёт бесплатно, тем лучше.
+  app.get('/api/health', () => ({ ok: true }));
+
+  // ── Настройки (в т.ч. виджеты дашборда) ────────────────────────────────
+
+  app.get('/api/settings', () => {
+    const rows = db.prepare('SELECT key, value FROM settings').all() as {
+      key: string;
+      value: string;
+    }[];
+    return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  });
+
+  app.patch('/api/settings', (req, reply) => {
+    const parsed = z.record(z.string(), z.string()).safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'Настройки должны быть парами строк' });
+    }
+    const stmt = db.prepare(
+      `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    );
+    const write = db.transaction((entries: [string, string][]) => {
+      for (const [k, v] of entries) stmt.run(k, v, now());
+    });
+    write(Object.entries(parsed.data));
+    return { ok: true };
+  });
+
+  // ── Общий поиск ─────────────────────────────────────────────────────────
+
+  /**
+   * Ищем по всему пространству: заметки, задачи, проекты, события, вложения.
+   *
+   * Заметки, задачи и проекты идут через полнотекстовый индекс FTS5 —
+   * там нужен поиск по телу заметки, а это может быть десяток тысяч знаков.
+   * События и вложения ищутся прямым перебором с ci_contains: их немного,
+   * а поддерживать триггеры индекса для сущности, чья видимость зависит от
+   * настроек календаря, — источник рассинхронизации на ровном месте.
+   */
+  app.get('/api/search', (req, reply) => {
+    const { q } = z.object({ q: z.string() }).parse(req.query);
+    const query = q.trim();
+    if (query.length < 3) {
+      return reply.code(400).send({ error: 'Для поиска нужно минимум 3 символа' });
+    }
+    const userId = req.user?.id ?? '';
+    const match = `"${query.replace(/"/g, '""')}"`;
+
+    const indexed = db
+      .prepare(
+        `SELECT entity, entity_id,
+                snippet(search_index, 5, '', '', '…', 14) AS excerpt
+           FROM search_index
+          WHERE search_index MATCH ?
+            AND (visibility = 'shared' OR owner_id = ?)
+          ORDER BY rank
+          LIMIT 60`,
+      )
+      .all(match, userId) as { entity: string; entity_id: string; excerpt: string }[];
+
+    const byKind = (kind: string) => indexed.filter((r) => r.entity === kind).map((r) => r.entity_id);
+    const excerptOf = new Map(indexed.map((r) => [r.entity_id, r.excerpt]));
+    const holes = (ids: string[]) => ids.map(() => '?').join(',');
+
+    const noteIds = byKind('note');
+    const notes = noteIds.length
+      ? (db
+          .prepare(
+            `SELECT n.id, n.title, f.name AS folder_name, n.visibility
+               FROM notes n LEFT JOIN folders f ON f.id = n.folder_id
+              WHERE n.id IN (${holes(noteIds)}) AND n.is_template = 0`,
+          )
+          .all(...noteIds) as { id: string; title: string; folder_name: string | null; visibility: string }[])
+      : [];
+
+    const taskIds = byKind('task');
+    const tasks = taskIds.length
+      ? (db
+          .prepare(
+            `SELECT t.id, t.title, t.status, t.due_date, t.project_id, p.title AS project_title, p.color
+               FROM tasks t JOIN projects p ON p.id = t.project_id
+              WHERE t.id IN (${holes(taskIds)})`,
+          )
+          .all(...taskIds) as {
+          id: string;
+          title: string;
+          status: string;
+          due_date: string | null;
+          project_id: string;
+          project_title: string;
+          color: string;
+        }[])
+      : [];
+
+    const projectIds = byKind('project');
+    const projects = projectIds.length
+      ? (db
+          .prepare(`SELECT id, title, color FROM projects WHERE id IN (${holes(projectIds)})`)
+          .all(...projectIds) as { id: string; title: string; color: string }[])
+      : [];
+
+    const events = db
+      .prepare(
+        `SELECT e.id, e.title, e.starts_at, e.location, c.name AS calendar_name, c.color
+           FROM events e JOIN calendars c ON c.id = e.calendar_id
+          WHERE (c.shared = 1 OR c.owner_id = ?)
+            AND (ci_contains(e.title, ?) OR ci_contains(coalesce(e.description, ''), ?)
+                 OR ci_contains(coalesce(e.location, ''), ?))
+          ORDER BY e.starts_at DESC
+          LIMIT 15`,
+      )
+      .all(userId, query, query, query) as {
+      id: string;
+      title: string;
+      starts_at: string;
+      location: string | null;
+      calendar_name: string;
+      color: string;
+    }[];
+
+    const attachments = db
+      .prepare(
+        `SELECT a.id, a.filename, a.size_bytes, n.id AS note_id, n.title AS note_title
+           FROM attachments a
+           LEFT JOIN notes n ON n.id = a.note_id
+          WHERE ci_contains(a.filename, ?)
+            AND (a.note_id IS NULL OR n.visibility = 'shared' OR n.owner_id = ?)
+          LIMIT 15`,
+      )
+      .all(query, userId) as {
+      id: string;
+      filename: string;
+      size_bytes: number;
+      note_id: string | null;
+      note_title: string | null;
+    }[];
+
+    return {
+      query,
+      results: [
+        ...tasks.map((t) => ({
+          kind: 'task' as const,
+          id: t.id,
+          title: t.title,
+          subtitle: t.project_title,
+          project_id: t.project_id,
+          excerpt: excerptOf.get(t.id) ?? '',
+          color: t.color,
+          badge: t.due_date,
+          url: `/tasks?open=${t.id}`,
+        })),
+        ...notes.map((n) => ({
+          kind: 'note' as const,
+          id: n.id,
+          title: n.title,
+          subtitle: n.folder_name ?? (n.visibility === 'private' ? 'Приватная' : 'Без папки'),
+          excerpt: excerptOf.get(n.id) ?? '',
+          color: null,
+          badge: null,
+          url: `/notes?open=${n.id}`,
+        })),
+        ...events.map((e) => ({
+          kind: 'event' as const,
+          id: e.id,
+          title: e.title,
+          subtitle: e.location ?? e.calendar_name,
+          excerpt: '',
+          color: e.color,
+          badge: e.starts_at.slice(0, 10),
+          url: `/calendar?date=${e.starts_at.slice(0, 10)}`,
+        })),
+        ...projects.map((p) => ({
+          kind: 'project' as const,
+          id: p.id,
+          title: p.title,
+          subtitle: 'Проект',
+          excerpt: excerptOf.get(p.id) ?? '',
+          color: p.color,
+          badge: null,
+          url: `/tasks?project=${p.id}`,
+        })),
+        ...attachments.map((a) => ({
+          kind: 'attachment' as const,
+          id: a.id,
+          title: a.filename,
+          subtitle: a.note_title ?? 'Файл',
+          excerpt: '',
+          color: null,
+          badge: null,
+          url: a.note_id ? `/notes?open=${a.note_id}` : `/api/attachments/${a.id}`,
+        })),
+      ],
+    };
+  });
+
+  // ── Дашборд ────────────────────────────────────────────────────────────
+
+  app.get('/api/dashboard', (req) => {
+    // По местным часам: по UTC «сегодня» после полуночи ещё вчера
+    const today = localToday();
+
+    const dueToday = db
+      .prepare(
+        `SELECT t.*, p.title AS project_title, p.color AS project_color
+           FROM tasks t JOIN projects p ON p.id = t.project_id
+          WHERE t.due_date = ? AND t.status NOT IN ('done','cancelled')
+          ORDER BY t.priority DESC`,
+      )
+      .all(today);
+
+    const overdue = db
+      .prepare(
+        `SELECT t.*, p.title AS project_title, p.color AS project_color
+           FROM tasks t JOIN projects p ON p.id = t.project_id
+          WHERE t.due_date < ? AND t.status NOT IN ('done','cancelled')
+          ORDER BY t.due_date`,
+      )
+      .all(today);
+
+    const upcoming = db
+      .prepare(
+        `SELECT t.*, p.title AS project_title, p.color AS project_color
+           FROM tasks t JOIN projects p ON p.id = t.project_id
+          WHERE t.due_date > ? AND t.due_date <= date(?, '+7 days')
+            AND t.status NOT IN ('done','cancelled')
+          ORDER BY t.due_date`,
+      )
+      .all(today, today);
+
+    const recentNotes = db
+      .prepare(
+        `SELECT id, title, updated_at FROM notes
+          WHERE is_template = 0 AND (visibility = 'shared' OR owner_id = ?)
+          ORDER BY updated_at DESC LIMIT 5`,
+      )
+      .all(req.user?.id ?? '');
+
+    const settings = Object.fromEntries(
+      (db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[]).map(
+        (r) => [r.key, r.value],
+      ),
+    );
+
+    const userId = req.user?.id ?? '';
+    const todayEvents = listOccurrences(userId, today, today);
+    const reminders = remindersFor(userId, today);
+
+    return { today, dueToday, overdue, upcoming, recentNotes, todayEvents, reminders, settings };
+  });
+}

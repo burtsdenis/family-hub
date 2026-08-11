@@ -1,0 +1,244 @@
+import { t } from '../lib/i18n';
+import { useEffect, useState } from 'react';
+import { api, type HouseholdMember, type Task, type TaskMutation } from '../lib/api';
+import {
+  PRIORITIES,
+  PRIORITY_LABEL,
+  RECURRENCE_OPTIONS,
+  STATUSES,
+  STATUS_LABEL,
+  LEVEL_LABEL,
+} from '../lib/tasks';
+import { dialogKeys, onEnter } from '../lib/keys';
+import { useDialogs } from './Dialog';
+
+const field =
+  'w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent';
+const label = 'mb-1.5 block text-sm font-medium text-ink';
+
+interface Props {
+  task: Task;
+  members: HouseholdMember[];
+  onSaved: () => void;
+  onClose: () => void;
+}
+
+export function TaskDetail({ task, members, onSaved, onClose }: Props) {
+  const dialogs = useDialogs();
+  const [draft, setDraft] = useState({
+    title: task.title,
+    description: task.description ?? '',
+    status: task.status,
+    priority: task.priority,
+    due_date: task.due_date ?? '',
+    assignee_id: task.assignee_id ?? '',
+    recurrence_rule: task.recurrence_rule ?? '',
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [spawnedDate, setSpawnedDate] = useState<string | null>(null);
+
+  // Без списка зависимостей: подписка обновляется на каждый рендер,
+  // и save всегда видит актуальный черновик
+  useEffect(() => {
+    const onKey = dialogKeys(() => {
+      if (!busy) void save();
+    }, onClose);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api.patch<TaskMutation>(`/tasks/${task.id}`, {
+        title: draft.title,
+        description: draft.description || null,
+        status: draft.status,
+        priority: draft.priority,
+        due_date: draft.due_date || null,
+        assignee_id: draft.assignee_id || null,
+        recurrence_rule: draft.recurrence_rule || null,
+      });
+      if (res.spawned) {
+        setSpawnedDate(res.spawned.due_date);
+        onSaved();
+        return;
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Не удалось сохранить'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    const children = task.child_count ?? 0;
+    const ok = await dialogs.confirm({
+      title: t('Удалить задачу'),
+      message: children
+        ? t('Вместе с ней удалятся вложенные задачи: {n}.', { n: children })
+        : task.title,
+      confirmLabel: t('Удалить'),
+      danger: true,
+    });
+    if (!ok) return;
+    await api.delete(`/tasks/${task.id}`);
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-30 flex justify-end">
+      <button
+        type="button"
+        aria-label={t('Закрыть')}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40"
+      />
+      <div className="relative flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-line bg-surface">
+        <header className="flex items-center justify-between border-b border-line px-5 py-4">
+          <span className="eyebrow">{LEVEL_LABEL[task.level]}</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-muted hover:text-ink"
+          >
+            {t('Закрыть')}
+          </button>
+        </header>
+
+        {spawnedDate && (
+          <p className="border-b border-line bg-accent-soft px-5 py-3 text-sm text-ink">
+            {t('Задача закрыта. Следующий повтор назначен на {date}.', { date: spawnedDate })}
+          </p>
+        )}
+
+        <div className="flex-1 space-y-4 px-5 py-5">
+          <label className="block">
+            <span className={label}>{t('Название')}</span>
+            <input
+              value={draft.title}
+              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+              onKeyDown={onEnter(() => void save())}
+              className={field}
+            />
+          </label>
+
+          <label className="block">
+            <span className={label}>{t('Описание')}</span>
+            <textarea
+              rows={4}
+              value={draft.description}
+              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              className={`${field} resize-y`}
+            />
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className={label}>{t('Статус')}</span>
+              <select
+                value={draft.status}
+                onChange={(e) => setDraft({ ...draft, status: e.target.value as Task['status'] })}
+                className={field}
+              >
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className={label}>{t('Приоритет')}</span>
+              <select
+                value={draft.priority}
+                onChange={(e) =>
+                  setDraft({ ...draft, priority: e.target.value as Task['priority'] })
+                }
+                className={field}
+              >
+                {PRIORITIES.map((p) => (
+                  <option key={p} value={p}>
+                    {PRIORITY_LABEL[p]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className={label}>{t('Срок')}</span>
+              <input
+                type="date"
+                value={draft.due_date}
+                onChange={(e) => setDraft({ ...draft, due_date: e.target.value })}
+                className={field}
+              />
+            </label>
+
+            <label className="block">
+              <span className={label}>{t('Исполнитель')}</span>
+              <select
+                value={draft.assignee_id}
+                onChange={(e) => setDraft({ ...draft, assignee_id: e.target.value })}
+                className={field}
+              >
+                <option value="">{t('Не назначен')}</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label className="block">
+            <span className={label}>{t('Повторение')}</span>
+            <select
+              value={draft.recurrence_rule}
+              onChange={(e) => setDraft({ ...draft, recurrence_rule: e.target.value })}
+              className={field}
+            >
+              {RECURRENCE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {draft.recurrence_rule && !draft.due_date && (
+              <span className="mt-1 block text-xs text-urgent">
+                {t('Повтор считается от срока — задайте дату')}
+              </span>
+            )}
+          </label>
+
+          {error && <p className="text-sm text-urgent">{error}</p>}
+        </div>
+
+        <footer className="flex items-center justify-between gap-3 border-t border-line px-5 py-4">
+          <button
+            type="button"
+            onClick={() => void remove()}
+            className="text-sm text-muted underline underline-offset-2 hover:text-urgent"
+          >
+            {t('Удалить')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={busy}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? t('Сохраняю') : t('Сохранить')}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}

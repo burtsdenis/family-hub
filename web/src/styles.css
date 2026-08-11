@@ -1,0 +1,249 @@
+@import 'tailwindcss';
+
+/* Шрифты подключаются локально пакетами fontsource — приложение
+   не должно ходить в интернет за Google Fonts, оно живёт в офлайне. */
+@import '@fontsource-variable/unbounded';
+@import '@fontsource-variable/golos-text';
+@import '@fontsource-variable/jetbrains-mono';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Палитра: Адриатика и сухая испанская земля.
+  azulejo — сине-бирюзовый изразец, основной акцент.
+  ochre  — прогретая охра, только для срочного и просроченного.
+  olive  — приглушённая олива, только для выполненного.
+  Три цвета состояния, больше нет: интерфейс не должен пестрить.
+*/
+:root {
+  --c-surface: #f6f7f4;
+  --c-surface-2: #eaece8;
+  --c-surface-3: #dfe2dc;
+  --c-border: #d2d7cd;
+  --c-text: #131c24;
+  --c-text-muted: #5a6a74;
+  --c-accent: #1f6e8c;
+  --c-accent-soft: #d8e8ee;
+  --c-urgent: #c4842b;
+  --c-done: #6b8f5e;
+}
+
+.dark {
+  --c-surface: #18232c;
+  --c-surface-2: #101820;
+  --c-surface-3: #22303a;
+  --c-border: #2c3b47;
+  --c-text: #e8eae5;
+  --c-text-muted: #8b9aa5;
+  --c-accent: #4d9ebb;
+  --c-accent-soft: #1c3a47;
+  --c-urgent: #d9a04f;
+  --c-done: #86ab78;
+}
+
+@theme inline {
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-surface-3: var(--c-surface-3);
+  --color-line: var(--c-border);
+  --color-ink: var(--c-text);
+  --color-muted: var(--c-text-muted);
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-urgent: var(--c-urgent);
+  --color-done: var(--c-done);
+
+  --font-display: 'Unbounded Variable', system-ui, sans-serif;
+  --font-sans: 'Golos Text Variable', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  --radius-card: 0.75rem;
+
+  /* Стандартная шкала Tailwind заканчивается на 1536px, а 34-дюймовый
+     монитор — это 3440px. Без этих ступеней рабочая область на нём
+     перестаёт расти и превращается в узкую колонку посреди пустоты. */
+  --breakpoint-3xl: 120rem;
+  --breakpoint-4xl: 160rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--c-surface-2);
+    color: var(--c-text);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    /* Стенд на iPad: тянуть страницу за край незачем */
+    overscroll-behavior: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--c-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Метки разделов: моноширинный, разрядка, верхний регистр.
+     Служебный слой типографики, отделённый от контента. */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--c-text-muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Редактор заметок ─────────────────────────────────────────────────────
+   Типографика тела заметки задана вручную, без плагина typography:
+   набор узлов здесь конечный и известный, а лишняя зависимость в офлайновом
+   приложении дороже двух десятков строк CSS. */
+
+.note-content {
+  padding: 1.25rem 1.5rem;
+  min-height: 24rem;
+  outline: none;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--c-text);
+}
+
+.note-content > * + * {
+  margin-top: 0.85em;
+}
+
+.note-content h1,
+.note-content h2,
+.note-content h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin-top: 1.6em;
+}
+.note-content h1 { font-size: 1.5rem; }
+.note-content h2 { font-size: 1.25rem; }
+.note-content h3 { font-size: 1.0625rem; }
+.note-content > :first-child { margin-top: 0; }
+
+.note-content ul,
+.note-content ol {
+  padding-left: 1.4em;
+}
+.note-content ul { list-style: disc; }
+.note-content ol { list-style: decimal; }
+.note-content li + li { margin-top: 0.25em; }
+
+.note-content blockquote {
+  border-left: 2px solid var(--c-accent);
+  padding-left: 1em;
+  color: var(--c-text-muted);
+}
+
+.note-content code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--c-surface-3);
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+}
+
+.note-content pre {
+  background: var(--c-surface-3);
+  padding: 0.9em 1em;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+.note-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.note-content hr {
+  border: 0;
+  border-top: 1px solid var(--c-border);
+}
+
+.note-content a {
+  color: var(--c-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Чеклисты */
+.note-content ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0;
+}
+.note-content ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55em;
+}
+.note-content ul[data-type='taskList'] li > label {
+  margin-top: 0.3em;
+}
+.note-content ul[data-type='taskList'] input[type='checkbox'] {
+  accent-color: var(--c-done);
+}
+
+/* Таблицы */
+.note-content table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.875rem;
+}
+.note-content th,
+.note-content td {
+  border: 1px solid var(--c-border);
+  padding: 0.45em 0.7em;
+  text-align: left;
+}
+.note-content th {
+  background: var(--c-surface-2);
+  font-weight: 600;
+}
+
+/* Подсказка в пустой заметке */
+.note-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--c-text-muted);
+}
+
+/* Ссылка на другую заметку */
+.wiki-link {
+  color: var(--c-accent);
+  background: var(--c-accent-soft);
+  border-radius: 0.25rem;
+  padding: 0.05em 0.15em;
+  cursor: pointer;
+}
+
+/* Картинки внутри заметки */
+.note-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  border: 1px solid var(--c-border);
+}
+.note-content img.ProseMirror-selectednode {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}

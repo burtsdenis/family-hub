@@ -1,0 +1,91 @@
+# Deploys to a VPS on a push to master.
+#
+# The image is built on the GitHub runner and shipped ready-made
+# (docker save → ssh → docker load): a 1 GB server cannot handle a Vite
+# build — it used to drown in swap until SSH dropped. The server only
+# loads the image and restarts the compose stack.
+#
+# This workflow deploys to THIS repository owner's own server. It is a
+# no-op unless the repository variable DEPLOY_ENABLED equals 'true'
+# (Settings → Secrets and variables → Actions → Variables), so forks
+# never attempt to deploy anywhere. Also required: secrets DEPLOY_HOST
+# (server address) and DEPLOY_SSH_KEY (private key). Setup: DEPLOY.md,
+# "Auto-deploy from GitHub".
+
+name: deploy
+
+on:
+  push:
+    branches: [master]
+  # A "Run workflow" button for manual deploys
+  workflow_dispatch:
+
+# Two pushes in a row do not race on the server: the second waits
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Deploying code that does not type-check is pointless; ci.yml runs
+      # the same check in parallel, this one gates the deploy itself.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+      - name: Build image
+        run: docker build -t family-hub:prod .
+
+      - name: SSH key and server address
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Ship the image
+        run: |
+          docker save family-hub:prod | gzip | \
+            ssh "root@${{ secrets.DEPLOY_HOST }}" 'gunzip | docker load'
+
+      - name: Ship the code
+        # --delete removes files on the server that were deleted from the
+        # repository. Excluded paths (.env) are protected: --delete skips them.
+        run: |
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude '.env' \
+            --exclude 'certs' \
+            --exclude 'web/dist' \
+            --exclude 'server/dist' \
+            ./ "root@${{ secrets.DEPLOY_HOST }}:/srv/family-hub/app/"
+
+      - name: Restart
+        # No --build: the freshly loaded image is already on the server.
+        run: |
+          ssh "root@${{ secrets.DEPLOY_HOST }}" \
+            'cd /srv/family-hub/app && docker compose -f docker-compose.prod.yml up -d'
+
+      - name: Health check
+        # Relies on the container's own HEALTHCHECK (GET /api/health),
+        # so no public hostname needs to live in this file.
+        run: |
+          for i in $(seq 1 18); do
+            status=$(ssh "root@${{ secrets.DEPLOY_HOST }}" \
+              'docker inspect --format "{{.State.Health.Status}}" family-hub' 2>/dev/null || true)
+            if [ "$status" = "healthy" ]; then
+              echo "ok"; exit 0
+            fi
+            sleep 5
+          done
+          echo "hub did not become healthy after the deploy" >&2
+          exit 1
