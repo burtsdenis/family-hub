@@ -15,12 +15,14 @@
     "typecheck": "npm run typecheck --workspace=server && npm run typecheck --workspace=web",
     "export": "node scripts/export.mjs",
     "import": "node scripts/import.mjs",
-    "admin:reset": "node scripts/admin-reset.mjs"
+    "admin:reset": "node scripts/admin-reset.mjs",
+    "test": "npm run test --workspace=server && npm run test --workspace=web"
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "vitest": "^3.2.7"
   }
 }
