@@ -4,6 +4,21 @@ A self-hosted family hub: tasks, notes, calendar and money in one place. Built f
 
 The core is complete and battle-tested by daily family use: accounts and sign-in (password and Google), projects and tasks with a kanban board, notes with attachments and wiki-links, a calendar with recurring events, full-text search, a dashboard, and a money section — accounts with balances, expenses, income, transfers, bank reconciliation, categories, budgets, recurring transactions, receipts.
 
+## A quick look
+
+![The dashboard: the day at a glance](docs/screenshots/dashboard.png)
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/tasks.png" alt="Tasks: projects with a kanban board"></td>
+    <td><img src="docs/screenshots/calendar.png" alt="Calendar: shared and personal, with recurring events"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/money.png" alt="Money: accounts, spending, budgets and recurring payments"></td>
+    <td><img src="docs/screenshots/notes.png" alt="Notes: markdown with wiki-links and attachments"></td>
+  </tr>
+</table>
+
 ## Running it
 
 The hub can run at home (below) or on a VPS with a real domain — the latter has its own step-by-step guide: [DEPLOY.md](DEPLOY.md).
