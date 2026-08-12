@@ -35,14 +35,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Deploying code that does not type-check is pointless; ci.yml runs
-      # the same check in parallel, this one gates the deploy itself.
+      # Deploying code that fails types or tests is pointless; ci.yml runs
+      # the same checks in parallel, these gate the deploy itself.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm test
 
       - name: Build image
         run: docker build -t family-hub:prod .

@@ -1,4 +1,4 @@
-# Type checks on every push and pull request.
+# Types, lint and tests on every push and pull request.
 # Deployment lives in deploy.yml and is disabled by default (forks run only this).
 name: ci
 
@@ -8,7 +8,7 @@ on:
   pull_request:
 
 jobs:
-  typecheck:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,3 +18,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
