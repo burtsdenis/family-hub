@@ -194,23 +194,30 @@ app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body,
   заголовка (curl, приложения, same-origin GET) проходит — это не браузерный
   межсайтовый сценарий, от которого защищаемся. Сравниваются только хосты:
   схему за прокси знает лишь Caddy.
+
+  Только в проде: дев-прокси Vite переписывает Host на адрес API
+  (localhost:8787), а Origin остаётся фронтовым (localhost:5173) —
+  проверка резала бы каждый законный запрос разработки. В проде Host
+  доезжает нетронутым и при прямом доступе, и из-за Caddy.
 */
-app.addHook('onRequest', (req, reply, done) => {
-  if (req.method === 'GET' || req.method === 'HEAD') return done();
-  if (!req.url.startsWith('/api')) return done();
-  const origin = req.headers.origin;
-  if (!origin || origin === 'null') return done();
-  let originHost: string;
-  try {
-    originHost = new URL(origin).host;
-  } catch {
-    return reply.code(403).send({ error: 'Запрос с чужого сайта отклонён' });
-  }
-  if (originHost !== req.headers.host) {
-    return reply.code(403).send({ error: 'Запрос с чужого сайта отклонён' });
-  }
-  done();
-});
+if (env.isProd) {
+  app.addHook('onRequest', (req, reply, done) => {
+    if (req.method === 'GET' || req.method === 'HEAD') return done();
+    if (!req.url.startsWith('/api')) return done();
+    const origin = req.headers.origin;
+    if (!origin || origin === 'null') return done();
+    let originHost: string;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      return reply.code(403).send({ error: 'Запрос с чужого сайта отклонён' });
+    }
+    if (originHost !== req.headers.host) {
+      return reply.code(403).send({ error: 'Запрос с чужого сайта отклонён' });
+    }
+    done();
+  });
+}
 
 app.addHook('preHandler', authenticate);
 
