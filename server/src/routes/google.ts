@@ -29,6 +29,14 @@ const USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
 /** Сколько живёт начатый, но не завершённый заход через Google. */
 const STATE_TTL_MS = 10 * 60_000;
 
+/*
+  Кука привязывает state к браузеру, который начал флоу. Без неё чужой
+  callback-URL, подсунутый жертве, тихо завершал бы флоу атакующего в её
+  браузере (login CSRF). Теперь возврат от Google принимается только в том
+  браузере, где вход начинался.
+*/
+const OAUTH_COOKIE = 'hub_oauth';
+
 interface PendingState {
   verifier: string;
   mode: 'login' | 'link';
@@ -67,6 +75,14 @@ function startFlow(reply: FastifyReply, mode: 'login' | 'link', userId?: string)
   const state = randomBytes(24).toString('base64url');
   const { verifier, challenge } = pkcePair();
   pending.set(state, { verifier, mode, userId, expires: Date.now() + STATE_TTL_MS });
+
+  reply.setCookie(OAUTH_COOKIE, state, {
+    httpOnly: true,
+    sameSite: 'lax', // Lax пропускает куку на top-level редиректе от Google
+    secure: env.secureCookies,
+    path: '/api/auth/google',
+    maxAge: STATE_TTL_MS / 1000,
+  });
 
   const url = new URL(AUTH_URL);
   url.searchParams.set('client_id', env.googleClientId);
@@ -142,11 +158,14 @@ export async function registerGoogleRoutes(app: FastifyInstance): Promise<void> 
 
     prunePending();
     const state = q.state ? pending.get(q.state) : undefined;
-    if (!state || !q.code) {
+    // state должен совпасть с кукой, поставленной на старте флоу:
+    // возврат принимается только в браузере, который вход начинал
+    if (!state || !q.code || req.cookies[OAUTH_COOKIE] !== q.state) {
       // Чужой, протухший или повторно использованный state
       return reply.redirect('/?google=error');
     }
     pending.delete(q.state!); // одноразовый
+    reply.clearCookie(OAUTH_COOKIE, { path: '/api/auth/google' });
 
     let sub: string;
     let email: string | null;

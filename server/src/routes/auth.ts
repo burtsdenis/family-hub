@@ -32,6 +32,15 @@ const MAX_ATTEMPTS_LOGIN = 5;
 const MAX_ATTEMPTS_IP = 20;
 const LOCK_MS = 15 * 60_000;
 
+// Протухшие ключи раньше убирались только при повторном обращении к тому же
+// логину/IP — перебор уникальных ключей растил Map безгранично
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of attempts) {
+    if (now > entry.until) attempts.delete(key);
+  }
+}, LOCK_MS).unref();
+
 function throttled(key: string, limit: number): boolean {
   const entry = attempts.get(key);
   if (!entry) return false;
@@ -268,7 +277,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     const session = db
       .prepare(
         `SELECT u.id, u.password_hash FROM sessions s JOIN users u ON u.id = s.user_id
-          WHERE s.token_hash = ? AND s.expires_at > ?`,
+          WHERE s.token_hash = ? AND s.expires_at > ? AND u.disabled_at IS NULL`,
       )
       .get(hashToken(token), new Date().toISOString()) as
       | { id: string; password_hash: string }

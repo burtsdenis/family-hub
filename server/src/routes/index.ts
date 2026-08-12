@@ -6,7 +6,16 @@ import { listOccurrences, remindersFor } from './calendar.js';
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
   // Наружу — только факт жизни. Версия и прочие подробности публичному
   // интернету ни к чему: чем меньше сканер узнаёт бесплатно, тем лучше.
-  app.get('/api/health', () => ({ ok: true }));
+  // Запрос к базе — чтобы «жив» означало «жив вместе с базой», а не
+  // «процесс существует»: контейнер с умершим SQLite не должен быть healthy.
+  app.get('/api/health', (_req, reply) => {
+    try {
+      db.prepare('SELECT 1').get();
+      return { ok: true };
+    } catch {
+      return reply.code(503).send({ ok: false });
+    }
+  });
 
   // ── Настройки (в т.ч. виджеты дашборда) ────────────────────────────────
 
@@ -19,9 +28,32 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.patch('/api/settings', (req, reply) => {
-    const parsed = z.record(z.string(), z.string()).safeParse(req.body);
+    // Ключи и значения ограничены по форме и длине: раньше запись была
+    // безразмерной, и это был самый дешёвый способ раздуть базу из-под
+    // любой учётки. Настоящим настройкам (подписи табло, валюта) хватает
+    // с большим запасом.
+    const parsed = z
+      .record(
+        z.string().max(64).regex(/^[a-zA-Z0-9._-]+$/, 'Некорректный ключ настройки'),
+        z.string().max(500),
+      )
+      .refine((r) => Object.keys(r).length <= 20, 'Слишком много настроек за раз')
+      .safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: 'Настройки должны быть парами строк' });
+    }
+    // Потолок на общее число ключей — та же защита с другого конца.
+    // Считаются только новые ключи: обновление существующих не растит базу.
+    const keys = Object.keys(parsed.data);
+    if (keys.length === 0) return { ok: true };
+    const { n } = db.prepare('SELECT count(*) AS n FROM settings').get() as { n: number };
+    const { known } = db
+      .prepare(
+        `SELECT count(*) AS known FROM settings WHERE key IN (${keys.map(() => '?').join(',')})`,
+      )
+      .get(...keys) as { known: number };
+    if (n - known + keys.length > 200) {
+      return reply.code(400).send({ error: 'Слишком много настроек' });
     }
     const stmt = db.prepare(
       `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)

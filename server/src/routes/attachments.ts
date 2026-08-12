@@ -11,10 +11,24 @@ import { paths } from '../env.js';
 /** Потолок на файл. Больше — это уже не заметка, а файловое хранилище. */
 export const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
-/** Мягкий бюджет из ТЗ: предупреждаем, но не запрещаем. */
-const SOFT_BUDGET_BYTES = 2 * 1024 * 1024 * 1024;
+/** Бюджет хранилища: до него — предупреждаем в UI, после — отказываем. */
+const BUDGET_BYTES = 2 * 1024 * 1024 * 1024;
 
 const IMAGE_MIME = /^image\/(png|jpeg|gif|webp|avif|heic|svg\+xml)$/;
+
+/*
+  Отдавать inline можно только растровые форматы. SVG — это документ со
+  скриптами: открытый напрямую по /api/attachments/:id, он исполнился бы
+  с origin хаба. CSP script-src 'self' это уже глушит, но защита не должна
+  держаться на одном слое. В <img> заметок SVG продолжает показываться —
+  картинкам заголовок Content-Disposition безразличен.
+*/
+const INLINE_MIME = /^image\/(png|jpeg|gif|webp|avif|heic)$/;
+
+/** MIME приходит от клиента: что не похоже на MIME — становится octet-stream. */
+function safeMime(mime: string): string {
+  return /^[\w.+-]{1,80}\/[\w.+-]{1,80}$/.test(mime) ? mime : 'application/octet-stream';
+}
 
 interface AttachmentRow {
   id: string;
@@ -94,6 +108,16 @@ async function receiveFiles(
     for (const path of savedPaths) await unlink(path).catch(() => {});
   };
 
+  // Бюджет проверяется на входе: уже принятое не отзываем, но следующий
+  // запрос поверх переполненного хранилища получает отказ, а не диск до дна
+  const { used } = db
+    .prepare('SELECT coalesce(sum(size_bytes), 0) AS used FROM attachments')
+    .get() as { used: number };
+  if (used >= BUDGET_BYTES) {
+    await reply.code(413).send({ error: 'Хранилище вложений заполнено' });
+    return null;
+  }
+
   for await (const part of req.files()) {
     const storageName = storageNameFor(part.filename);
     // Папка месяца — по местным часам, как и всё остальное в приложении
@@ -123,7 +147,7 @@ async function receiveFiles(
     ).run(
       attachmentId,
       part.filename,
-      part.mimetype,
+      safeMime(part.mimetype),
       size,
       // В базе только относительный путь: каталог данных может переехать
       join(month, storageName),
@@ -137,7 +161,7 @@ async function receiveFiles(
     uploaded.push({
       id: attachmentId,
       filename: part.filename,
-      mime: part.mimetype,
+      mime: safeMime(part.mimetype),
       size_bytes: size,
       is_image: IMAGE_MIME.test(part.mimetype),
       url: `/api/attachments/${attachmentId}`,
@@ -159,7 +183,7 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
     return {
       used: row.used,
       files: row.files,
-      budget: SOFT_BUDGET_BYTES,
+      budget: BUDGET_BYTES,
       max_file: MAX_FILE_BYTES,
     };
   });
@@ -217,9 +241,9 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
       return reply.code(404).send({ error: 'Файл потерян на диске' });
     }
 
-    const inline = download !== 'true' && IMAGE_MIME.test(attachment.mime);
+    const inline = download !== 'true' && INLINE_MIME.test(attachment.mime);
     return reply
-      .header('Content-Type', attachment.mime)
+      .header('Content-Type', safeMime(attachment.mime))
       .header('Content-Disposition', contentDisposition(attachment.filename, inline))
       // Содержимое по идентификатору неизменно, можно кэшировать надолго
       .header('Cache-Control', 'private, max-age=31536000, immutable')

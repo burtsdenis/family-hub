@@ -32,6 +32,21 @@ const app = Fastify({
 });
 
 /*
+  В журнал никогда не попадают значения query-параметров: там живут
+  секреты — токен приглашения (?token=), код и state OAuth-возврата.
+  Неудачная проверка приглашения — это 404 на уровне warn, и без маскировки
+  секрет оказывался в логе по умолчанию. Имена параметров оставляем:
+  для диагностики важно «с каким параметром пришли», не «с каким значением».
+*/
+export function redactUrl(url: string): string {
+  const q = url.indexOf('?');
+  if (q === -1) return url;
+  const params = new URLSearchParams(url.slice(q + 1));
+  const names = [...new Set([...params.keys()])];
+  return names.length ? `${url.slice(0, q)}?${names.map((n) => `${n}=…`).join('&')}` : url.slice(0, q);
+}
+
+/*
   Пишем сами и только то, что стоит внимания:
   ошибки сервера — на уровне error, отказы клиента — warn,
   всё остальное — debug и по умолчанию не показывается.
@@ -41,7 +56,7 @@ app.addHook('onResponse', (req, reply, done) => {
   if (req.errorLogged) return done();
 
   const status = reply.statusCode;
-  const line = `${status} ${req.method} ${req.url}`;
+  const line = `${status} ${req.method} ${redactUrl(req.url)}`;
   if (status >= 500) log.error(line);
   else if (status >= 400) log.warn(line);
   else log.debug(line, `${Math.round(reply.elapsedTime)}ms`);
@@ -54,13 +69,13 @@ app.setErrorHandler((err: FastifyError, req, reply) => {
   // Некорректные параметры в пути или строке запроса — это ошибка клиента.
   // Раньше такое падало пятисоткой и попадало в журнал как ошибка сервера.
   if (err instanceof ZodError) {
-    log.warn(`400 ${req.method} ${req.url}`, err.issues[0]?.message ?? '');
+    log.warn(`400 ${req.method} ${redactUrl(req.url)}`, err.issues[0]?.message ?? '');
     return reply.code(400).send({ error: 'Некорректные параметры запроса' });
   }
 
   const status = err.statusCode ?? 500;
-  if (status >= 500) log.error(`${req.method} ${req.url}`, err);
-  else log.warn(`${status} ${req.method} ${req.url}`, err.message);
+  if (status >= 500) log.error(`${req.method} ${redactUrl(req.url)}`, err);
+  else log.warn(`${status} ${req.method} ${redactUrl(req.url)}`, err.message);
 
   return reply.code(status).send({
     error: status < 500 ? err.message : 'Внутренняя ошибка сервера',
@@ -69,6 +84,12 @@ app.setErrorHandler((err: FastifyError, req, reply) => {
 
 migrate();
 pruneSessions();
+
+// Прод без Secure-куки — почти наверняка забытый флаг, а не намерение:
+// сессионная кука тогда поедет и по нешифрованному каналу
+if (env.isProd && !env.secureCookies && !env.demoMode) {
+  log.warn('NODE_ENV=production без SECURE_COOKIES=true — включите после настройки HTTPS');
+}
 if (env.demoMode) {
   const { initDemo } = await import('./lib/sandbox.js');
   await initDemo();
@@ -167,6 +188,30 @@ app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body,
   }
 });
 
+/*
+  Заслон от CSRF поверх SameSite=Lax: браузер при межсайтовом запросе
+  обязан прислать Origin, и он не совпадёт с нашим Host. Запрос без
+  заголовка (curl, приложения, same-origin GET) проходит — это не браузерный
+  межсайтовый сценарий, от которого защищаемся. Сравниваются только хосты:
+  схему за прокси знает лишь Caddy.
+*/
+app.addHook('onRequest', (req, reply, done) => {
+  if (req.method === 'GET' || req.method === 'HEAD') return done();
+  if (!req.url.startsWith('/api')) return done();
+  const origin = req.headers.origin;
+  if (!origin || origin === 'null') return done();
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    return reply.code(403).send({ error: 'Запрос с чужого сайта отклонён' });
+  }
+  if (originHost !== req.headers.host) {
+    return reply.code(403).send({ error: 'Запрос с чужого сайта отклонён' });
+  }
+  done();
+});
+
 app.addHook('preHandler', authenticate);
 
 await registerAuthRoutes(app);
@@ -226,6 +271,14 @@ process.on('uncaughtException', (err) => {
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, async () => {
     await app.close();
+    // Явное закрытие делает WAL-checkpoint: база остаётся одним файлом,
+    // без -wal/-shm рядом — копировать и переносить её так безопаснее
+    try {
+      const { currentDb } = await import('./db/index.js');
+      currentDb().close();
+    } catch {
+      // База уже закрыта или не открылась — на выходе это не ошибка
+    }
     process.exit(0);
   });
 }
