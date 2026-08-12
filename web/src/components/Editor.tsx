@@ -61,7 +61,12 @@ export function Editor({ noteId, revision = 0, initialMarkdown, onChange, onNavi
   const [dropping, setDropping] = useState(false);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef(onUpload);
-  uploadRef.current = onUpload;
+  // Обновление ref — после рендера, не во время: запись в ref в теле
+  // компонента ломает предпосылки React о чистоте рендера. Обработчикам
+  // TipTap ref нужен только по событиям, эффект успевает раньше.
+  useEffect(() => {
+    uploadRef.current = onUpload;
+  }, [onUpload]);
   const editor = useEditor(
     {
       extensions: [

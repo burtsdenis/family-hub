@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { db, id, now } from '../db/index.js';
+import { db, id } from '../db/index.js';
 import { env } from '../env.js';
 import { log } from './log.js';
 

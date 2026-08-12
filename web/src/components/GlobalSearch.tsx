@@ -1,5 +1,5 @@
 import { t } from '../lib/i18n';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
@@ -48,10 +48,16 @@ export function GlobalSearch({
   const navigate = useNavigate();
   const [openLocal, setOpenLocal] = useState(false);
   const open = openProp ?? openLocal;
-  const setOpen = (value: boolean) => {
-    setOpenLocal(value);
-    onOpenChange?.(value);
-  };
+  // useCallback обязателен: setOpen участвует в зависимостях эффекта с
+  // window-обработчиком — нестабильная идентичность пересоздавала бы
+  // подписку на каждый рендер (те самые грабли нестабильных хуков)
+  const setOpen = useCallback(
+    (value: boolean) => {
+      setOpenLocal(value);
+      onOpenChange?.(value);
+    },
+    [onOpenChange],
+  );
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Result[] | null>(null);
   const [hint, setHint] = useState<string | null>(null);
@@ -69,7 +75,7 @@ export function GlobalSearch({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [setOpen]);
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 0);

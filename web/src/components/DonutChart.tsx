@@ -28,8 +28,13 @@ export function DonutChart({ segments, centerLabel, size = 132 }: Props) {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  // Начало — сверху (12 часов): SVG рисует дуги с трёх часов
-  let offset = -0.25;
+  // Начало — сверху (12 часов): SVG рисует дуги с трёх часов.
+  // Смещения считаются заранее и без мутаций: аккумулятор, изменяемый
+  // внутри JSX-map, ломает предпосылки React о чистоте рендера.
+  const fractions = segments.map((s) => s.value / total);
+  const starts = fractions.map(
+    (_, i) => -0.25 + fractions.slice(0, i).reduce((sum, f) => sum + f, 0),
+  );
 
   return (
     <svg
@@ -40,9 +45,8 @@ export function DonutChart({ segments, centerLabel, size = 132 }: Props) {
       aria-label={segments.map((s) => s.label).join(', ')}
     >
       {segments.map((s, i) => {
-        const fraction = s.value / total;
-        const start = offset;
-        offset += fraction;
+        const fraction = fractions[i]!;
+        const start = starts[i]!;
         return (
           <circle
             key={i}

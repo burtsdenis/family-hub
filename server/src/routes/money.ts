@@ -435,7 +435,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     return db.prepare('SELECT * FROM categories WHERE id = ?').get(categoryId);
   });
 
-  app.delete('/api/categories/:id', (req, reply) => {
+  app.delete('/api/categories/:id', (req) => {
     const { id: categoryId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const used = (
       db.prepare('SELECT count(*) AS n FROM transactions WHERE category_id = ?').get(categoryId) as {

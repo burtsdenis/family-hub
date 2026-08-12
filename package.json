@@ -16,13 +16,17 @@
     "export": "node scripts/export.mjs",
     "import": "node scripts/import.mjs",
     "admin:reset": "node scripts/admin-reset.mjs",
-    "test": "npm run test --workspace=server && npm run test --workspace=web"
+    "test": "npm run test --workspace=server && npm run test --workspace=web",
+    "lint": "eslint server/src web/src scripts"
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "typescript-eslint": "^8.67.0",
     "vitest": "^3.2.7"
   }
 }
