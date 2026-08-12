@@ -1,4 +1,18 @@
 import { t } from './i18n';
+
+/** Календарь по умолчанию — единственный с заранее известным id (миграция 006). */
+export const SHARED_CALENDAR_ID = '00000000-0000-4000-8000-000000000201';
+
+/**
+ * Имя календаря для показа. «Общий» — данные, а не интерфейс: он засеян
+ * миграцией в базу по-русски, и словарь t() его не видит. Календарь один
+ * и известен по фиксированному id — переводим на месте, как projectTitle
+ * для «Входящих» в tasks.ts.
+ */
+export function calendarName(id: string, name: string): string {
+  return id === SHARED_CALENDAR_ID && name === 'Общий' ? t('Общий') : name;
+}
+
 export interface Calendar {
   id: string;
   name: string;

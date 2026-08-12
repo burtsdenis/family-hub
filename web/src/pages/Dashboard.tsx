@@ -182,7 +182,7 @@ export function Dashboard() {
     return (
       <Page title={t('Сегодня')}>
         <div className="rounded-card border border-urgent/40 bg-urgent/10 px-4 py-3 text-sm text-ink">
-          {error}. Проверьте, что контейнер запущен: <code className="font-mono">docker compose ps</code>
+          {error}. {t('Проверьте, что сервер хаба запущен, и обновите страницу.')}
         </div>
       </Page>
     );

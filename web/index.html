@@ -1,10 +1,16 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#131C24" />
-    <title>Дом</title>
+    <!-- Приближение к теме приложения: сама тема переключается в рантайме,
+         но цвет хрома браузера задаётся до загрузки скриптов -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F5F4F1" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#131C24" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- lang и title перенастраиваются в src/lib/i18n.ts под язык устройства -->
+    <title>Family Hub</title>
   </head>
   <body>
     <div id="root"></div>

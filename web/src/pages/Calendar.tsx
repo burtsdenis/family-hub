@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, type HouseholdMember, type Project, type Task } from '../lib/api';
 import {
   VIEW_LABEL,
+  calendarName,
   loadLocal,
   saveLocal,
   type Calendar as CalendarModel,
@@ -212,7 +213,7 @@ export function Calendar() {
                 onClick={() =>
                   setHidden(on ? [...hidden, c.id] : hidden.filter((id) => id !== c.id))
                 }
-                aria-label={on ? t('Скрыть календарь {name}', { name: c.name }) : t('Показать календарь {name}', { name: c.name })}
+                aria-label={on ? t('Скрыть календарь {name}', { name: calendarName(c.id, c.name) }) : t('Показать календарь {name}', { name: calendarName(c.id, c.name) })}
                 className="flex items-center gap-2 hover:text-ink"
               >
                 <span
@@ -223,14 +224,14 @@ export function Calendar() {
                   }}
                   aria-hidden
                 />
-                {c.name}
+                {calendarName(c.id, c.name)}
                 {!c.shared && <span className="text-xs opacity-60">{t('личный')}</span>}
               </button>
 
               <button
                 type="button"
                 onClick={() => setEditingCalendar(c)}
-                aria-label={t('Настроить календарь {name}', { name: c.name })}
+                aria-label={t('Настроить календарь {name}', { name: calendarName(c.id, c.name) })}
                 className="opacity-60 hover:opacity-100"
               >
                 <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2">

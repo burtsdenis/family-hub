@@ -626,6 +626,9 @@ export const en: Record<string, string> = {
   'Понедельник': 'Monday',
   'Воскресенье': 'Sunday',
   'Демо': 'Demo',
+  'Общий': 'Shared',
+  'Проверьте, что сервер хаба запущен, и обновите страницу.':
+    'Check that the hub server is running, then reload the page.',
   'Это демо с примером данных: у вас будет собственная копия, трогайте что угодно. Через пару часов простоя она исчезнет без следа.':
     'This is a demo with sample data: you get your own private copy, so touch anything you like. After a couple idle hours it vanishes without a trace.',
   'Попробовать демо': 'Try the demo',

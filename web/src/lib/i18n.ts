@@ -34,6 +34,12 @@ function readLang(): Lang {
 
 export const lang: Lang = readLang();
 
+// Атрибуты документа — под выбранный язык. index.html статически заявляет
+// английский (язык по умолчанию), здесь он уточняется по факту: заголовок
+// вкладки и lang для читалок должны совпадать с языком интерфейса.
+document.documentElement.lang = lang;
+document.title = lang === 'ru' ? 'Дом' : 'Family Hub';
+
 export function setLang(next: Lang): void {
   try {
     localStorage.setItem(STORAGE_KEY, next);

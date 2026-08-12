@@ -1,7 +1,7 @@
 import { t } from '../lib/i18n';
 import { useEffect, useState } from 'react';
 import { api, type HouseholdMember, type Project } from '../lib/api';
-import { REMIND_OPTIONS, type Calendar, type Occurrence } from '../lib/calendar';
+import { REMIND_OPTIONS, calendarName, type Calendar, type Occurrence } from '../lib/calendar';
 import { RECURRENCE_OPTIONS } from '../lib/tasks';
 import { dialogKeys, onEnter } from '../lib/keys';
 import { timeOf } from '../lib/format';
@@ -178,7 +178,7 @@ export function EventDialog({
               >
                 {calendars.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {calendarName(c.id, c.name)}
                     {c.shared ? '' : t(' (личный)')}
                   </option>
                 ))}
