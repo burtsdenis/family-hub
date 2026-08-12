@@ -1,6 +1,6 @@
 # Production compose — for a VPS with a real domain.
 # Launch: docker compose -f docker-compose.prod.yml up -d --build
-# Full step-by-step guide: DEPLOY.md
+# Full step-by-step guide: docs/deploy-vps.md
 
 services:
   app:
@@ -21,9 +21,9 @@ services:
       # the client address arrives in a header
       SECURE_COOKIES: "true"
       TRUST_PROXY: "true"
-      # For the nightly backup inside the container (see DEPLOY.md)
+      # For the nightly backup inside the container (see docs/deploy-vps.md)
       AGE_RECIPIENT: ${AGE_RECIPIENT:-}
-      # Google sign-in (see DEPLOY.md). Empty values disable the feature.
+      # Google sign-in (see docs/deploy-vps.md). Empty values disable the feature.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       PUBLIC_URL: https://${HUB_DOMAIN:?Set HUB_DOMAIN in .env}

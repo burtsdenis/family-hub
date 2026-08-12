@@ -6,12 +6,12 @@
 #
 # Requirements:
 #   - DEMO_DOMAIN in .env (e.g. demo.example.com) with a DNS A record
-#   - a demo site block in Caddyfile.prod (see DEPLOY.md, "Public demo")
+#   - a demo site block in Caddyfile.prod (see docs/deploy-vps.md, "Public demo")
 #
 # Every visitor gets a private throwaway copy of a seeded sample family;
 # idle sandboxes are dropped and the template is rebuilt daily by the app
 # itself — no reset cron needed. Passwords, membership and file uploads
-# stay blocked (see DEPLOY.md, "Public demo").
+# stay blocked (see docs/deploy-vps.md, "Public demo").
 
 services:
   app-demo:

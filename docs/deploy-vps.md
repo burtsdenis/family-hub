@@ -6,7 +6,7 @@ the hub is comfortable on the smallest machine: 1 vCPU and 1 GB of RAM
 with room to spare.
 
 None of this is needed for running at home — that stays
-`docker compose up -d` and the README.
+`docker compose up -d` and [home-server.md](home-server.md).
 
 ## 1. DNS
 
@@ -23,47 +23,80 @@ Caddy manages fine on its own.
 
 ## 2. The machine
 
-Create a server with Ubuntu 24.04 and your SSH key. Everything below is
-done as root over SSH.
+Create a server with Ubuntu 24.04 and your SSH key.
+
+### A user instead of root
+
+The first sign-in is as root — and it should be the last thing root does
+by hand. Working as root means one mistyped command with no seatbelt and
+one all-powerful login for an attacker to target, so the first step is a
+regular user with sudo:
+
+```bash
+adduser hub                       # pick any name; asks for a password
+usermod -aG sudo hub
+rsync --archive --chown=hub:hub ~/.ssh /home/hub   # your key now opens both doors
+```
+
+Log out, sign back in as the new user and check that sudo works:
+
+```bash
+ssh hub@<your server's IP>
+sudo whoami                       # → root
+```
+
+From here on, everything in this guide runs as this user. Once you have
+confirmed the new sign-in works, close the root door and password
+sign-ins entirely:
+
+```bash
+echo 'PermitRootLogin no
+PasswordAuthentication no' | sudo tee /etc/ssh/sshd_config.d/99-hardening.conf
+sudo systemctl restart ssh
+```
+
+### Base setup
 
 Security updates — automatic, because nobody will install them by hand:
 
 ```bash
-apt-get update && apt-get upgrade -y
-apt-get install -y unattended-upgrades
-dpkg-reconfigure -plow unattended-upgrades   # answer "Yes"
+sudo apt-get update && sudo apt-get upgrade -y
+sudo apt-get install -y unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades   # answer "Yes"
 ```
 
 Firewall: only SSH and the web face outward. Anything else that ever
 comes up on the machine is invisible from the internet by default:
 
 ```bash
-apt-get install -y ufw
-ufw allow OpenSSH
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw --force enable
+sudo apt-get install -y ufw
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw --force enable
 ```
 
-Docker — with the official script:
+Docker — with the official script, then let the user run it without sudo:
 
 ```bash
-curl -fsSL https://get.docker.com | sh
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker hub       # takes effect on the next sign-in
 ```
 
 If you took a 1 GB machine, add swap right away — you will want it for
 any manual builds:
 
 ```bash
-fallocate -l 2G /swapfile && chmod 600 /swapfile
-mkswap /swapfile && swapon /swapfile
-echo '/swapfile none swap sw 0 0' >> /etc/fstab
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
 ## 3. Code and data
 
 ```bash
-mkdir -p /srv/family-hub
+sudo mkdir -p /srv/family-hub
+sudo chown hub:hub /srv/family-hub
 ```
 
 Deliver the code to `/srv/family-hub/app` any way you like —
@@ -73,15 +106,15 @@ repository:
 ```bash
 # from your machine, from the folder above the project:
 rsync -a --exclude node_modules --exclude .git --exclude certs --exclude .env \
-  family-hub/ root@<IP>:/srv/family-hub/app/
+  family-hub/ hub@<IP>:/srv/family-hub/app/
 ```
 
-The data directory. The container does not run as root, so the owner is
-uid 1000:
+The data directory. The container does not run as root either — inside
+it the app is uid 1000, so that uid owns the data:
 
 ```bash
 mkdir -p /srv/family-hub/data
-chown -R 1000:1000 /srv/family-hub/data
+sudo chown -R 1000:1000 /srv/family-hub/data
 ```
 
 `.env` next to the compose file:
@@ -126,10 +159,11 @@ If the hub already lived at home and has data — just move the directory:
 docker compose -f docker-compose.prod.yml stop app
 
 # from the home machine: transfer the data (database, attachments)
-rsync -a ~/.family-hub/ root@<IP>:/srv/family-hub/data/
+rsync -a ~/.family-hub/ hub@<IP>:/tmp/hub-data/
 
-# on the VPS: restore ownership and start
-chown -R 1000:1000 /srv/family-hub/data
+# on the VPS: move it into place, restore ownership and start
+sudo rsync -a /tmp/hub-data/ /srv/family-hub/data/ && rm -rf /tmp/hub-data
+sudo chown -R 1000:1000 /srv/family-hub/data
 docker compose -f docker-compose.prod.yml start app
 ```
 
@@ -160,7 +194,7 @@ Cron on the host, at night:
 ```bash
 crontab -e
 # add the line:
-0 3 * * * cd /srv/family-hub/app && docker compose -f docker-compose.prod.yml exec -T app bash scripts/backup.sh >> /var/log/family-hub-backup.log 2>&1
+0 3 * * * cd /srv/family-hub/app && docker compose -f docker-compose.prod.yml exec -T app bash scripts/backup.sh >> /tmp/family-hub-backup.log 2>&1
 ```
 
 Encrypted archives accumulate in `/srv/family-hub/data/backups`.
@@ -205,7 +239,7 @@ Once, in the [Google Cloud Console](https://console.cloud.google.com/):
 Then each person on their own: sign in with the password → Settings →
 "Signing in" → Link → optionally disable password sign-in. The
 administrator's password cannot be disabled — that is deliberate, see
-the README.
+[features.md](features.md), "Signing in".
 
 ## 8. Public demo (optional)
 
@@ -230,7 +264,7 @@ just as much a one-domain job.
 
    ```bash
    mkdir -p /srv/family-hub/demo-data
-   chown -R 1000:1000 /srv/family-hub/demo-data
+   sudo chown -R 1000:1000 /srv/family-hub/demo-data
    ```
 
 3. Add to `.env`: `DEMO_DOMAIN=demo.example.com`
@@ -271,16 +305,19 @@ Once:
    ssh-keygen -t ed25519 -f hub-deploy-key -C "github-actions" -N ""
    ```
 
-2. The public part — onto the server:
+2. The public part — into the deploy user's authorized keys on the
+   server:
 
    ```bash
-   cat hub-deploy-key.pub | ssh root@<IP> 'cat >> ~/.ssh/authorized_keys'
+   cat hub-deploy-key.pub | ssh hub@<IP> 'cat >> ~/.ssh/authorized_keys'
    ```
 
 3. In the repository: Settings → Secrets and variables → Actions →
-   New repository secret, two secrets:
+   New repository secret, three secrets:
 
    - `DEPLOY_HOST` — the server's IP
+   - `DEPLOY_USER` — the user from step "A user instead of root"
+     (e.g. `hub`); omit it and the workflow falls back to `root`
    - `DEPLOY_SSH_KEY` — the contents of the `hub-deploy-key` file
      (the secret part, in full, BEGIN/END lines included)
 

@@ -1,0 +1,142 @@
+# Features
+
+A walkthrough of what the hub does and the reasoning behind the
+behaviour. For the technical internals (database, time handling,
+logging), see [architecture.md](architecture.md).
+
+## First run
+
+A hub with an empty database offers to create the first account right in the browser — that account becomes the administrator. Passwords are never printed to server logs.
+
+Family members are added with invitations: the administrator creates a single-use link (valid for a week, shown once, stored as a hash), the person opens it and fills in their own name, login and password. Manual creation with a one-time password remains as a fallback.
+
+Day-to-day work happens under personal accounts. The administrator role manages the system; it has **no access to other people's private notes** — private queries filter by owner, and there is no "if admin, show everything" branch in the code.
+
+### Lost password
+
+```bash
+npm run admin:reset                      # for the administrator
+npm run admin:reset -- name@hub.local    # for a specific account
+```
+
+In Docker: `docker compose exec app node scripts/admin-reset.mjs`
+
+It issues a new password, requires changing it on first sign-in and closes all previous sessions. Before this existed, the only way out of a lost password was deleting the database — losing everything.
+
+## Signing in
+
+Two ways in: password and Google. An account is **never** created via Google: the hub is a family tool, the household is known, a stranger's Google account is refused at the door. Google is linked by an explicit action in Settings, from a live session, and is identified by the account's permanent ID rather than the email address — the email can change, the link survives.
+
+Once linked, password sign-in can be disabled per account in Settings: Google with its protections (prompts, passkeys) guards the entrance better than any password. The mode is invisible from outside — a disabled password answers the same "Wrong login or password" as a merely wrong one, with the same response time.
+
+One invariant always holds: **the administrator's password sign-in cannot be disabled**. It is the emergency door — if a Google account is hijacked, blocked, or Google itself is down, the administrator signs in with the password and restores access by resetting passwords (a reset also re-enables password sign-in). A hub whose only way in runs through an external service is a hub that will one day refuse to open.
+
+Setting up Google sign-in on a server: [deploy-vps.md](deploy-vps.md), "Google sign-in".
+
+## Tasks
+
+Three nesting levels: story → task → subtask. The server refuses anything deeper, deliberately — otherwise the tree turns into a dump.
+
+Recurrence uses a subset of RRULE: `FREQ=MONTHLY;INTERVAL=1` and the like. The next date is computed **from the series anchor**, not from the previous occurrence. Otherwise "every 31st" would slip to the 28th forever after February.
+
+Task order is accepted as a full list of IDs (`POST /api/tasks/reorder`) rather than fractional positions between neighbours. At household scale rewriting fifty rows costs nothing, and positions never degrade over time.
+
+`Cmd/Ctrl + K` opens quick-add from any section. A task with no project selected goes to the Inbox.
+
+## Notes
+
+Stored as markdown. The editor is TipTap, but what lands on disk is plain markdown, readable in any text editor.
+
+A link to another note is `[[Title]]`. It is implemented as a decoration over plain text, not a separate schema node: the note stays valid markdown, and a link to a note that does not exist yet is kept "dangling" and picks itself up when a note with that title appears.
+
+Version history is not written on every save — autosave would produce a thousand rows in an evening. A snapshot is taken if more than ten minutes passed since the last one, or if a different person is editing. A rollback also lands in history, so it is reversible.
+
+Templates are ordinary notes with a flag: any note can become a template and back. They stay out of the main list and are offered when creating a new note. A private template follows the same rules as a private note: only its owner can expand it. Placeholders `{{date}}`, `{{time}}`, `{{author}}` and `{{iso}}` work in both body and title; they expand once, at creation time, and become plain text. An unknown key is left as-is — a typo never eats content.
+
+A private note is visible only to its owner — in lists, in search, and by direct link. The administrator is no exception. The daily note included: if a private note by someone else already exists for a date, the second person gets an honest refusal, not its content — a second note for the same date cannot exist, the daily date is unique.
+
+### Attachments
+
+Files go to the data directory under `attachments/YYYY-MM/` with generated names; the original name is kept in the database. A human-supplied name never becomes part of a disk path — otherwise `../../` in a name would write anywhere.
+
+The per-file ceiling is 50 MB. Total volume is not hard-limited but is tracked: `GET /api/attachments/usage`.
+
+Files can be dragged straight into note text or pasted from the clipboard. Images land at the drop point and enter the markdown as regular images; other files simply attach.
+
+An attachment is visible to whoever can see the note. Deleting a note removes the files from disk, not just the rows.
+
+## Calendar
+
+Time is stored as local wall-clock time, not UTC. "Every Tuesday at 10:00" must stay at 10:00 after a clock change; storing UTC would force recalculating every series occurrence through DST rules. A household lives in one time zone.
+
+Recurring events expand on the fly per requested range and are never materialised into the database: "every year" with no end date is an infinite table. A single occurrence can be cancelled without touching the series; cancelled dates are kept as an exception list.
+
+Event participants ("who is going") show as circles with the first letter of the name — in the grid, the agenda and the dashboard. Without that, picking participants produced no visible result and looked broken.
+
+A calendar is either shared (visible to all) or personal (visible only to the owner, administrator included). The set of visible layers and the chosen view are remembered per device: a kiosk wants the week, a phone prefers the agenda.
+
+## Search
+
+`Cmd/Ctrl + Shift + F` — across tasks, notes, events, projects and file names. `Cmd + K` stays reserved for quick task adding.
+
+Notes, tasks and projects are searched via FTS5; events and attachments by direct scan with `ci_contains`. Keeping an index for an entity whose visibility depends on calendar settings would create a desynchronisation source; and there are hundreds of events, not tens of thousands.
+
+Private content never appears in someone else's results — not notes, not personal-calendar events, not files attached to them.
+
+## Money
+
+Amounts are stored as integers in minor units: 1234.56 → 123456. Floating point in money produces rounding errors that accumulate in sums and eventually disagree with the bank.
+
+Currency lives on the account, and currencies are unrelated: no exchange rate, no grand total, summing happens strictly within one currency. A transfer between accounts in different currencies records two amounts — what left and what arrived.
+
+Common currencies (EUR, RSD, USD, GBP, CHF, PLN, CZK, SEK, HUF) are one click when creating an account; any other ISO 4217 code can be typed in — the server accepts any, Intl formats it. The default currency for new accounts is a hub setting.
+
+Balances are computed, not stored: opening balance plus movements. A stored balance drifts from history after any backdated edit.
+
+Privacy is attached to the account, not the transaction. An account is shared or personal; a personal account's transactions and balance are visible only to the owner. There is no separate "hidden expense" flag, and thanks to that the shared account's balance is identical for everyone — there are no hidden withdrawals from it. A transfer from a shared account to a personal one is visible to the other person as an amount, without the account name or details: money leaving a shared account cannot be hidden, or the balance would be wrong.
+
+A category with history is hidden, not deleted — otherwise past reports would lose their labels.
+
+### Subcategories
+
+A category can belong to a parent: "Car → Fuel, Parking, Service". The hierarchy is exactly one level deep by design — an arbitrary tree turns every report into recursion, while a family needs a "group → item" pair at most. The server enforces the depth: a subcategory cannot become a parent, and a category with children cannot become a subcategory.
+
+In the month summary subcategories roll up into the parent — its row expands on click into the breakdown, with the parent's own transactions shown as a remainder. The pie chart shows the rolled-up shares, one chart per currency (shares across currencies are meaningless without an exchange rate). Deleting a parent promotes its children to the top level instead of dropping them: transaction labels are worth more than the hierarchy.
+
+### Reconciliation
+
+You enter the actual balance from the bank, the app shows the discrepancy. Without it, balance-based accounting falls apart — one missed expense breaks the number. One reconciliation per day: a repeat on the same day updates the previous one instead of adding a twin — what matters is the actual balance on a date, not the history of attempts to enter it.
+
+The discrepancy is computed against the balance **at the moment of reconciliation**, not the current one: transactions recorded after the check do not shift it — the bank will process them too, there is nothing to compare them against. "At the moment" means transactions of earlier dates plus same-day transactions entered before the check. Both sides of the comparison are computed, not stored, so a missed expense entered retroactively recalculates the checked balance and closes the discrepancy — exactly the workflow reconciliation exists for: see a discrepancy, find what was forgotten, enter it, watch it match.
+
+### Budgets
+
+A budget is set per "category + currency" pair. A standing one applies every month; a single-month exception overrides it in that month only.
+
+A budget on a parent category also counts its subcategories' spending: "Car" is fuel, parking and service together. A separate budget on a subcategory is still possible; the two coexist.
+
+### Recurring transactions
+
+A rule is a template, not a history record. What is due is computed by subtraction: all rule dates up to today, minus already-created transactions, minus manually skipped ones. No "next date" cursor is stored — it drifts after a backdated rule edit, while subtraction always gives the same answer.
+
+A unique index on "rule + occurrence date" makes creation idempotent: a repeated run never doubles the rent.
+
+`auto_create = 1` — created automatically (rent: charged on schedule). `auto_create = 0` — lands in the "Confirm" panel, where the amount can be adjusted before posting. Salary defaults to confirmation: it arrives late, and recording it ahead of time would skew the balance exactly when someone is looking at it.
+
+Auto-creation catches up at server startup: the machine may have slept through a date or two.
+
+### Receipts
+
+Attached to a transaction with the same machinery as note attachments. The image is downscaled client-side to 1600 px on the long edge: a phone photo weighs megabytes, and all a receipt needs to show is the amount and the date.
+
+## Interface
+
+Enter in any dialog performs the primary action — save, confirm, add — regardless of where the focus is. In a multi-line field Enter stays a line break; on a button it presses that button. Escape closes. One rule for every window: task card, event, transaction, budget, confirmations.
+
+On a phone the main screen starts with three quick actions: task, expense, note. A phone is pulled out to record something on the go — these three buttons do it in one tap. The task one opens the same quick-add as `Cmd/Ctrl + K`, the expense one opens the transaction form, the note is created and opened immediately. Wide screens do not show the block: they have hotkeys and section buttons.
+
+The sidebar does not scroll with the content: on a long task list the sections stay put, the panel has its own scroll.
+
+"All projects" shows a total open-task counter — the same one each project has individually.
+
+The interface speaks English by default; Russian is available in Settings. The first day of the week (Monday or Sunday) is configurable there too. Both are per-device settings: a phone and the shared kiosk can differ.
