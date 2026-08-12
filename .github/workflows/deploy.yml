@@ -9,8 +9,9 @@
 # no-op unless the repository variable DEPLOY_ENABLED equals 'true'
 # (Settings → Secrets and variables → Actions → Variables), so forks
 # never attempt to deploy anywhere. Also required: secrets DEPLOY_HOST
-# (server address) and DEPLOY_SSH_KEY (private key). Setup: DEPLOY.md,
-# "Auto-deploy from GitHub".
+# (server address), DEPLOY_SSH_KEY (private key) and DEPLOY_USER (the
+# unprivileged sudo user from the guide; falls back to root when unset).
+# Setup: docs/deploy-vps.md, "Auto-deploy from GitHub".
 
 name: deploy
 
@@ -29,6 +30,8 @@ jobs:
   deploy:
     if: vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
+    env:
+      DEPLOY: ${{ secrets.DEPLOY_USER || 'root' }}@${{ secrets.DEPLOY_HOST }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,7 +57,7 @@ jobs:
       - name: Ship the image
         run: |
           docker save family-hub:prod | gzip | \
-            ssh "root@${{ secrets.DEPLOY_HOST }}" 'gunzip | docker load'
+            ssh "$DEPLOY" 'gunzip | docker load'
 
       - name: Ship the code
         # --delete removes files on the server that were deleted from the
@@ -67,7 +70,7 @@ jobs:
             --exclude 'certs' \
             --exclude 'web/dist' \
             --exclude 'server/dist' \
-            ./ "root@${{ secrets.DEPLOY_HOST }}:/srv/family-hub/app/"
+            ./ "$DEPLOY:/srv/family-hub/app/"
 
       - name: Restart
         # No --build: the freshly loaded image is already on the server.
@@ -76,7 +79,7 @@ jobs:
         # recreated on deploy too — otherwise it would keep running the
         # previous image forever.
         run: |
-          ssh "root@${{ secrets.DEPLOY_HOST }}" '
+          ssh "$DEPLOY" '
             cd /srv/family-hub/app
             files="-f docker-compose.prod.yml"
             if grep -q "^DEMO_DOMAIN=" .env 2>/dev/null; then
@@ -90,7 +93,7 @@ jobs:
         # so no public hostname needs to live in this file.
         run: |
           for i in $(seq 1 18); do
-            status=$(ssh "root@${{ secrets.DEPLOY_HOST }}" \
+            status=$(ssh "$DEPLOY" \
               'docker inspect --format "{{.State.Health.Status}}" family-hub' 2>/dev/null || true)
             if [ "$status" = "healthy" ]; then
               echo "ok"; exit 0
