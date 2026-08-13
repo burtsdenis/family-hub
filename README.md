@@ -70,7 +70,19 @@ hub in [deploy-vps.md](docs/deploy-vps.md).
 
 ## Roadmap
 
-Money: CSV bank-statement import. From the original spec: PWA offline mode with a home-screen icon, a kiosk mode for tablets, the morning brief, shared lists, an encrypted private section for documents. Housekeeping: translating code comments to English.
+The roadmap lives where you can see and influence it:
+
+- **[Roadmap board](https://github.com/users/burtsdenis/projects/1)** —
+  Now / Next / Later at a glance.
+- **[v0.2 milestone](https://github.com/burtsdenis/family-hub/milestone/1)** —
+  what is being worked on right now.
+- **[Issues](https://github.com/burtsdenis/family-hub/issues)** — vote
+  with a 👍 on what you want most; that is genuinely how things get
+  prioritized here. Want to contribute? Start with
+  [good first issue](https://github.com/burtsdenis/family-hub/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+
+Coming up after the current milestone: PWA install with offline reading,
+CSV bank-statement import, shared shopping lists.
 
 ## License
 
