@@ -10,6 +10,7 @@ import {
   dialogPrimary,
 } from './Dialog';
 import { onEnter } from '../lib/keys';
+import { clearBlankOnBlur } from '../lib/forms';
 import { shrinkAll } from '../lib/image';
 import {
   TX_KIND_LABEL,
@@ -334,6 +335,7 @@ export function TransactionDialog({
             <input
               value={draft.place}
               onChange={(e) => setDraft({ ...draft, place: e.target.value })}
+              onBlur={clearBlankOnBlur(() => setDraft({ ...draft, place: '' }))}
               className={dialogField}
             />
           </label>
@@ -342,6 +344,7 @@ export function TransactionDialog({
             <input
               value={draft.note}
               onChange={(e) => setDraft({ ...draft, note: e.target.value })}
+              onBlur={clearBlankOnBlur(() => setDraft({ ...draft, note: '' }))}
               onKeyDown={onEnter(() => void save())}
               className={dialogField}
             />

@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { dialogKeys, onEnter } from '../lib/keys';
+import { clearBlankOnBlur } from '../lib/forms';
 
 /**
  * Our own dialogs instead of window.prompt and window.confirm.
@@ -164,6 +165,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
               value={value}
               placeholder={pending.options.placeholder}
               onChange={(e) => setValue(e.target.value)}
+              onBlur={clearBlankOnBlur(() => setValue(''))}
               onKeyDown={onEnter(() => close(value.trim() || null))}
               className={dialogField}
             />

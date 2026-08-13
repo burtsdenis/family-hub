@@ -1,4 +1,5 @@
 import { t } from '../lib/i18n';
+import { clearBlankOnBlur } from '../lib/forms';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -139,6 +140,7 @@ export function GlobalSearch({
               value={query}
               placeholder={t('Искать по задачам, заметкам, событиям и файлам')}
               onChange={(e) => setQuery(e.target.value)}
+              onBlur={clearBlankOnBlur(() => setQuery(''))}
               onKeyDown={(e) => {
                 if (!results?.length) return;
                 if (e.key === 'ArrowDown') {

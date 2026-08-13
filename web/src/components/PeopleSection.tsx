@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { Empty } from './Page';
 import { onEnter } from '../lib/keys';
+import { clearBlankOnBlur } from '../lib/forms';
 import { EntityDialog } from './EntityDialog';
 import { useDialogs } from './Dialog';
 
@@ -212,6 +213,7 @@ export function PeopleSection() {
             placeholder={t('Имя')}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onBlur={clearBlankOnBlur(() => setForm({ ...form, name: '' }))}
             onKeyDown={onEnter(() => void create())}
             className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
           />
@@ -220,6 +222,7 @@ export function PeopleSection() {
             autoCapitalize="none"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
+            onBlur={clearBlankOnBlur(() => setForm({ ...form, email: '' }))}
             onKeyDown={onEnter(() => void create())}
             className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
           />

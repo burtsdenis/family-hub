@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { onEnter } from '../lib/keys';
+import { clearBlankOnBlur } from '../lib/forms';
 import { formatStamp } from '../lib/format';
 import { useLatest } from '../lib/latest';
 import { today } from '../lib/tasks';
@@ -499,6 +500,7 @@ export function Notes() {
             value={query}
             placeholder={t('Поиск по заметкам')}
             onChange={(e) => setQuery(e.target.value)}
+            onBlur={clearBlankOnBlur(() => setQuery(''))}
             className="mb-3 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
           />
 
@@ -571,6 +573,7 @@ export function Notes() {
                 key={note.id}
                 defaultValue={note.title}
                 onChange={(e) => queueSave({ title: e.target.value })}
+                onBlur={clearBlankOnBlur(() => queueSave({ title: '' }))}
                 onKeyDown={onEnter(() => void flush())}
                 className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1.5 font-display text-lg font-semibold text-ink outline-none focus:border-line"
               />

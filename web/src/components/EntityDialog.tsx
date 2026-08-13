@@ -9,6 +9,7 @@ import {
   dialogPrimary,
 } from './Dialog';
 import { onEnter } from '../lib/keys';
+import { clearBlankOnBlur } from '../lib/forms';
 import { PALETTE, addToPalette, loadCustomPalette } from '../lib/palette';
 
 /**
@@ -140,6 +141,7 @@ export function EntityDialog({
             autoFocus
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            onBlur={clearBlankOnBlur(() => setDraft({ ...draft, name: '' }))}
             onKeyDown={onEnter(() => void run(() => onSave({ ...draft, name: draft.name.trim() })))}
             className={dialogField}
           />
