@@ -26,6 +26,26 @@ interface NoteRow {
  */
 const VISIBLE = "(n.visibility = 'shared' OR n.owner_id = ?)";
 
+/**
+ * Note preview for the list: markdown syntax is stripped, text remains.
+ * A real markdown parser is overkill here — the preview lives on a single
+ * line; it is enough to remove what catches the eye: images, links,
+ * wiki-links, list markers and inline markers.
+ */
+export function excerptOf(body: string): string {
+  return body
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // images — whole
+    .replace(/\[\[([^\]]+)\]\]/g, '$1') // [[wiki-link]] → its title
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // [link](url) → text
+    .replace(/^\s*(?:[-*+]|\d+\.)\s+(?:\[[ xX]\]\s*)?/gm, '') // list markers and checkboxes
+    .replace(/^\s*#{1,6}\s+/gm, '') // headings
+    .replace(/^\s*>\s?/gm, '') // quotes
+    .replace(/[*_`~]/g, '') // bold/italic/code/strikethrough
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+}
+
 function loadVisible(noteId: string, userId: string): NoteRow | null {
   const row = db
     .prepare(`SELECT n.* FROM notes n WHERE n.id = ? AND ${VISIBLE}`)
@@ -255,17 +275,21 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
       args.push(q.q, q.q);
     }
 
-    return db
+    const rows = db
       .prepare(
         `SELECT n.id, n.title, n.folder_id, n.visibility, n.owner_id, n.pinned,
                 n.daily_date, n.is_template, n.updated_at, u.name AS owner_name,
-                substr(replace(replace(n.body_md, '#', ''), char(10), ' '), 1, 120) AS excerpt
+                substr(n.body_md, 1, 400) AS excerpt
            FROM notes n
            LEFT JOIN users u ON u.id = n.owner_id
           WHERE ${where.join(' AND ')}
           ORDER BY n.pinned DESC, n.updated_at DESC`,
       )
-      .all(...args);
+      .all(...args) as Record<string, unknown>[];
+
+    // The preview is cleaned here, not in SQL: the query used to cut raw
+    // markdown, and the list showed **asterisks** and [[brackets]]
+    return rows.map((r) => ({ ...r, excerpt: excerptOf(String(r.excerpt ?? '')) }));
   });
 
   // ── Одна заметка со связями ─────────────────────────────────────────────

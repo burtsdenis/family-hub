@@ -32,7 +32,7 @@ function TaskRow({ task, overdue }: { task: Task; overdue?: boolean }) {
       />
       <span className="min-w-0 flex-1 truncate text-sm text-ink">{task.title}</span>
       {task.priority === 'urgent' && (
-        <span className="font-mono text-[0.625rem] tracking-wide text-urgent uppercase">
+        <span className="shrink-0 rounded-full border border-urgent/40 bg-urgent/10 px-2 py-0.5 font-mono text-[0.625rem] tracking-wide text-urgent uppercase">
           {PRIORITY_LABEL.urgent}
         </span>
       )}

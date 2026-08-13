@@ -68,20 +68,23 @@ function TaskItem({
     <>
       <li
         className="group flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0"
-        style={{ paddingLeft: `${1 + depth * 1.5}rem` }}
+        // 1.5rem base: the chevron (w-4, -ml-4) needs to sit fully inside the
+        // row with some air from the edge — with a 1rem base it started at
+        // −4px and got clipped by the card, with 1.25rem it sat flush
+        style={{ paddingLeft: `${1.5 + depth * 1.5}rem` }}
       >
         {node.children.length > 0 ? (
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-label={expanded ? t('Свернуть') : t('Развернуть')}
-            className="-ml-5 w-4 text-muted transition-transform hover:text-ink"
+            className="-ml-4 w-4 text-muted transition-transform hover:text-ink"
             style={{ transform: expanded ? 'rotate(90deg)' : 'none' }}
           >
             ›
           </button>
         ) : (
-          <span className="-ml-5 w-4" aria-hidden />
+          <span className="-ml-4 w-4" aria-hidden />
         )}
 
         <input
@@ -111,24 +114,40 @@ function TaskItem({
           </span>
         )}
 
+        {/* Priority as a pill, not a bare word: without a border and tint
+            "HIGH" read as a stray mark rather than a priority */}
         {node.priority !== 'normal' && !closed && (
           <span
-            className={`hidden font-mono text-[0.625rem] tracking-wide uppercase sm:inline ${
-              node.priority === 'urgent' || node.priority === 'high' ? 'text-urgent' : 'text-muted'
+            className={`hidden shrink-0 items-center rounded-full border px-2 py-0.5 font-mono text-[0.625rem] tracking-wide uppercase sm:inline-flex ${
+              node.priority === 'urgent' || node.priority === 'high'
+                ? 'border-urgent/40 bg-urgent/10 text-urgent'
+                : 'border-line bg-surface-2 text-muted'
             }`}
           >
             {PRIORITY_LABEL[node.priority]}
           </span>
         )}
 
+        {/* Assignee: full name on wide screens (a single "M" cannot tell
+            Mark from Maria, and the space is there), avatar on tablets */}
         {node.assignee_name && (
-          <span
-            className="hidden size-5 shrink-0 place-items-center rounded-full text-[0.625rem] font-medium text-white sm:grid"
-            style={{ backgroundColor: node.assignee_color ?? 'var(--c-accent)' }}
-            title={node.assignee_name}
-          >
-            {node.assignee_name.slice(0, 1)}
-          </span>
+          <>
+            <span
+              className="hidden size-5 shrink-0 place-items-center rounded-full text-[0.625rem] font-medium text-white sm:grid lg:hidden"
+              style={{ backgroundColor: node.assignee_color ?? 'var(--c-accent)' }}
+              title={node.assignee_name}
+            >
+              {node.assignee_name.slice(0, 1)}
+            </span>
+            <span className="hidden max-w-40 shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface-2 py-0.5 pr-2.5 pl-2 text-xs text-muted lg:inline-flex">
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={{ backgroundColor: node.assignee_color ?? 'var(--c-accent)' }}
+                aria-hidden
+              />
+              <span className="truncate">{node.assignee_name}</span>
+            </span>
+          </>
         )}
 
         {node.due_date && (

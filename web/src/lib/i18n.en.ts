@@ -626,6 +626,7 @@ export const en: Record<string, string> = {
   'Понедельник': 'Monday',
   'Воскресенье': 'Sunday',
   'Демо': 'Demo',
+  'Каждые': 'Every',
   'Общий': 'Shared',
   'Проверьте, что сервер хаба запущен, и обновите страницу.':
     'Check that the hub server is running, then reload the page.',
@@ -647,6 +648,9 @@ for (const key of Object.keys(en)) {
 /** Английские пары множественного числа: ключ — русская форма единственного. */
 export const enPlurals: Record<string, [string, string]> = {
   'день': ['day', 'days'],
+  'неделю': ['week', 'weeks'],
+  'месяц': ['month', 'months'],
+  'год': ['year', 'years'],
   'операция': ['transaction', 'transactions'],
   'событие': ['event', 'events'],
   'задача': ['task', 'tasks'],

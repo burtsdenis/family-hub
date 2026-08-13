@@ -1,4 +1,5 @@
 import { intlLocale, t } from './i18n';
+import { plural } from './format';
 export type AccountKind = 'cash' | 'card' | 'savings';
 export type TxKind = 'expense' | 'income' | 'transfer';
 
@@ -228,6 +229,39 @@ const RULE_LABEL: Record<string, string> = {
   'FREQ=YEARLY': t('Каждый год'),
 };
 
+const RULE_UNITS: Record<string, [string, string, string]> = {
+  DAILY: ['день', 'дня', 'дней'],
+  WEEKLY: ['неделю', 'недели', 'недель'],
+  MONTHLY: ['месяц', 'месяца', 'месяцев'],
+  YEARLY: ['год', 'года', 'лет'],
+};
+
+/**
+ * Canonical rule form: INTERVAL=1 is dropped.
+ * The server and seeding store "FREQ=MONTHLY;INTERVAL=1" while the UI lists
+ * operate on "FREQ=MONTHLY" — the forms are equivalent but not string-equal,
+ * and without normalization the label showed raw RRULE and the edit dialog's
+ * select could not find its option.
+ */
+export function normalizeRule(rule: string): string {
+  const m = /^FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)(?:;INTERVAL=(\d+))?$/.exec(
+    rule.trim().toUpperCase(),
+  );
+  if (!m) return rule;
+  const interval = Number(m[2] ?? 1);
+  return interval === 1 ? `FREQ=${m[1]}` : `FREQ=${m[1]};INTERVAL=${interval}`;
+}
+
 export function describeRule(rule: string): string {
-  return RULE_LABEL[rule] ?? rule;
+  const canonical = normalizeRule(rule);
+  const known = RULE_LABEL[canonical];
+  if (known) return known;
+
+  // A rule outside the preset list (say, "every 6 months" via the API) —
+  // build an honest description instead of showing RRULE to a human
+  const m = /^FREQ=([A-Z]+);INTERVAL=(\d+)$/.exec(canonical);
+  const units = m ? RULE_UNITS[m[1]!] : undefined;
+  if (!m || !units) return rule;
+  const n = Number(m[2]);
+  return `${t('Каждые')} ${n} ${plural(n, ...units)}`;
 }

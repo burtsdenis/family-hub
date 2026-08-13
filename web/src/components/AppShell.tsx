@@ -114,6 +114,21 @@ function useTheme() {
   return { dark, toggle: () => setDark((v) => !v) };
 }
 
+function ThemeIcon({ dark, className }: { dark: boolean; className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      {dark ? (
+        <>
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M22 12h-2M4 12H2M18.4 5.6 17 7M7 17l-1.4 1.4M18.4 18.4 17 17M7 7 5.6 5.6" />
+        </>
+      ) : (
+        <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
+      )}
+    </svg>
+  );
+}
+
 function ThemeToggle() {
   const { dark, toggle } = useTheme();
   return (
@@ -123,16 +138,25 @@ function ThemeToggle() {
       className="rounded-full border border-line p-2 text-muted transition-colors hover:text-ink"
       aria-label={dark ? t('Включить светлую тему') : t('Включить тёмную тему')}
     >
-      <svg viewBox="0 0 24 24" className="size-4" {...stroke}>
-        {dark ? (
-          <>
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2M12 20v2M22 12h-2M4 12H2M18.4 5.6 17 7M7 17l-1.4 1.4M18.4 18.4 17 17M7 7 5.6 5.6" />
-          </>
-        ) : (
-          <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
-        )}
-      </svg>
+      <ThemeIcon dark={dark} className="size-4" />
+    </button>
+  );
+}
+
+/** Theme row for the mobile More sheet: phones have no sidebar with the
+    toggle, and without this row the theme could not be switched at all. */
+function ThemeRow() {
+  const { dark, toggle } = useTheme();
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      className="flex w-full items-center gap-3 border-b border-line px-5 py-3.5 text-sm text-ink"
+    >
+      <span className="size-5 text-muted">
+        <ThemeIcon dark={dark} className="size-5" />
+      </span>
+      {dark ? t('Включить светлую тему') : t('Включить тёмную тему')}
     </button>
   );
 }
@@ -157,8 +181,11 @@ export function AppShell() {
           Липкая и со своим скроллом: на длинном списке задач страница
           прокручивается, а панель с разделами остаётся на месте. */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-line bg-surface px-4 py-6 md:sticky md:top-0 md:flex md:h-dvh md:overflow-y-auto 3xl:w-64">
-        <div className="mb-8 px-2">
+        {/* The theme toggle lives in the header: next to Sign out a missed
+            click cost a whole session — a price out of scale for the button */}
+        <div className="mb-8 flex items-center justify-between px-2">
           <span className="font-display text-lg font-bold tracking-tight text-ink">{t('Дом')}</span>
+          <ThemeToggle />
         </div>
 
         <div className="mb-4">
@@ -195,8 +222,7 @@ export function AppShell() {
             />
             <span className="min-w-0 flex-1 truncate text-sm text-ink">{user?.name}</span>
           </div>
-          <div className="flex items-center gap-2 px-2">
-            <ThemeToggle />
+          <div className="px-2">
             <button
               type="button"
               onClick={() => void logout()}
@@ -286,6 +312,8 @@ export function AppShell() {
                 {item.label}
               </NavLink>
             ))}
+
+            <ThemeRow />
 
             <div className="flex items-center justify-between px-5 py-3.5">
               <span className="text-sm text-muted">{user?.name}</span>

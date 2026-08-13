@@ -57,7 +57,7 @@ function SignInSection() {
     'rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition-colors hover:bg-surface-2';
 
   return (
-    <section className="mt-5 max-w-md rounded-card border border-line bg-surface p-5">
+    <section className="rounded-card border border-line bg-surface p-5">
       <h2 className="eyebrow mb-4">{t('Вход в учётку')}</h2>
 
       <div className="flex items-center justify-between gap-3">
@@ -181,7 +181,12 @@ export function Settings() {
 
   return (
     <Page title={t('Настройки')} eyebrow={t('Табло и виджеты')}>
-      <div className="max-w-md space-y-5 rounded-card border border-line bg-surface p-5">
+      {/* Two columns on wide screens: a single narrow ribbon left the right
+          half empty and forced scrolling. Below lg — one column of the old
+          max-w-md width (without the cap the forms stretched across the
+          whole max-w-4xl on tablets), same section order. */}
+      <div className="grid max-w-md items-start gap-5 lg:max-w-4xl lg:grid-cols-2">
+      <div className="space-y-5 rounded-card border border-line bg-surface p-5">
         {FIELDS.map((f) => (
           <label key={f.key} className="block">
             <span className="mb-1.5 block text-sm font-medium text-ink">{f.label}</span>
@@ -208,7 +213,8 @@ export function Settings() {
         </div>
       </div>
 
-      <section className="mt-5 max-w-md rounded-card border border-line bg-surface p-5">
+      <div className="space-y-5">
+      <section className="rounded-card border border-line bg-surface p-5">
         <h2 className="eyebrow mb-4">{t('Язык')} / Language</h2>
         <div className="flex gap-2">
           <button
@@ -260,7 +266,7 @@ export function Settings() {
       <SignInSection />
 
       {usage && (
-        <section className="mt-5 max-w-md rounded-card border border-line bg-surface p-5">
+        <section className="rounded-card border border-line bg-surface p-5">
           <h2 className="eyebrow mb-3">{t('Вложения')}</h2>
           <p className="text-sm text-ink">
             {usage.files} {plural(usage.files, 'файл', 'файла', 'файлов')} ·{' '}
@@ -281,7 +287,7 @@ export function Settings() {
       {user?.role === 'admin' && (
         <Link
           to="/users"
-          className="mt-5 block max-w-md rounded-card border border-line bg-surface px-5 py-4 text-sm text-ink hover:border-accent"
+          className="block rounded-card border border-line bg-surface px-5 py-4 text-sm text-ink hover:border-accent"
         >
           {t('Пользователи')}
           <span className="mt-1 block text-xs text-muted">
@@ -289,6 +295,8 @@ export function Settings() {
           </span>
         </Link>
       )}
+      </div>
+      </div>
     </Page>
   );
 }

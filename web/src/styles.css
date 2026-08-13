@@ -66,6 +66,24 @@
   --breakpoint-4xl: 160rem;
 }
 
+/*
+  Custom select arrow: the native glyph ignores the field's padding and
+  sticks to the right edge (and the OS recolors it on the dark theme).
+  #848f98 is picked as a middle tone readable on both themes; a CSS
+  variable cannot be passed into a data: URI — a CSS limitation.
+  The rule is DELIBERATELY outside @layer: Tailwind's layers lose to
+  unlayered CSS, otherwise padding-right would lose to a px-* utility on
+  a given select (which is exactly what happened inside @layer base).
+*/
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23848f98' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem;
+  padding-right: 1.875rem;
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
@@ -86,6 +104,7 @@
     outline-offset: 2px;
     border-radius: 2px;
   }
+
 
   /* Метки разделов: моноширинный, разрядка, верхний регистр.
      Служебный слой типографики, отделённый от контента. */
