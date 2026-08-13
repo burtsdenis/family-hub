@@ -1,7 +1,6 @@
 import { lang, setLang, t } from '../lib/i18n';
 import { setWeekStart, weekStart } from '../lib/format';
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useDialogs } from '../components/Dialog';
@@ -9,6 +8,7 @@ import { plural } from '../lib/format';
 import { Page } from '../components/Page';
 import { onEnter } from '../lib/keys';
 import { PALETTE, addToPalette, loadCustomPalette, removeFromPalette } from '../lib/palette';
+import { PeopleSection } from '../components/PeopleSection';
 
 /**
  * The hub's custom colors on top of the stock palette. The list also grows
@@ -357,18 +357,16 @@ export function Settings() {
         </section>
       )}
 
-      {user?.role === 'admin' && (
-        <Link
-          to="/users"
-          className="block rounded-card border border-line bg-surface px-5 py-4 text-sm text-ink hover:border-accent"
-        >
-          {t('Пользователи')}
-          <span className="mt-1 block text-xs text-muted">
-            {t('Завести учётку, сбросить пароль, отключить доступ')}
-          </span>
-        </Link>
-      )}
       </div>
+
+      {/* People management spans both columns: it is a rare-visit admin
+          block, wide lists inside, and user feedback asked for exactly
+          this instead of a dedicated navigation section */}
+      {user?.role === 'admin' && (
+        <div className="lg:col-span-2">
+          <PeopleSection />
+        </div>
+      )}
       </div>
     </Page>
   );
