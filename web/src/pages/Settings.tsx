@@ -255,8 +255,9 @@ export function Settings() {
       {/* Two columns on wide screens: a single narrow ribbon left the right
           half empty and forced scrolling. Below lg — one column of the old
           max-w-md width (without the cap the forms stretched across the
-          whole max-w-4xl on tablets), same section order. */}
-      <div className="grid max-w-md items-start gap-5 lg:max-w-4xl lg:grid-cols-2">
+          whole max-w-4xl on tablets), same section order. mx-auto because
+          a capped block hugs the left edge while every other page centers. */}
+      <div className="mx-auto grid max-w-md items-start gap-5 lg:max-w-4xl lg:grid-cols-2">
       <div className="space-y-5 rounded-card border border-line bg-surface p-5">
         {FIELDS.map((f) => (
           <label key={f.key} className="block">
