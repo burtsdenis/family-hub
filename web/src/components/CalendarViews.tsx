@@ -206,10 +206,10 @@ export function MonthView({ from, to, today, occurrences, tasks, onPickDay, onOp
 
   return (
     <div>
-      {/* Сетка месяца — 7 колонок на любом экране. Раньше на телефоне она
-          складывалась в одну колонку: месяц превращался в ленту из 35
-          пустых карточек высотой в пол-экрана. Теперь на телефоне ячейка
-          компактная — число и точки событий, тап открывает день. */}
+      {/* The month grid keeps 7 columns on every screen. It used to collapse
+          to a single column on phones: a month became a strip of ~35 empty
+          half-screen cards. On phones a cell is now compact — the day number
+          and event dots; a tap opens the day. */}
       <div className="mb-1 grid grid-cols-7 gap-1 sm:gap-2">
         {WEEKDAYS_SHORT.map((label) => (
           <span key={label} className="eyebrow px-1 text-center sm:text-left">
@@ -244,7 +244,7 @@ export function MonthView({ from, to, today, occurrences, tasks, onPickDay, onOp
                 </span>
               </span>
 
-              {/* Телефон: до трёх точек цвета календаря + точка задач */}
+              {/* Phones: up to three dots in calendar colors + a task dot */}
               <span className="flex min-h-2 items-center justify-center gap-0.5 pb-0.5 sm:hidden">
                 {items.slice(0, 3).map((o) => (
                   <span

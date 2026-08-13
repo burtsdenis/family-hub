@@ -27,20 +27,20 @@ interface NoteRow {
 const VISIBLE = "(n.visibility = 'shared' OR n.owner_id = ?)";
 
 /**
- * Превью заметки для списка: markdown-разметка вычищается, остаётся текст.
- * Разбирать markdown по-настоящему здесь незачем — превью живёт одну строку;
- * достаточно снять то, что бросается в глаза: картинки, ссылки, вики-ссылки,
- * маркеры списков и инлайновые значки.
+ * Note preview for the list: markdown syntax is stripped, text remains.
+ * A real markdown parser is overkill here — the preview lives on a single
+ * line; it is enough to remove what catches the eye: images, links,
+ * wiki-links, list markers and inline markers.
  */
 export function excerptOf(body: string): string {
   return body
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // картинки — целиком
-    .replace(/\[\[([^\]]+)\]\]/g, '$1') // [[вики-ссылка]] → её название
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // [ссылка](url) → текст
-    .replace(/^\s*(?:[-*+]|\d+\.)\s+(?:\[[ xX]\]\s*)?/gm, '') // маркеры списков и чекбоксы
-    .replace(/^\s*#{1,6}\s+/gm, '') // заголовки
-    .replace(/^\s*>\s?/gm, '') // цитаты
-    .replace(/[*_`~]/g, '') // жирный/курсив/код/зачёркнутое
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // images — whole
+    .replace(/\[\[([^\]]+)\]\]/g, '$1') // [[wiki-link]] → its title
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // [link](url) → text
+    .replace(/^\s*(?:[-*+]|\d+\.)\s+(?:\[[ xX]\]\s*)?/gm, '') // list markers and checkboxes
+    .replace(/^\s*#{1,6}\s+/gm, '') // headings
+    .replace(/^\s*>\s?/gm, '') // quotes
+    .replace(/[*_`~]/g, '') // bold/italic/code/strikethrough
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 120);
@@ -287,8 +287,8 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
       )
       .all(...args) as Record<string, unknown>[];
 
-    // Превью очищается от разметки здесь, а не в SQL: раньше запрос резал
-    // сырой markdown, и в списке торчали **звёздочки** и [[скобки]]
+    // The preview is cleaned here, not in SQL: the query used to cut raw
+    // markdown, and the list showed **asterisks** and [[brackets]]
     return rows.map((r) => ({ ...r, excerpt: excerptOf(String(r.excerpt ?? '')) }));
   });
 

@@ -266,9 +266,9 @@ export function Tasks() {
         )}
       </div>
 
-      {/* Быстрый ввод. flex-wrap обязателен: на телефоне строка целиком
-          не помещается, и без переноса селект с кнопкой распирали страницу
-          до горизонтального скролла */}
+      {/* Quick add. flex-wrap is mandatory: the row does not fit a phone
+          screen whole, and without wrapping the select and the button pushed
+          the page into a horizontal scroll */}
       {view === 'list' && !showArchived && (
         <div className="mb-4 flex flex-wrap gap-2">
           <input

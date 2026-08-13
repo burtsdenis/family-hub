@@ -66,19 +66,19 @@ describe('formatAmountInput → parseAmount: round-trip', () => {
 });
 
 describe('normalizeRule / describeRule', () => {
-  it('INTERVAL=1 сводится к канонической форме без интервала', () => {
-    // База и сидинг хранят с ;INTERVAL=1, интерфейс — без: формы эквивалентны
+  it('INTERVAL=1 reduces to the canonical interval-free form', () => {
+    // The db and seeding store ;INTERVAL=1, the UI goes without: equivalent forms
     expect(normalizeRule('FREQ=MONTHLY;INTERVAL=1')).toBe('FREQ=MONTHLY');
     expect(normalizeRule('freq=weekly;interval=1')).toBe('FREQ=WEEKLY');
     expect(normalizeRule('FREQ=MONTHLY;INTERVAL=3')).toBe('FREQ=MONTHLY;INTERVAL=3');
   });
 
-  it('не-RRULE возвращается как есть', () => {
+  it('non-RRULE strings pass through unchanged', () => {
     expect(normalizeRule('каждый вторник')).toBe('каждый вторник');
   });
 
-  it('описание не показывает сырой RRULE человеку', () => {
-    // Тесты идут с языком en (дефолт без localStorage)
+  it('the description never shows raw RRULE to a human', () => {
+    // Tests run with lang en (the default without localStorage)
     expect(describeRule('FREQ=MONTHLY;INTERVAL=1')).toBe('Every month');
     expect(describeRule('FREQ=MONTHLY')).toBe('Every month');
     expect(describeRule('FREQ=MONTHLY;INTERVAL=6')).toBe('Every 6 months');

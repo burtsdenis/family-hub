@@ -31,9 +31,9 @@ export function Page({
 }) {
   return (
     <div className={`mx-auto w-full ${WIDTH[width]} px-5 py-7 sm:px-8 sm:py-9 3xl:px-12`}>
-      {/* flex-wrap: на телефоне широкий блок действий (например,
-          переключатель видов календаря) переносится под заголовок,
-          а не обрезается краем экрана */}
+      {/* flex-wrap: on phones a wide action block (say, the calendar view
+          switcher) wraps below the title instead of being cut off by the
+          screen edge */}
       <header className="mb-7 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div>
           {eyebrow && <p className="eyebrow mb-1.5">{eyebrow}</p>}

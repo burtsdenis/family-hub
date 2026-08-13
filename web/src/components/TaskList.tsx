@@ -68,9 +68,9 @@ function TaskItem({
     <>
       <li
         className="group flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0"
-        // 1.5rem базы: стрелке (w-4, -ml-4) нужно место целиком внутри строки
-        // и воздух от края — с базой 1rem она начиналась на −4px и обрезалась
-        // карточкой, с 1.25rem стояла впритык к краю
+        // 1.5rem base: the chevron (w-4, -ml-4) needs to sit fully inside the
+        // row with some air from the edge — with a 1rem base it started at
+        // −4px and got clipped by the card, with 1.25rem it sat flush
         style={{ paddingLeft: `${1.5 + depth * 1.5}rem` }}
       >
         {node.children.length > 0 ? (
@@ -114,8 +114,8 @@ function TaskItem({
           </span>
         )}
 
-        {/* Приоритет — пилюлей, а не голым словом: без рамки и заливки
-            «HIGH» читался как случайная пометка, а не как приоритет */}
+        {/* Priority as a pill, not a bare word: without a border and tint
+            "HIGH" read as a stray mark rather than a priority */}
         {node.priority !== 'normal' && !closed && (
           <span
             className={`hidden shrink-0 items-center rounded-full border px-2 py-0.5 font-mono text-[0.625rem] tracking-wide uppercase sm:inline-flex ${
@@ -128,8 +128,8 @@ function TaskItem({
           </span>
         )}
 
-        {/* Исполнитель: на широком экране — имя целиком (буква «М» не
-            различает Марка и Марию, а место есть), на планшете — аватар */}
+        {/* Assignee: full name on wide screens (a single "M" cannot tell
+            Mark from Maria, and the space is there), avatar on tablets */}
         {node.assignee_name && (
           <>
             <span

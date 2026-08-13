@@ -143,8 +143,8 @@ function ThemeToggle() {
   );
 }
 
-/** Строка темы в мобильной шторке: сайдбара с тумблером на телефоне нет,
-    и без этой строки тему с телефона было не переключить вовсе. */
+/** Theme row for the mobile More sheet: phones have no sidebar with the
+    toggle, and without this row the theme could not be switched at all. */
 function ThemeRow() {
   const { dark, toggle } = useTheme();
   return (
@@ -181,8 +181,8 @@ export function AppShell() {
           Липкая и со своим скроллом: на длинном списке задач страница
           прокручивается, а панель с разделами остаётся на месте. */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-line bg-surface px-4 py-6 md:sticky md:top-0 md:flex md:h-dvh md:overflow-y-auto 3xl:w-64">
-        {/* Переключатель темы живёт в шапке: рядом с «Выйти» по нему
-            мисклики разлогинивали — цена промаха несоразмерна кнопке */}
+        {/* The theme toggle lives in the header: next to Sign out a missed
+            click cost a whole session — a price out of scale for the button */}
         <div className="mb-8 flex items-center justify-between px-2">
           <span className="font-display text-lg font-bold tracking-tight text-ink">{t('Дом')}</span>
           <ThemeToggle />

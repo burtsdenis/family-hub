@@ -486,9 +486,10 @@ export function Notes() {
         </p>
       )}
 
-      {/* minmax(0,…) и в базовой колонке: у grid-элементов min-width:auto,
-          и без нуля nowrap-превью заметок диктовало ширину колонки — на
-          телефоне список распирал страницу в горизонтальный скролл */}
+      {/* minmax(0,…) in the base column too: grid items default to
+          min-width:auto, and without the zero the nowrap note previews
+          dictated the column width — on phones the list pushed the page
+          into a horizontal scroll */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[20rem_minmax(0,1fr)] 2xl:grid-cols-[22rem_minmax(0,1fr)_20rem] 3xl:gap-6">
         <div className={note ? 'hidden lg:block' : ''}>
           <input

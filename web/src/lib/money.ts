@@ -237,11 +237,11 @@ const RULE_UNITS: Record<string, [string, string, string]> = {
 };
 
 /**
- * Каноническая форма правила: INTERVAL=1 опускается.
- * Сервер и сидинг хранят «FREQ=MONTHLY;INTERVAL=1», интерфейсные списки
- * оперируют «FREQ=MONTHLY» — формы эквивалентны, но строкового равенства
- * между ними нет, и без нормализации подпись показывала сырой RRULE,
- * а select редактирования не находил свою опцию.
+ * Canonical rule form: INTERVAL=1 is dropped.
+ * The server and seeding store "FREQ=MONTHLY;INTERVAL=1" while the UI lists
+ * operate on "FREQ=MONTHLY" — the forms are equivalent but not string-equal,
+ * and without normalization the label showed raw RRULE and the edit dialog's
+ * select could not find its option.
  */
 export function normalizeRule(rule: string): string {
   const m = /^FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)(?:;INTERVAL=(\d+))?$/.exec(
@@ -257,8 +257,8 @@ export function describeRule(rule: string): string {
   const known = RULE_LABEL[canonical];
   if (known) return known;
 
-  // Правило вне готового списка (например, «раз в 6 месяцев» из API) —
-  // собираем честное описание, а не показываем RRULE человеку
+  // A rule outside the preset list (say, "every 6 months" via the API) —
+  // build an honest description instead of showing RRULE to a human
   const m = /^FREQ=([A-Z]+);INTERVAL=(\d+)$/.exec(canonical);
   const units = m ? RULE_UNITS[m[1]!] : undefined;
   if (!m || !units) return rule;

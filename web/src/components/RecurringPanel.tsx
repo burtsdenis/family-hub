@@ -270,8 +270,8 @@ function RuleDialog({
     title: rule?.title ?? '',
     kind: rule?.kind ?? ('expense' as TxKind),
     start_on: rule?.start_on ?? today,
-    // Нормализация обязательна: правило из базы может быть в форме
-    // «FREQ=MONTHLY;INTERVAL=1», которой нет среди опций select
+    // Normalization is mandatory: the stored rule may come in the
+    // "FREQ=MONTHLY;INTERVAL=1" form that matches no select option
     recurrence_rule: normalizeRule(rule?.recurrence_rule ?? 'FREQ=MONTHLY'),
     account_id: rule?.account_id ?? accounts[0]!.id,
     amount: rule ? formatAmountInput(rule.amount) : '',

@@ -181,11 +181,10 @@ export function Settings() {
 
   return (
     <Page title={t('Настройки')} eyebrow={t('Табло и виджеты')}>
-      {/* Две колонки на широком экране: одна узкая лента оставляла пустой
-          правую половину и заставляла скроллить. На мобильном — колонка,
-          порядок секций тот же. */}
-      {/* До lg — одна колонка прежней ширины max-w-md, шире — две колонки:
-          без ограничения формы растягивались на всю max-w-4xl на планшете */}
+      {/* Two columns on wide screens: a single narrow ribbon left the right
+          half empty and forced scrolling. Below lg — one column of the old
+          max-w-md width (without the cap the forms stretched across the
+          whole max-w-4xl on tablets), same section order. */}
       <div className="grid max-w-md items-start gap-5 lg:max-w-4xl lg:grid-cols-2">
       <div className="space-y-5 rounded-card border border-line bg-surface p-5">
         {FIELDS.map((f) => (
