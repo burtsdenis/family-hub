@@ -5,11 +5,11 @@ export const STATUSES = ['backlog', 'todo', 'in_progress', 'done', 'cancelled'] 
 export type Status = (typeof STATUSES)[number];
 
 export const STATUS_LABEL: Record<Status, string> = {
-  backlog: t('Когда-нибудь'),
-  todo: t('К работе'),
-  in_progress: t('В работе'),
-  done: t('Готово'),
-  cancelled: t('Отменено'),
+  backlog: t('Someday'),
+  todo: t('To do'),
+  in_progress: t('In progress'),
+  done: t('Done'),
+  cancelled: t('Cancelled'),
 };
 
 /** Board columns. «Cancelled» is not shown on the board — it is an outcome, not a stage. */
@@ -19,34 +19,34 @@ export const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
-  low: t('Низкий'),
-  normal: t('Обычный'),
-  high: t('Высокий'),
-  urgent: t('Срочно'),
+  low: t('Low'),
+  normal: t('Normal'),
+  high: t('High'),
+  urgent: t('Urgent'),
 };
 
-export const LEVEL_LABEL = [t('Стори'), t('Задача'), t('Подзадача')] as const;
+export const LEVEL_LABEL = [t('Story'), t('Task'), t('Subtask')] as const;
 
 export const RECURRENCE_OPTIONS: { value: string; label: string }[] = [
-  { value: '', label: t('Не повторяется') },
-  { value: 'FREQ=DAILY', label: t('Каждый день') },
-  { value: 'FREQ=WEEKLY', label: t('Каждую неделю') },
-  { value: 'FREQ=WEEKLY;INTERVAL=2', label: t('Раз в две недели') },
-  { value: 'FREQ=MONTHLY', label: t('Каждый месяц') },
-  { value: 'FREQ=MONTHLY;INTERVAL=3', label: t('Раз в квартал') },
-  { value: 'FREQ=YEARLY', label: t('Каждый год') },
+  { value: '', label: t('Does not repeat') },
+  { value: 'FREQ=DAILY', label: t('Every day') },
+  { value: 'FREQ=WEEKLY', label: t('Every week') },
+  { value: 'FREQ=WEEKLY;INTERVAL=2', label: t('Every two weeks') },
+  { value: 'FREQ=MONTHLY', label: t('Every month') },
+  { value: 'FREQ=MONTHLY;INTERVAL=3', label: t('Every quarter') },
+  { value: 'FREQ=YEARLY', label: t('Every year') },
 ];
 
 /** The default project — the only one whose id is known in advance (migration 004). */
 export const INBOX_ID = '00000000-0000-4000-8000-000000000001';
 
 /**
- * Project title for display. «Входящие» (Inbox) is data, not UI: a
- * migration seeds it into the DB in Russian, so the t() dictionary never
- * sees it. One such project with a fixed id — translate in place.
+ * Project title for display. The Inbox is seeded data, not UI, so the t()
+ * dictionary never sees it. The project is unique and known by its fixed
+ * id — translate in place (English seed since migration 013).
  */
 export function projectTitle(id: string | null | undefined, title: string): string {
-  return id === INBOX_ID ? t('Входящие') : title;
+  return id === INBOX_ID ? t('Inbox') : title;
 }
 
 export interface TaskNode extends Task {
