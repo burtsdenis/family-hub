@@ -4,6 +4,7 @@ import { api, type HouseholdMember, type Project } from '../lib/api';
 import { REMIND_OPTIONS, calendarName, type Calendar, type Occurrence } from '../lib/calendar';
 import { RECURRENCE_OPTIONS } from '../lib/tasks';
 import { dialogKeys, onEnter } from '../lib/keys';
+import { clearBlankOnBlur } from '../lib/forms';
 import { timeOf } from '../lib/format';
 import { useDialogs } from './Dialog';
 
@@ -163,6 +164,7 @@ export function EventDialog({
               autoFocus
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+              onBlur={clearBlankOnBlur(() => setDraft({ ...draft, title: '' }))}
               onKeyDown={onEnter(() => void save())}
               className={field}
             />
@@ -190,6 +192,7 @@ export function EventDialog({
               <input
                 value={draft.location}
                 onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+                onBlur={clearBlankOnBlur(() => setDraft({ ...draft, location: '' }))}
                 className={field}
               />
             </label>
@@ -357,6 +360,7 @@ export function EventDialog({
               rows={3}
               value={draft.description}
               onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              onBlur={clearBlankOnBlur(() => setDraft({ ...draft, description: '' }))}
               className={`${field} resize-y`}
             />
           </label>

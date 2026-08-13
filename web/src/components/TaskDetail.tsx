@@ -10,6 +10,7 @@ import {
   LEVEL_LABEL,
 } from '../lib/tasks';
 import { dialogKeys, onEnter } from '../lib/keys';
+import { clearBlankOnBlur } from '../lib/forms';
 import { useDialogs } from './Dialog';
 
 const field =
@@ -123,6 +124,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
             <input
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+              onBlur={clearBlankOnBlur(() => setDraft({ ...draft, title: '' }))}
               onKeyDown={onEnter(() => void save())}
               className={field}
             />
@@ -134,6 +136,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
               rows={4}
               value={draft.description}
               onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              onBlur={clearBlankOnBlur(() => setDraft({ ...draft, description: '' }))}
               className={`${field} resize-y`}
             />
           </label>

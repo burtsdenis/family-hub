@@ -16,6 +16,11 @@
   Three state colors, no more: the UI must not turn motley.
 */
 :root {
+  /* Tells the browser which scheme native controls should render in:
+     without it, unchecked checkboxes (accent-color tints only the
+     checked state), select popups and scrollbars stay light on the
+     dark theme and pierce the surfaces. */
+  color-scheme: light;
   --c-surface: #f6f7f4;
   --c-surface-2: #eaece8;
   --c-surface-3: #dfe2dc;
@@ -29,6 +34,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --c-surface: #18232c;
   --c-surface-2: #101820;
   --c-surface-3: #22303a;

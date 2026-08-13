@@ -2,6 +2,7 @@ import { t } from '../lib/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { api, type HouseholdMember, type Project, type Task } from '../lib/api';
 import { onEnter } from '../lib/keys';
+import { clearBlankOnBlur } from '../lib/forms';
 import { TaskDetail } from './TaskDetail';
 import { INBOX_ID, projectTitle } from '../lib/tasks';
 
@@ -99,6 +100,7 @@ export function QuickAdd({ onAdded }: { onAdded: () => void }) {
               value={title}
               placeholder={t('Things to do')}
               onChange={(e) => setTitle(e.target.value)}
+              onBlur={clearBlankOnBlur(() => setTitle(''))}
               onKeyDown={onEnter(() => void submit())}
               className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
             />
