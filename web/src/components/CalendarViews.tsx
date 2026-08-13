@@ -206,15 +206,19 @@ export function MonthView({ from, to, today, occurrences, tasks, onPickDay, onOp
 
   return (
     <div>
-      <div className="mb-1 hidden grid-cols-7 gap-2 sm:grid">
+      {/* Сетка месяца — 7 колонок на любом экране. Раньше на телефоне она
+          складывалась в одну колонку: месяц превращался в ленту из 35
+          пустых карточек высотой в пол-экрана. Теперь на телефоне ячейка
+          компактная — число и точки событий, тап открывает день. */}
+      <div className="mb-1 grid grid-cols-7 gap-1 sm:gap-2">
         {WEEKDAYS_SHORT.map((label) => (
-          <span key={label} className="eyebrow px-1">
+          <span key={label} className="eyebrow px-1 text-center sm:text-left">
             {label}
           </span>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-7">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {days.map((date) => {
           const entry = grouped.get(date);
           const isToday = date === today;
@@ -225,12 +229,14 @@ export function MonthView({ from, to, today, occurrences, tasks, onPickDay, onOp
             <div
               key={date}
               onClick={() => onPickDay(date)}
-              className={`group min-h-24 cursor-pointer rounded-lg border p-1.5 text-left align-top transition-colors ${
+              className={`group cursor-pointer rounded-lg border p-1 text-left align-top transition-colors sm:min-h-24 sm:p-1.5 ${
                 isToday ? 'border-accent bg-accent-soft/30' : 'border-line bg-surface'
               } ${outside ? 'opacity-45' : ''} hover:border-accent`}
             >
-              <span className="mb-1 flex items-baseline justify-between gap-1">
-                <AddInDay date={date} onPickDay={onPickDay} />
+              <span className="mb-0.5 flex items-baseline justify-center gap-1 sm:mb-1 sm:justify-between">
+                <span className="hidden sm:inline-flex">
+                  <AddInDay date={date} onPickDay={onPickDay} />
+                </span>
                 <span
                   className={`font-mono text-xs ${isToday ? 'text-accent' : 'text-muted'}`}
                 >
@@ -238,7 +244,25 @@ export function MonthView({ from, to, today, occurrences, tasks, onPickDay, onOp
                 </span>
               </span>
 
-              <div className="space-y-0.5">
+              {/* Телефон: до трёх точек цвета календаря + точка задач */}
+              <span className="flex min-h-2 items-center justify-center gap-0.5 pb-0.5 sm:hidden">
+                {items.slice(0, 3).map((o) => (
+                  <span
+                    key={`${o.id}-${date}-dot`}
+                    className="size-1.5 rounded-full"
+                    style={{ backgroundColor: o.calendar_color }}
+                    aria-hidden
+                  />
+                ))}
+                {(entry?.tasks.length ?? 0) > 0 && (
+                  <span
+                    className="size-1.5 rounded-full bg-[var(--c-text-muted)]"
+                    aria-hidden
+                  />
+                )}
+              </span>
+
+              <div className="hidden space-y-0.5 sm:block">
                 {items.slice(0, 3).map((o) => (
                   <EventChip key={`${o.id}-${date}`} occurrence={o} onOpen={onOpen} compact />
                 ))}
