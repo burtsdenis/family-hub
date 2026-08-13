@@ -114,6 +114,21 @@ function useTheme() {
   return { dark, toggle: () => setDark((v) => !v) };
 }
 
+function ThemeIcon({ dark, className }: { dark: boolean; className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      {dark ? (
+        <>
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M22 12h-2M4 12H2M18.4 5.6 17 7M7 17l-1.4 1.4M18.4 18.4 17 17M7 7 5.6 5.6" />
+        </>
+      ) : (
+        <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
+      )}
+    </svg>
+  );
+}
+
 function ThemeToggle() {
   const { dark, toggle } = useTheme();
   return (
@@ -123,16 +138,25 @@ function ThemeToggle() {
       className="rounded-full border border-line p-2 text-muted transition-colors hover:text-ink"
       aria-label={dark ? t('Включить светлую тему') : t('Включить тёмную тему')}
     >
-      <svg viewBox="0 0 24 24" className="size-4" {...stroke}>
-        {dark ? (
-          <>
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2M12 20v2M22 12h-2M4 12H2M18.4 5.6 17 7M7 17l-1.4 1.4M18.4 18.4 17 17M7 7 5.6 5.6" />
-          </>
-        ) : (
-          <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
-        )}
-      </svg>
+      <ThemeIcon dark={dark} className="size-4" />
+    </button>
+  );
+}
+
+/** Строка темы в мобильной шторке: сайдбара с тумблером на телефоне нет,
+    и без этой строки тему с телефона было не переключить вовсе. */
+function ThemeRow() {
+  const { dark, toggle } = useTheme();
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      className="flex w-full items-center gap-3 border-b border-line px-5 py-3.5 text-sm text-ink"
+    >
+      <span className="size-5 text-muted">
+        <ThemeIcon dark={dark} className="size-5" />
+      </span>
+      {dark ? t('Включить светлую тему') : t('Включить тёмную тему')}
     </button>
   );
 }
@@ -288,6 +312,8 @@ export function AppShell() {
                 {item.label}
               </NavLink>
             ))}
+
+            <ThemeRow />
 
             <div className="flex items-center justify-between px-5 py-3.5">
               <span className="text-sm text-muted">{user?.name}</span>
