@@ -1,8 +1,17 @@
+# Docker's json-file driver keeps logs forever by default — cap them so
+# a home server that runs for months does not slowly fill its disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   app:
     build: .
     container_name: family-hub
     restart: unless-stopped
+    logging: *logging
     environment:
       NODE_ENV: production
       DATA_DIR: /data
@@ -25,6 +34,7 @@ services:
     image: caddy:2-alpine
     container_name: family-hub-caddy
     restart: unless-stopped
+    logging: *logging
     profiles:
       - https
     depends_on:

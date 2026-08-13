@@ -2,6 +2,14 @@
 # Launch: docker compose -f docker-compose.prod.yml up -d --build
 # Full step-by-step guide: docs/deploy-vps.md
 
+# Docker's json-file driver keeps logs forever by default — on a small
+# VPS they would quietly eat the disk. Every service caps its own logs.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   app:
     # The image is built in GitHub Actions and arrives ready-made
@@ -12,6 +20,7 @@ services:
     build: .
     container_name: family-hub
     restart: unless-stopped
+    logging: *logging
     environment:
       NODE_ENV: production
       DATA_DIR: /data
@@ -23,6 +32,8 @@ services:
       TRUST_PROXY: "true"
       # For the nightly backup inside the container (see docs/deploy-vps.md)
       AGE_RECIPIENT: ${AGE_RECIPIENT:-}
+      # Dead-man switch for that backup (see docs/deploy-vps.md, "Monitoring")
+      BACKUP_PING_URL: ${BACKUP_PING_URL:-}
       # Google sign-in (see docs/deploy-vps.md). Empty values disable the feature.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -39,6 +50,7 @@ services:
     image: caddy:2-alpine
     container_name: family-hub-caddy
     restart: unless-stopped
+    logging: *logging
     depends_on:
       - app
     ports:
