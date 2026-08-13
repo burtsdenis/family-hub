@@ -266,21 +266,23 @@ export function Tasks() {
         )}
       </div>
 
-      {/* Быстрый ввод */}
+      {/* Быстрый ввод. flex-wrap обязателен: на телефоне строка целиком
+          не помещается, и без переноса селект с кнопкой распирали страницу
+          до горизонтального скролла */}
       {view === 'list' && !showArchived && (
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex flex-wrap gap-2">
           <input
             value={newTitle}
             placeholder={projectId ? t('Новая задача в этом проекте') : t('Новая задача')}
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={onEnter(() => void addTask())}
-            className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:w-auto sm:flex-1"
           />
           {!projectId && (
             <select
               value={newProject}
               onChange={(e) => setNewProject(e.target.value)}
-              className={control}
+              className={`${control} min-w-0 flex-1 sm:flex-none`}
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
