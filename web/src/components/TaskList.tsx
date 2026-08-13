@@ -68,20 +68,23 @@ function TaskItem({
     <>
       <li
         className="group flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0"
-        style={{ paddingLeft: `${1 + depth * 1.5}rem` }}
+        // 1.5rem базы: стрелке (w-4, -ml-4) нужно место целиком внутри строки
+        // и воздух от края — с базой 1rem она начиналась на −4px и обрезалась
+        // карточкой, с 1.25rem стояла впритык к краю
+        style={{ paddingLeft: `${1.5 + depth * 1.5}rem` }}
       >
         {node.children.length > 0 ? (
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-label={expanded ? t('Свернуть') : t('Развернуть')}
-            className="-ml-5 w-4 text-muted transition-transform hover:text-ink"
+            className="-ml-4 w-4 text-muted transition-transform hover:text-ink"
             style={{ transform: expanded ? 'rotate(90deg)' : 'none' }}
           >
             ›
           </button>
         ) : (
-          <span className="-ml-5 w-4" aria-hidden />
+          <span className="-ml-4 w-4" aria-hidden />
         )}
 
         <input
