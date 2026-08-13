@@ -58,7 +58,7 @@ export interface Rule {
   created_count: number;
 }
 
-/** Панель ожидающих подтверждения — она же на странице операций. */
+/** Panel of items awaiting confirmation — also shown on the transactions page. */
 export function DuePanel({
   due,
   onChanged,

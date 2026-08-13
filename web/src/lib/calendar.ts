@@ -1,13 +1,13 @@
 import { t } from './i18n';
 
-/** Календарь по умолчанию — единственный с заранее известным id (миграция 006). */
+/** The default calendar — the only one with an id known in advance (migration 006). */
 export const SHARED_CALENDAR_ID = '00000000-0000-4000-8000-000000000201';
 
 /**
- * Имя календаря для показа. «Общий» — данные, а не интерфейс: он засеян
- * миграцией в базу по-русски, и словарь t() его не видит. Календарь один
- * и известен по фиксированному id — переводим на месте, как projectTitle
- * для «Входящих» в tasks.ts.
+ * Calendar name for display. «Общий» is data, not UI: a migration seeds it
+ * into the DB in Russian, so the t() dictionary never sees it. There is one
+ * such calendar with a fixed id — translate in place, same as projectTitle
+ * does for the Inbox in tasks.ts.
  */
 export function calendarName(id: string, name: string): string {
   return id === SHARED_CALENDAR_ID && name === 'Общий' ? t('Общий') : name;
@@ -29,7 +29,7 @@ export interface Participant {
   color: string;
 }
 
-/** Один экземпляр события: у повторяющейся серии их много. */
+/** One instance of an event: a recurring series has many. */
 export interface Occurrence {
   id: string;
   event_id: string;
@@ -69,9 +69,9 @@ export const REMIND_OPTIONS: { value: string; label: string }[] = [
 ];
 
 /**
- * Настройки вида хранятся на устройстве, а не в базе.
- * На стенде всегда неделя, на телефоне удобнее лента — и это разные
- * предпочтения одного и того же человека, а не одно общее.
+ * View settings live on the device, not in the DB.
+ * The kiosk always shows the week, the phone is better with the agenda —
+ * these are different preferences of the same person, not one shared one.
  */
 export function loadLocal<T>(key: string, fallback: T): T {
   try {
@@ -86,6 +86,6 @@ export function saveLocal(key: string, value: unknown): void {
   try {
     localStorage.setItem(`hub.calendar.${key}`, JSON.stringify(value));
   } catch {
-    // Приватный режим браузера может запрещать запись — не повод падать
+    // Private browsing may forbid writes — no reason to crash
   }
 }

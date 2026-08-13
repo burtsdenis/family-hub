@@ -23,7 +23,7 @@ const ROLE_LABEL: Record<ManagedUser['role'], string> = {
   kid: t('Ребёнок'),
 };
 
-/** Пароль показывается ровно один раз — дальше его знает только владелец. */
+/** The password is shown exactly once — after that only the owner knows it. */
 function PasswordOnce({ password, onClose }: { password: string; onClose: () => void }) {
   return (
     <div className="mb-5 rounded-card border border-accent bg-accent-soft p-4">
@@ -53,9 +53,9 @@ interface Invite {
 }
 
 /**
- * Приглашения по ссылке — основной путь добавить домочадца:
- * человек сам заполняет имя, логин и пароль, диктовать ничего не нужно.
- * Ссылка одноразовая, живёт неделю и показывается один раз.
+ * Invite links are the primary way to add a household member:
+ * the person fills in their own name, login and password — nothing to dictate.
+ * The link is single-use, lives a week and is shown once.
  */
 function InvitesBlock() {
   const [invites, setInvites] = useState<Invite[] | null>(null);
@@ -88,7 +88,7 @@ function InvitesBlock() {
       await navigator.clipboard.writeText(link);
       setCopied(true);
     } catch {
-      // Буфер недоступен (не-HTTPS или запрет) — ссылка на экране, скопируют руками
+      // Clipboard unavailable (non-HTTPS or denied) — the link is on screen, they'll copy it by hand
     }
   }
 

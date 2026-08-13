@@ -1,22 +1,22 @@
 import { en, enPlurals } from './i18n.en';
 
 /*
-  Интернационализация. Подход: русские строки — ключи словаря.
+  Internationalization. Approach: Russian strings are the dictionary keys.
 
-  В коде остаётся t('Сохранить'); английский словарь (i18n.en.ts) отдаёт
-  перевод, русский язык — тождество. Что это даёт:
+  Code keeps t('Сохранить'); the English dictionary (i18n.en.ts) supplies
+  the translation, Russian is the identity. What this buys:
 
-  — русская локаль полна по построению, словарь для неё не нужен;
-  — пропущенный в en-словаре ключ виден (покажется по-русски),
-    но ничего не ломает;
-  — ошибки сервера переводятся той же t() в одной точке (lib/api.ts):
-    сервер шлёт русский текст, клиент показывает на языке интерфейса.
+  — the Russian locale is complete by construction, no dictionary needed;
+  — a key missing from the en dictionary is visible (shows up in Russian)
+    but breaks nothing;
+  — server errors are translated by the same t() in one place (lib/api.ts):
+    the server sends Russian text, the client shows it in the UI language.
 
-  Язык — настройка устройства (localStorage), а не учётки: телефон жены
-  и общий стенд могут говорить на разных языках. По умолчанию английский.
-  Смена языка перезагружает страницу: это одноразовое действие,
-  и перезагрузка избавляет от реактивной обвязки — t() остаётся
-  чистой функцией, пригодной и вне React.
+  Language is a device setting (localStorage), not an account one: the
+  wife's phone and a shared kiosk may speak different languages. Default is
+  English. Switching languages reloads the page: it is a one-off action,
+  and the reload removes the need for reactive plumbing — t() stays a pure
+  function, usable outside React too.
 */
 
 export type Lang = 'en' | 'ru';
@@ -34,10 +34,10 @@ function readLang(): Lang {
 
 export const lang: Lang = readLang();
 
-// Атрибуты документа — под выбранный язык. index.html статически заявляет
-// английский (язык по умолчанию), здесь он уточняется по факту: заголовок
-// вкладки и lang для читалок должны совпадать с языком интерфейса.
-// Проверка на document — модуль импортируется и в Node (тесты).
+// Document attributes follow the chosen language. index.html statically
+// declares English (the default); here it is corrected to the actual one:
+// the tab title and lang for screen readers must match the UI language.
+// The document check is because the module is also imported in Node (tests).
 if (typeof document !== 'undefined') {
   document.documentElement.lang = lang;
   document.title = lang === 'ru' ? 'Дом' : 'Family Hub';
@@ -47,12 +47,12 @@ export function setLang(next: Lang): void {
   try {
     localStorage.setItem(STORAGE_KEY, next);
   } catch {
-    // Приватный режим без localStorage — язык просто не запомнится
+    // Private mode without localStorage — the language just won't stick
   }
   window.location.reload();
 }
 
-/** Перевод строки. Подстановки — {name} из params. */
+/** Translate a string. Substitutions: {name} from params. */
 export function t(key: string, params?: Record<string, string | number>): string {
   let out = lang === 'ru' ? key : (en[key] ?? key);
   if (params) {
@@ -64,8 +64,8 @@ export function t(key: string, params?: Record<string, string | number>): string
 }
 
 /**
- * Множественное число. Формы задаются русской тройкой (день/дня/дней) —
- * она же ключ для английской пары в enPlurals.
+ * Pluralization. Forms are given as the Russian triple (день/дня/дней) —
+ * which doubles as the key for the English pair in enPlurals.
  */
 export function tPlural(n: number, forms: [string, string, string]): string {
   if (lang === 'ru') {
@@ -80,5 +80,5 @@ export function tPlural(n: number, forms: [string, string, string]): string {
   return n === 1 ? pair[0] : pair[1];
 }
 
-/** Локаль для Intl-форматтеров дат и чисел. */
+/** Locale for Intl date and number formatters. */
 export const intlLocale = lang === 'ru' ? 'ru-RU' : 'en-GB';

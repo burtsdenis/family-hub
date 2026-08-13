@@ -1,13 +1,13 @@
--- Деньги: счета, категории, операции.
+-- Money: accounts, categories, transactions.
 
 /*
-  Суммы хранятся в минорных единицах целым числом: 1234.56 → 123456.
-  Числа с плавающей точкой для денег дают ошибки округления, которые
-  копятся в суммах и в итоге расходятся с банком на копейки, а потом
-  на рубли. Обратно в рубли и евро переводим только при отображении.
+  Amounts are stored as integers in minor units: 1234.56 → 123456.
+  Floating point for money produces rounding errors that accumulate
+  across sums and eventually drift from the bank by cents, then by
+  whole units. Conversion back to major units happens only on display.
 
-  Валюта живёт на счёте. Валюты между собой не связаны: курса нет,
-  общего итога нет, суммируем строго внутри одной валюты.
+  Currency lives on the account. Currencies are unrelated: no exchange
+  rate, no grand total, sums are computed strictly within one currency.
 */
 
 CREATE TABLE accounts (
@@ -17,7 +17,7 @@ CREATE TABLE accounts (
   kind            TEXT NOT NULL DEFAULT 'card'
                   CHECK (kind IN ('cash', 'card', 'savings')),
   opening_balance INTEGER NOT NULL DEFAULT 0,
-  -- owner_id пусто + shared=1 → общий счёт; owner_id задан + shared=0 → личный
+  -- owner_id empty + shared=1 → shared account; owner_id set + shared=0 → personal
   owner_id        TEXT REFERENCES users(id) ON DELETE SET NULL,
   shared          INTEGER NOT NULL DEFAULT 1,
   color           TEXT NOT NULL DEFAULT '#1F6E8C',
@@ -41,14 +41,15 @@ CREATE TABLE categories (
 CREATE INDEX idx_categories_kind ON categories(kind);
 
 /*
-  Одна таблица на траты, доходы и переводы.
+  One table for expenses, income and transfers.
 
-  expense:  account_id, amount            → остаток account_id уменьшается
-  income:   account_id, amount            → остаток account_id увеличивается
+  expense:  account_id, amount            → account_id balance decreases
+  income:   account_id, amount            → account_id balance increases
   transfer: account_id, amount + to_account_id, to_amount
 
-  У перевода две суммы, а не одна: счета могут быть в разных валютах,
-  и курса у нас нет. Сколько ушло и сколько пришло — вводится руками.
+  A transfer has two amounts, not one: the accounts may be in different
+  currencies, and we have no exchange rate. What left and what arrived
+  is entered by hand.
 */
 CREATE TABLE transactions (
   id              TEXT PRIMARY KEY,
@@ -65,7 +66,7 @@ CREATE TABLE transactions (
   created_at      TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
 
-  -- Перевод обязан иметь вторую сторону, трата и доход — не должны
+  -- A transfer must have a second side, expense and income must not
   CHECK (
     (kind = 'transfer' AND to_account_id IS NOT NULL AND to_amount > 0)
     OR (kind <> 'transfer' AND to_account_id IS NULL AND to_amount IS NULL)
@@ -77,7 +78,7 @@ CREATE INDEX idx_tx_account ON transactions(account_id);
 CREATE INDEX idx_tx_to_account ON transactions(to_account_id);
 CREATE INDEX idx_tx_category ON transactions(category_id);
 
--- Сверка: фактический остаток из банка на дату. Расхождение считается на лету.
+-- Reconciliation: actual bank balance on a date. The discrepancy is computed on the fly.
 CREATE TABLE reconciliations (
   id             TEXT PRIMARY KEY,
   account_id     TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -89,6 +90,6 @@ CREATE TABLE reconciliations (
 );
 CREATE INDEX idx_reconciliations_account ON reconciliations(account_id, checked_on DESC);
 
--- Чеки прикладываются к операции той же машинерией, что вложения к заметкам
+-- Receipts attach to a transaction via the same machinery as note attachments
 ALTER TABLE attachments ADD COLUMN transaction_id TEXT REFERENCES transactions(id) ON DELETE CASCADE;
 CREATE INDEX idx_attachments_transaction ON attachments(transaction_id);

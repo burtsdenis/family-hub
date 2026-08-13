@@ -73,7 +73,7 @@ const NAV: NavItem[] = [
   },
 ];
 
-/** Разделы, которым место не в основном ряду. */
+/** Sections that don't belong in the main row. */
 const SECONDARY: NavItem[] = [
   {
     to: '/settings',
@@ -151,19 +151,19 @@ function ThemeRow() {
 
 export function AppShell() {
   const { user, logout } = useAuth();
-  // Задача, добавленная из любого места, должна сразу появиться в открытом разделе
+  // A task added from anywhere must show up immediately in the open section
   const [refreshKey, setRefreshKey] = useState(0);
-  // Поиском управляет оболочка: на телефоне его открывает нижняя панель,
-  // а боковой панели там нет вовсе.
+  // Search is owned by the shell: on the phone it's opened from the bottom bar,
+  // and there is no sidebar there at all.
   const [searchOpen, setSearchOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const sidebarNav = [...NAV, ...SECONDARY];
 
   return (
     <div className="min-h-dvh md:flex">
-      {/* Боковая навигация: ноутбук и стенд.
-          Липкая и со своим скроллом: на длинном списке задач страница
-          прокручивается, а панель с разделами остаётся на месте. */}
+      {/* Sidebar navigation: laptop and kiosk.
+          Sticky with its own scroll: on a long task list the page
+          scrolls while the section panel stays put. */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-line bg-surface px-4 py-6 md:sticky md:top-0 md:flex md:h-dvh md:overflow-y-auto 3xl:w-64">
         {/* The theme toggle lives in the header: next to Sign out a missed
             click cost a whole session — a price out of scale for the button */}
@@ -218,14 +218,14 @@ export function AppShell() {
         </div>
       </aside>
 
-      {/* Контент */}
+      {/* Content */}
       <main className="flex-1 pb-20 md:pb-0">
         <Outlet key={refreshKey} />
       </main>
 
       <QuickAdd onAdded={() => setRefreshKey((k) => k + 1)} />
 
-      {/* Нижняя навигация: телефон */}
+      {/* Bottom navigation: phone */}
       <nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-6 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
         {NAV.map((item) => (
           <NavLink
@@ -244,7 +244,7 @@ export function AppShell() {
           </NavLink>
         ))}
 
-        {/* Шестым пунктом — всё, что не влезло: поиск, настройки, пользователи */}
+        {/* Sixth item holds everything that didn't fit: search, settings, users */}
         <button
           type="button"
           onClick={() => setMoreOpen((v) => !v)}

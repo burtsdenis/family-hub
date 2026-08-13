@@ -32,14 +32,14 @@ const chip = 'rounded-full border px-3 py-1.5 text-sm transition-colors';
 const chipOn = 'border-accent bg-accent-soft text-accent';
 const chipOff = 'border-line text-muted hover:text-ink';
 
-/** Границы запроса для выбранного вида. */
+/** Request bounds for the selected view. */
 function rangeFor(view: CalendarView, anchor: string): { from: string; to: string } {
   if (view === 'week') {
     const from = startOfWeek(anchor);
     return { from, to: addDays(from, 6) };
   }
   if (view === 'month') {
-    // Сетка месяца показывает и хвосты соседних месяцев
+    // The month grid also shows the tails of adjacent months
     return { from: startOfWeek(startOfMonth(anchor)), to: addDays(startOfWeek(endOfMonth(anchor)), 6) };
   }
   return { from: anchor, to: addDays(anchor, 45) };
@@ -82,7 +82,7 @@ export function Calendar() {
           ? api.get<Task[]>(`/tasks?due_after=${from}&due_before=${to}&include_done=true`)
           : Promise.resolve([]),
       ]);
-      // Пока ждали, диапазон мог смениться — тогда этот ответ уже не нужен
+      // The range may have changed while waiting — then this response is stale
       if (!fresh()) return;
       setOccurrences(events);
       setTasks(dueTasks);
@@ -103,7 +103,7 @@ export function Calendar() {
     void load();
   }, [load]);
 
-  // Переход из общего поиска: /calendar?date=<ГГГГ-ММ-ДД>
+  // Arriving from global search: /calendar?date=<YYYY-MM-DD>
   useEffect(() => {
     const date = params.get('date');
     if (!date) return;
@@ -160,7 +160,7 @@ export function Calendar() {
         </div>
       }
     >
-      {/* Навигация */}
+      {/* Navigation */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1">
           <button
@@ -199,7 +199,7 @@ export function Calendar() {
         </button>
       </div>
 
-      {/* Слои */}
+      {/* Layers */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {calendars.map((c) => {
           const on = !hidden.includes(c.id);

@@ -1,5 +1,5 @@
--- Проект по умолчанию: у быстрого добавления всегда должно быть куда положить
--- задачу, даже когда ни одного проекта ещё не завели.
+-- Default project: quick-add must always have somewhere to put a task,
+-- even when no projects have been created yet.
 INSERT INTO projects (id, title, description, color, icon, position)
 VALUES (
   '00000000-0000-4000-8000-000000000001',

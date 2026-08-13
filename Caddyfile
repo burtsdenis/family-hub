@@ -1,5 +1,5 @@
-# Имя берётся из переменной HUB_HOST — править этот файл руками не нужно.
-# Сертификат выпускает scripts/setup-https.sh, в интернет за ним не ходим.
+# The name comes from the HUB_HOST variable — no need to hand-edit this file.
+# The certificate is issued by scripts/setup-https.sh, no internet involved.
 
 {$HUB_HOST:hub.local} {
 	tls /certs/hub.pem /certs/hub-key.pem
@@ -7,7 +7,7 @@
 	reverse_proxy app:8787
 }
 
-# Тот же сертификат по IP — на случай, когда имя не разрешается
+# The same certificate over the IP — for when the name doesn't resolve
 :443 {
 	tls /certs/hub.pem /certs/hub-key.pem
 	encode zstd gzip

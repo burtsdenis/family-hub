@@ -1,18 +1,18 @@
--- Вход через Google.
+-- Sign-in with Google.
 --
--- google_sub — постоянный идентификатор гугл-аккаунта (claim `sub`).
--- Привязка только по нему: email у Google можно сменить, sub — никогда.
--- Учётки по Google не создаются: хаб семейный, состав известен,
--- чужой аккаунт при входе получает отказ.
+-- google_sub — the permanent Google account identifier (claim `sub`).
+-- Linking goes by it alone: a Google email can change, sub never does.
+-- No accounts are created via Google: the hub is for a family, membership
+-- is known, a foreign account is refused at sign-in.
 --
--- password_login_disabled — добровольный отказ от парольного входа после
--- привязки Google. Инварианты держит сервер: отключить пароль можно только
--- при привязанном Google и никогда — администратору (его пароль — аварийный
--- вход на случай, когда Google недоступен или привязка сломалась).
--- Сброс пароля администратором включает парольный вход обратно.
+-- password_login_disabled — voluntary opt-out of password login after
+-- linking Google. The server holds the invariants: password can be disabled
+-- only with Google linked and never for the admin (their password is the
+-- emergency entrance for when Google is down or the link is broken).
+-- An admin password reset turns password login back on.
 
 ALTER TABLE users ADD COLUMN google_sub TEXT;
 ALTER TABLE users ADD COLUMN password_login_disabled INTEGER NOT NULL DEFAULT 0;
 
--- Один гугл-аккаунт — одна учётка
+-- One Google account — one user account
 CREATE UNIQUE INDEX idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL;

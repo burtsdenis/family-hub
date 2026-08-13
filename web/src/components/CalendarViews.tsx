@@ -34,7 +34,7 @@ function groupByDate(occurrences: Occurrence[], tasks: Task[]) {
   };
 
   for (const o of occurrences) {
-    // Многодневное событие показываем в каждом его дне
+    // A multi-day event is shown on each of its days
     let cursor = o.date;
     const last = o.ends_at.slice(0, 10);
     for (let guard = 0; cursor <= last && guard < 400; guard++) {
@@ -48,7 +48,7 @@ function groupByDate(occurrences: Occurrence[], tasks: Task[]) {
   return map;
 }
 
-/** Кружки участников: без них выбор «кто идёт» не виден нигде, кроме карточки. */
+/** Attendee circles: without them the "who's going" choice is invisible outside the card. */
 function Participants({
   people,
   compact,
@@ -74,7 +74,7 @@ function Participants({
   );
 }
 
-/** Одна плашка события. Цвет всегда от календаря, проект — точкой. */
+/** One event chip. Color always comes from the calendar; the project is a dot. */
 function EventChip({
   occurrence,
   onOpen,
@@ -110,7 +110,7 @@ function EventChip({
   );
 }
 
-/** Кнопка добавления в клетке дня: щелчок по самой клетке — не для клавиатуры. */
+/** Add button inside a day cell: clicking the cell itself isn't keyboard-friendly. */
 function AddInDay({ date, onPickDay }: { date: string; onPickDay: (d: string) => void }) {
   return (
     <button
@@ -148,7 +148,7 @@ function TaskChip({ task, compact }: { task: Task; compact?: boolean }) {
   );
 }
 
-// ── Неделя ────────────────────────────────────────────────────────────────
+// ── Week ──────────────────────────────────────────────────────────────────
 
 export function WeekView({ from, today, occurrences, tasks, onPickDay, onOpen }: ViewProps) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(from), i));
@@ -194,7 +194,7 @@ export function WeekView({ from, today, occurrences, tasks, onPickDay, onOpen }:
   );
 }
 
-// ── Месяц ─────────────────────────────────────────────────────────────────
+// ── Month ─────────────────────────────────────────────────────────────────
 
 export function MonthView({ from, to, today, occurrences, tasks, onPickDay, onOpen }: ViewProps) {
   const grouped = groupByDate(occurrences, tasks);
@@ -283,7 +283,7 @@ export function MonthView({ from, to, today, occurrences, tasks, onPickDay, onOp
   );
 }
 
-// ── День и лента ──────────────────────────────────────────────────────────
+// ── Day and agenda ────────────────────────────────────────────────────────
 
 export function AgendaView({ from, to, today, occurrences, tasks, onPickDay, onOpen }: ViewProps) {
   const grouped = groupByDate(occurrences, tasks);

@@ -35,7 +35,7 @@ const inputClass =
 const buttonClass =
   'w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50';
 
-/** Сообщения после возврата от Google — код приезжает в ?google= */
+/** Messages after returning from Google — the code arrives in ?google= */
 const GOOGLE_MESSAGES: Record<string, string> = {
   not_linked:
     t('Этот Google-аккаунт не привязан ни к одной учётке. Войдите по паролю и привяжите его в настройках.'),
@@ -50,7 +50,7 @@ export function Login() {
   const [busy, setBusy] = useState(false);
   const [googleAvailable, setGoogleAvailable] = useState(false);
   const [demo, setDemo] = useState(false);
-  // null — ещё выясняем; false — пустая база, показываем первичную настройку
+  // null — still finding out; false — empty DB, show the first-run setup
   const [initialized, setInitialized] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export function Login() {
         setDemo(Boolean(s.demo));
       })
       .catch(() => setInitialized(true));
-    // Итог захода через Google приходит редиректом с кодом в адресе
+    // The outcome of a Google sign-in arrives as a redirect with a code in the URL
     const code = new URLSearchParams(window.location.search).get('google');
     if (code && GOOGLE_MESSAGES[code]) {
       setError(GOOGLE_MESSAGES[code]);
@@ -83,7 +83,7 @@ export function Login() {
     }
   }
 
-  // Пришли по пригласительной ссылке — форма регистрации вместо входа
+  // Arrived via an invite link — registration form instead of login
   if (window.location.pathname === '/join') {
     return <Join />;
   }
@@ -102,7 +102,7 @@ export function Login() {
   if (initialized === null) return null;
   if (!initialized) return <Setup />;
 
-  // Демо: пароля нет, сервер выдаёт каждому личную песочницу по кнопке
+  // Demo: no password, the server hands everyone a personal sandbox at the press of a button
   if (demo) {
     return (
       <Frame title={t('Демо')} hint={t('Семейный хаб')}>
@@ -193,8 +193,8 @@ export function Login() {
 }
 
 /**
- * Первичная настройка: база пуста, создаётся первая учётка — администратор.
- * Пароли в журналах сервера больше не печатаются.
+ * First-run setup: the DB is empty, the first account being created is
+ * the admin. Passwords are no longer printed in the server logs.
  */
 function Setup() {
   const [name, setName] = useState('');
@@ -250,10 +250,10 @@ function Setup() {
   );
 }
 
-/** Вход по пригласительной ссылке: /join?token=... */
+/** Signup via an invite link: /join?token=... */
 function Join() {
   const token = new URLSearchParams(window.location.search).get('token') ?? '';
-  // null — проверяем ссылку; дальше либо форма, либо объяснение
+  // null — validating the link; then either the form or an explanation
   const [valid, setValid] = useState<boolean | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

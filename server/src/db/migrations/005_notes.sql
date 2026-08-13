@@ -1,16 +1,16 @@
--- Заметки: доработки к исходной схеме.
+-- Notes: refinements to the initial schema.
 
--- Заметка может быть шаблоном; поле template_id из первой версии схемы
--- не пригодилось — шаблон применяется при создании, а не привязывается навсегда.
+-- A note can be a template; the template_id field from the first schema
+-- version proved useless — a template is applied at creation, not bound forever.
 ALTER TABLE notes ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0;
 
 CREATE INDEX idx_notes_owner ON notes(owner_id);
 CREATE INDEX idx_notes_visibility ON notes(visibility);
 CREATE INDEX idx_notes_template ON notes(is_template) WHERE is_template = 1;
 
--- Пара шаблонов на старте, чтобы механика была видна сразу.
--- На английском: язык данных свежего инсталла. Заметка дня ищет свой
--- шаблон по названию 'Day' (и 'День' — для баз, живших до перевода).
+-- A couple of starter templates so the mechanic is visible right away.
+-- In English: the data language of a fresh install. The daily note looks up
+-- its template by title 'Day' (and 'День' — for databases predating the translation).
 INSERT INTO notes (id, title, body_md, visibility, is_template) VALUES
   (
     '00000000-0000-4000-8000-000000000101',

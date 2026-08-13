@@ -1,17 +1,16 @@
 /**
- * Свой журнал вместо pino.
+ * Our own logger instead of pino.
  *
- * Fastify по умолчанию пишет строку JSON на каждый запрос, включая pid и
- * hostname. На домашнем сервере, который опрашивается стендом раз в минуту,
- * это гигабайты бесполезного вывода и полная невозможность заметить в нём
- * настоящую ошибку.
+ * Fastify writes a JSON line per request by default, pid and hostname
+ * included. On a home server polled by a dashboard once a minute, that is
+ * gigabytes of useless output and no chance of spotting a real error in it.
  *
- * Уровень задаётся переменной LOG_LEVEL, по умолчанию warn.
+ * The level comes from the LOG_LEVEL variable, default warn.
  */
 
 declare module 'fastify' {
   interface FastifyRequest {
-    /** Обработчик ошибок уже записал строку — хук ответа не дублирует. */
+    /** The error handler already wrote a line — the response hook won't duplicate it. */
     errorLogged?: boolean;
   }
 }
@@ -62,18 +61,18 @@ export const log = {
   error: (...parts: unknown[]) => write('error', 'ERROR', parts),
 
   /**
-   * Сообщения, которые печатаются независимо от уровня.
+   * Messages printed regardless of the level.
    *
-   * Только для разовых событий, без которых система непригодна к
-   * использованию: выданный при первом запуске пароль администратора
-   * восстановить нельзя, а применённые миграции — единственный след того,
-   * что база изменилась. Обычным сообщениям здесь места нет.
+   * Only for one-off events the system is unusable without: the admin
+   * password issued on first start cannot be recovered, and applied
+   * migrations are the only trace that the database changed.
+   * Ordinary messages have no place here.
    */
   notice: (...parts: unknown[]) => {
     process.stdout.write(`${stamp()} ${parts.map(render).join(' ')}\n`);
   },
 
-  /** Многострочный блок без метки времени — для приветственных сообщений. */
+  /** A multi-line block without a timestamp — for welcome messages. */
   block: (lines: string[]) => {
     process.stdout.write(`${lines.join('\n')}\n`);
   },

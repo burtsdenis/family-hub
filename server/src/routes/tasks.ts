@@ -37,7 +37,7 @@ const createInput = z.object({
 
 const patchInput = createInput.partial().omit({ project_id: true });
 
-/** Глубина поддерева относительно самой задачи: 0 — детей нет. */
+/** Subtree depth relative to the task itself: 0 — no children. */
 function subtreeDepth(taskId: string): number {
   const row = db
     .prepare(
@@ -217,7 +217,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'Правило повтора не разобрать' });
     }
 
-    // Смена родителя пересчитывает уровень всего поддерева
+    // A parent change recomputes the level of the whole subtree
     let levelDelta = 0;
     if (d.parent_id !== undefined && d.parent_id !== task.parent_id) {
       let newLevel = 0;
@@ -263,10 +263,10 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
     });
     run();
 
-    // Повторяющаяся задача при закрытии порождает следующую
+    // A recurring task spawns the next one when closed
     let spawned: unknown = null;
     if (d.status === 'done' && task.recurrence_rule && task.due_date) {
-      // Начало серии — исходная задача, от неё и считаем.
+      // The series starts at the original task — that is what we count from.
       const rootId = task.recurrence_parent_id ?? taskId;
       const root = db.prepare('SELECT due_date FROM tasks WHERE id = ?').get(rootId) as
         | { due_date: string | null }
@@ -304,10 +304,10 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /**
-   * Порядок задаётся списком идентификаторов целиком.
-   * Проще и надёжнее, чем вычислять дробные позиции между соседями:
-   * на домашних объёмах переписать полсотни строк ничего не стоит,
-   * зато позиции не расползаются со временем.
+   * The order is given as the full list of ids.
+   * Simpler and sturdier than computing fractional positions between
+   * neighbors: at household volumes rewriting fifty rows costs nothing,
+   * and positions never smear apart over time.
    */
   app.post('/api/tasks/reorder', (req, reply) => {
     const parsed = z.object({ ids: z.array(z.string().uuid()).max(500) }).safeParse(req.body);

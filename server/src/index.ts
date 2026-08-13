@@ -24,19 +24,19 @@ import { authenticate, announceSetupIfEmpty, pruneSessions } from './lib/auth.js
 import { log, logLevel } from './lib/log.js';
 
 const app = Fastify({
-  // Встроенный журнал выключен целиком: он пишет строку JSON на каждый запрос,
-  // и на домашнем сервере это шум, в котором не видно настоящих ошибок.
-  // При logger: false отдельно отключать запись запросов не нужно.
+  // The built-in logger is off entirely: it writes a JSON line per request,
+  // and on a home server that is noise drowning out real errors.
+  // With logger: false there is no need to disable request logging separately.
   logger: false,
   trustProxy: env.trustProxy,
 });
 
 /*
-  В журнал никогда не попадают значения query-параметров: там живут
-  секреты — токен приглашения (?token=), код и state OAuth-возврата.
-  Неудачная проверка приглашения — это 404 на уровне warn, и без маскировки
-  секрет оказывался в логе по умолчанию. Имена параметров оставляем:
-  для диагностики важно «с каким параметром пришли», не «с каким значением».
+  Query parameter values never reach the log: that is where secrets live —
+  the invite token (?token=), the OAuth callback code and state.
+  A failed invite check is a 404 at warn level, and without masking
+  the secret ended up in the log by default. Parameter names are kept:
+  for diagnostics "which parameter came in" matters, not "with which value".
 */
 export function redactUrl(url: string): string {
   const q = url.indexOf('?');
@@ -47,12 +47,12 @@ export function redactUrl(url: string): string {
 }
 
 /*
-  Пишем сами и только то, что стоит внимания:
-  ошибки сервера — на уровне error, отказы клиента — warn,
-  всё остальное — debug и по умолчанию не показывается.
+  We log ourselves and only what deserves attention:
+  server errors at error level, client rejections at warn,
+  everything else at debug, hidden by default.
 */
 app.addHook('onResponse', (req, reply, done) => {
-  // Обработчик ошибок уже написал подробную строку — не повторяемся
+  // The error handler already wrote a detailed line — don't repeat it
   if (req.errorLogged) return done();
 
   const status = reply.statusCode;
@@ -66,8 +66,8 @@ app.addHook('onResponse', (req, reply, done) => {
 app.setErrorHandler((err: FastifyError, req, reply) => {
   req.errorLogged = true;
 
-  // Некорректные параметры в пути или строке запроса — это ошибка клиента.
-  // Раньше такое падало пятисоткой и попадало в журнал как ошибка сервера.
+  // Bad parameters in the path or query string are a client error.
+  // This used to blow up as a 500 and land in the log as a server error.
   if (err instanceof ZodError) {
     log.warn(`400 ${req.method} ${redactUrl(req.url)}`, err.issues[0]?.message ?? '');
     return reply.code(400).send({ error: 'Некорректные параметры запроса' });
@@ -85,10 +85,10 @@ app.setErrorHandler((err: FastifyError, req, reply) => {
 migrate();
 pruneSessions();
 
-// Прод без Secure-куки — почти наверняка забытый флаг, а не намерение:
-// сессионная кука тогда поедет и по нешифрованному каналу
+// Production without Secure cookies is almost certainly a forgotten flag,
+// not intent: the session cookie would then travel over plaintext too
 if (env.isProd && !env.secureCookies && !env.demoMode) {
-  log.warn('NODE_ENV=production без SECURE_COOKIES=true — включите после настройки HTTPS');
+  log.warn('NODE_ENV=production without SECURE_COOKIES=true — enable it once HTTPS is set up');
 }
 if (env.demoMode) {
   const { initDemo } = await import('./lib/sandbox.js');
@@ -100,13 +100,14 @@ if (env.demoMode) {
 await app.register(fastifyCookie);
 
 /*
-  Демо: направляем запрос в песочницу посетителя. Хук стоит сразу после
-  разбора кук и оборачивает остаток обработки в контекст её базы
-  (AsyncLocalStorage, см. db/index.ts) — дальше весь код, включая проверку
-  сессии, прозрачно работает с базой этой песочницы. Кука без живой
-  песочницы (протухла, вытеснена, рестарт) — контекст не ставится,
-  сессия в основной базе не найдётся, клиент получит честный 401
-  и вернётся на экран входа за новой песочницей.
+  Demo: route the request into the visitor's sandbox. The hook sits right
+  after cookie parsing and wraps the rest of the handling in that sandbox's
+  database context (AsyncLocalStorage, see db/index.ts) — from there all
+  code, session check included, transparently works with that sandbox's
+  database. A cookie without a live sandbox (expired, evicted, restart) —
+  no context is set, the session won't be found in the main database,
+  the client gets an honest 401 and returns to the login screen
+  for a fresh sandbox.
 */
 if (env.demoMode) {
   const { SANDBOX_COOKIE, getSandbox } = await import('./lib/sandbox.js');
@@ -123,11 +124,11 @@ await app.register(fastifyMultipart, {
 });
 
 /*
-  Заголовки безопасности. CSP строгий, потому что можем себе позволить:
-  фронт собран Vite в свои файлы, внешних шрифтов и скриптов нет.
-  'unsafe-inline' только для стилей — React ставит inline-атрибуты style
-  (цвета проектов, аватарки), без него они перестанут применяться.
-  HSTS не включаем сами: за него отвечает прокси, который и терминирует TLS.
+  Security headers. CSP is strict because we can afford it:
+  the frontend is built by Vite into its own files, no external fonts
+  or scripts. 'unsafe-inline' only for styles — React sets inline style
+  attributes (project colors, avatars), without it they stop applying.
+  HSTS is not set here: the proxy that terminates TLS owns it.
 */
 await app.register(fastifyHelmet, {
   contentSecurityPolicy: {
@@ -148,20 +149,21 @@ await app.register(fastifyHelmet, {
 });
 
 /*
-  Общий предохранитель по частоте запросов — только для API. Порог щедрый:
-  семья из нескольких человек в него не упрётся никогда, а вот сканеру
-  и скрипту, молотящему API, он обрубает темп. Ключ — IP клиента
-  (с trustProxy это настоящий адрес, а не адрес Caddy). У входа свой,
-  куда более жёсткий лимит — задан на самом маршруте в auth.ts.
+  A general rate-limit fuse — API only. The threshold is generous:
+  a family of a few people will never hit it, but it cuts the tempo
+  of a scanner or a script hammering the API. Key — client IP
+  (with trustProxy that is the real address, not Caddy's). Login has
+  its own, much stricter limit — set on the route itself in auth.ts.
 
-  Мимо лимита проходят:
-  — статика и страницы приложения: интерфейс из десятков файлов не должен
-    конкурировать с API за бюджет, а ошибка лимита на самой странице
-    выглядит как поломка всего хаба;
-  — чтение вложений: картинки в заметках ходят через /api/attachments,
-    заметка с полусотней фотографий чеков — это полсотни запросов разом,
-    и честное листание семейного архива выедало бы бюджет мгновенно.
-    Вложения прикрыты авторизацией и кэшируются браузером навсегда.
+  Exempt from the limit:
+  — static files and app pages: an interface of dozens of files must not
+    compete with the API for budget, and a rate-limit error on the page
+    itself looks like the whole hub is broken;
+  — attachment reads: note images go through /api/attachments,
+    a note with fifty receipt photos is fifty requests at once,
+    and honest browsing of the family archive would eat the budget
+    instantly. Attachments sit behind auth and are cached by the
+    browser forever.
 */
 await app.register(fastifyRateLimit, {
   max: 300,
@@ -176,8 +178,8 @@ await app.register(fastifyRateLimit, {
   }),
 });
 
-// Выход и подобные методы вызываются без тела. Fastify по умолчанию
-// отвечает на это 400 — разрешаем пустое тело явно.
+// Logout and similar methods are called without a body. Fastify answers
+// that with a 400 by default — allow an empty body explicitly.
 app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
   const raw = (body as string).trim();
   if (raw === '') return done(null, {});
@@ -189,16 +191,16 @@ app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body,
 });
 
 /*
-  Заслон от CSRF поверх SameSite=Lax: браузер при межсайтовом запросе
-  обязан прислать Origin, и он не совпадёт с нашим Host. Запрос без
-  заголовка (curl, приложения, same-origin GET) проходит — это не браузерный
-  межсайтовый сценарий, от которого защищаемся. Сравниваются только хосты:
-  схему за прокси знает лишь Caddy.
+  A CSRF barrier on top of SameSite=Lax: on a cross-site request the
+  browser must send Origin, and it won't match our Host. A request
+  without the header (curl, apps, same-origin GET) passes — that is not
+  the cross-site browser scenario we defend against. Only hosts are
+  compared: behind the proxy only Caddy knows the scheme.
 
-  Только в проде: дев-прокси Vite переписывает Host на адрес API
-  (localhost:8787), а Origin остаётся фронтовым (localhost:5173) —
-  проверка резала бы каждый законный запрос разработки. В проде Host
-  доезжает нетронутым и при прямом доступе, и из-за Caddy.
+  Production only: the Vite dev proxy rewrites Host to the API address
+  (localhost:8787) while Origin stays the frontend's (localhost:5173) —
+  the check would cut every legitimate dev request. In production Host
+  arrives untouched both on direct access and via Caddy.
 */
 if (env.isProd) {
   app.addHook('onRequest', (req, reply, done) => {
@@ -233,13 +235,13 @@ await registerCalendarRoutes(app);
 await registerMoneyRoutes(app);
 await registerBudgetRoutes(app);
 
-// Регулярные платежи, помеченные «создавать самостоятельно», догоняются
-// при старте: мак мог спать, и пара дат могла пройти без нас
+// Recurring payments marked "create automatically" catch up at startup:
+// the Mac may have been asleep, and a couple of dates may have passed us by
 const createdOnBoot = runAutoCreate();
-if (createdOnBoot > 0) log.info(`регулярные операции: создано ${createdOnBoot}`);
+if (createdOnBoot > 0) log.info(`recurring transactions: created ${createdOnBoot}`);
 await registerRoutes(app);
 
-// В деве фронт живёт на Vite. Чтобы заход на порт API не выглядел поломкой:
+// In dev the frontend lives on Vite. So hitting the API port doesn't look broken:
 if (!env.isProd) {
   app.get('/', (_req, reply) =>
     reply
@@ -248,8 +250,8 @@ if (!env.isProd) {
   );
 }
 
-// В проде тот же процесс раздаёт собранный фронт.
-// В деве фронт живёт на Vite и проксирует /api сюда.
+// In production the same process serves the built frontend.
+// In dev the frontend lives on Vite and proxies /api here.
 if (env.isProd && existsSync(env.webDist)) {
   await app.register(fastifyStatic, { root: env.webDist });
   app.setNotFoundHandler((req, reply) => {
@@ -262,29 +264,29 @@ if (env.isProd && existsSync(env.webDist)) {
 
 try {
   await app.listen({ port: env.port, host: env.host });
-  log.notice(`Дом слушает http://${env.host}:${env.port} · журнал: ${logLevel}`);
+  log.notice(`Hub listening on http://${env.host}:${env.port} · log level: ${logLevel}`);
 } catch (err) {
-  log.error('Не удалось занять порт', err);
+  log.error('Failed to bind the port', err);
   process.exit(1);
 }
 
-// Необработанное падение должно быть видно при любом уровне журнала
-process.on('unhandledRejection', (reason) => log.error('Необработанное отклонение', reason));
+// An unhandled crash must be visible at any log level
+process.on('unhandledRejection', (reason) => log.error('Unhandled rejection', reason));
 process.on('uncaughtException', (err) => {
-  log.error('Необработанное исключение', err);
+  log.error('Uncaught exception', err);
   process.exit(1);
 });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, async () => {
     await app.close();
-    // Явное закрытие делает WAL-checkpoint: база остаётся одним файлом,
-    // без -wal/-shm рядом — копировать и переносить её так безопаснее
+    // An explicit close runs a WAL checkpoint: the database stays a single
+    // file, no -wal/-shm next to it — safer to copy and move around
     try {
       const { currentDb } = await import('./db/index.js');
       currentDb().close();
     } catch {
-      // База уже закрыта или не открылась — на выходе это не ошибка
+      // The database is already closed or never opened — not an error on exit
     }
     process.exit(0);
   });

@@ -17,7 +17,7 @@ interface AuthState {
   loading: boolean;
   mustChangePassword: boolean;
   login: (email: string, password: string) => Promise<void>;
-  /** Вход в демо: сервер создаёт песочницу и сессию, пароля нет. */
+  /** Demo login: the server creates a sandbox and a session, no password involved. */
   loginDemo: () => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth вызван вне AuthProvider');
+  if (!ctx) throw new Error('useAuth called outside AuthProvider');
   return ctx;
 }
 

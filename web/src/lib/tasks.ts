@@ -12,7 +12,7 @@ export const STATUS_LABEL: Record<Status, string> = {
   cancelled: t('Отменено'),
 };
 
-/** Колонки доски. «Отменено» на доске не показываем — это не этап, а исход. */
+/** Board columns. «Cancelled» is not shown on the board — it is an outcome, not a stage. */
 export const BOARD_COLUMNS: Status[] = ['backlog', 'todo', 'in_progress', 'done'];
 
 export const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
@@ -37,13 +37,13 @@ export const RECURRENCE_OPTIONS: { value: string; label: string }[] = [
   { value: 'FREQ=YEARLY', label: t('Каждый год') },
 ];
 
-/** Проект по умолчанию — единственный, чей id известен заранее (миграция 004). */
+/** The default project — the only one whose id is known in advance (migration 004). */
 export const INBOX_ID = '00000000-0000-4000-8000-000000000001';
 
 /**
- * Название проекта для показа. «Входящие» — данные, а не интерфейс:
- * они засеяны миграцией в базу по-русски, и словарь t() их не видит.
- * Проект один и известен по фиксированному id — переводим на месте.
+ * Project title for display. «Входящие» (Inbox) is data, not UI: a
+ * migration seeds it into the DB in Russian, so the t() dictionary never
+ * sees it. One such project with a fixed id — translate in place.
  */
 export function projectTitle(id: string | null | undefined, title: string): string {
   return id === INBOX_ID ? t('Входящие') : title;
@@ -54,9 +54,10 @@ export interface TaskNode extends Task {
 }
 
 /**
- * Плоский список превращаем в дерево, сохраняя порядок из ответа сервера.
- * Задачи, чей родитель отфильтрован, поднимаются на верхний уровень —
- * иначе они бы просто исчезли из выдачи, и человек решил бы, что их нет.
+ * Turn the flat list into a tree, keeping the server response order.
+ * Tasks whose parent got filtered out are promoted to the top level —
+ * otherwise they would silently vanish, and a person would assume they
+ * do not exist.
  */
 export function buildTree(tasks: Task[]): TaskNode[] {
   const nodes = new Map<string, TaskNode>();

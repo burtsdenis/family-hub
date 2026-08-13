@@ -12,17 +12,17 @@ import { Markdown } from 'tiptap-markdown';
 import { WikiLink } from './WikiLink';
 
 /**
- * Сериализатор markdown экранирует квадратные скобки, и [[Ссылка]]
- * превращается в \[\[Ссылка\]\]. При обратном разборе экранирование
- * снимается, поэтому в редакторе всё выглядит правильно — а на диск при
- * этом ложится текст, в котором связь между заметками уже не распознать.
- * Разэкранируем ровно этот случай, не трогая остальную разметку.
+ * The markdown serializer escapes square brackets, turning [[Link]]
+ * into \[\[Link\]\]. Parsing back removes the escaping, so everything
+ * looks fine in the editor — while what lands on disk is text where
+ * the connection between notes can no longer be recognized.
+ * We unescape exactly this case, leaving the rest of the markup alone.
  */
 function unescapeWikiLinks(markdown: string): string {
   return markdown.replace(/\\\[\\\[([^\][|]{1,200})\\\]\\\]/g, '[[$1]]');
 }
 
-// tiptap-markdown кладёт сериализатор в storage, но своих типов не приносит
+// tiptap-markdown puts the serializer in storage but ships no types of its own
 declare module '@tiptap/core' {
   interface Storage {
     markdown: { getMarkdown: () => string };
@@ -37,14 +37,14 @@ export interface UploadedFile {
 }
 
 interface Props {
-  /** Меняется только при переключении заметки, не при каждом нажатии клавиши. */
+  /** Changes only when switching notes, not on every keystroke. */
   noteId: string;
   /**
-   * Счётчик внешних замен содержимого — например, откат к версии.
-   * Редактор держит документ у себя и об изменении initialMarkdown не узнаёт,
-   * поэтому его нужно пересоздать явно. Без этого откат выглядел успешным
-   * на сервере, но в редакторе оставался прежний текст — и следующее
-   * автосохранение возвращало его обратно, отменяя откат.
+   * Counter of external content replacements — e.g. reverting to a version.
+   * The editor owns the document and never learns that initialMarkdown
+   * changed, so it must be recreated explicitly. Without this a revert
+   * looked successful on the server while the editor kept the old text —
+   * and the next autosave wrote it back, undoing the revert.
    */
   revision?: number;
   initialMarkdown: string;
@@ -61,9 +61,9 @@ export function Editor({ noteId, revision = 0, initialMarkdown, onChange, onNavi
   const [dropping, setDropping] = useState(false);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef(onUpload);
-  // Обновление ref — после рендера, не во время: запись в ref в теле
-  // компонента ломает предпосылки React о чистоте рендера. Обработчикам
-  // TipTap ref нужен только по событиям, эффект успевает раньше.
+  // Update the ref after render, not during it: writing to a ref in the
+  // component body breaks React's assumptions about render purity. TipTap
+  // handlers only need the ref on events, and the effect runs before those.
   useEffect(() => {
     uploadRef.current = onUpload;
   }, [onUpload]);
@@ -79,9 +79,9 @@ export function Editor({ noteId, revision = 0, initialMarkdown, onChange, onNavi
         TableKit.configure({ table: { resizable: false } }),
         Highlight,
         Placeholder.configure({ placeholder: t('Начните писать. [[Ссылка]] связывает заметки') }),
-        // Ленивая загрузка: раскодированная фотография занимает мегабайты
-        // памяти вкладки независимо от веса файла. В длинной заметке с
-        // фотографиями пусть декодируются те, что на экране, а не все сразу.
+        // Lazy loading: a decoded photo takes megabytes of tab memory
+        // regardless of file size. In a long note full of photos, let
+        // the ones on screen decode rather than all of them at once.
         Image.configure({
           inline: false,
           HTMLAttributes: { loading: 'lazy', decoding: 'async' },
@@ -93,8 +93,8 @@ export function Editor({ noteId, revision = 0, initialMarkdown, onChange, onNavi
       editorProps: {
         attributes: { class: 'note-content' },
 
-        // Перетаскивание файлов в текст. Картинки встают на место броска,
-        // остальные файлы просто прикрепляются к заметке.
+        // Drag-and-drop of files into the text. Images land at the drop
+        // point, other files simply get attached to the note.
         handleDrop(view, event, _slice, moved) {
           const files = Array.from(event.dataTransfer?.files ?? []);
           if (moved || files.length === 0) return false;
@@ -116,8 +116,8 @@ export function Editor({ noteId, revision = 0, initialMarkdown, onChange, onNavi
         onChange(unescapeWikiLinks(editor.storage.markdown.getMarkdown()));
       },
     },
-    // Пересоздаём редактор при смене заметки: так не нужно синхронизировать
-    // содержимое вручную и невозможно случайно записать текст не в ту заметку.
+    // Recreate the editor when the note changes: no manual content sync
+    // needed, and it's impossible to accidentally write text into the wrong note.
     [noteId, revision],
   );
 

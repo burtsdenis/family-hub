@@ -9,32 +9,33 @@ import { seedDemo } from './demo.js';
 import { log } from './log.js';
 
 /*
-  Песочницы демо-режима: у каждого посетителя — своя копия базы.
+  Demo-mode sandboxes: every visitor gets their own copy of the database.
 
-  Раньше все посетители демо жили в одной базе: первый же шутник заполнял
-  её мусором (или просто всё удалял), и остальные видели это до ночного
-  сброса. Теперь при входе в демо копируется шаблонная база — посетитель
-  получает свежий пример и может делать с ним что угодно: кроме него самого
-  этого никто не увидит.
+  All demo visitors used to live in one database: the first prankster
+  filled it with garbage (or simply deleted everything), and the rest saw
+  that until the nightly reset. Now demo login copies a template database —
+  the visitor gets a fresh example and can do anything with it: nobody
+  but them will ever see it.
 
-  Устройство:
-  — шаблон собирается при старте (миграции + сидинг) и пересобирается раз
-    в сутки, потому что демо-данные датируются относительно «сегодня»;
-  — копия шаблона — миллисекунды и сотни килобайт, песочница создаётся
-    прямо в обработчике входа;
-  — жизненный цикл: простой дольше TTL, превышение размера файла или
-    переполнение реестра (LRU) — песочница закрывается и файл удаляется.
-    Каталог целиком зачищается при старте: рестарт = чистый лист.
+  How it works:
+  — the template is built at startup (migrations + seeding) and rebuilt
+    once a day, because demo data is dated relative to "today";
+  — copying the template is milliseconds and hundreds of kilobytes, the
+    sandbox is created right in the login handler;
+  — lifecycle: idle past TTL, file size overrun or registry overflow
+    (LRU) — the sandbox is closed and its file deleted. The directory is
+    wiped entirely at startup: restart = clean slate.
 */
 
 export const SANDBOX_COOKIE = 'hub_sandbox';
 
-const TTL_MS = 2 * 60 * 60_000; // два часа простоя
+const TTL_MS = 2 * 60 * 60_000; // two hours idle
 const SWEEP_MS = 10 * 60_000;
 const TEMPLATE_REBUILD_MS = 24 * 60 * 60_000;
 const MAX_SANDBOXES = 100;
-// Стоп-кран против раздувания одной песочницы записью в цикле.
-// Шаблон весит сотни килобайт, честное «потыкать» столько не наберёт.
+// An emergency brake against one sandbox ballooning from a write loop.
+// The template weighs hundreds of kilobytes; honest poking around
+// will never accumulate that much.
 const MAX_DB_BYTES = 50 * 1024 * 1024;
 
 const demoDir = join(env.dataDir, 'demo');
@@ -51,7 +52,7 @@ interface Sandbox {
 const sandboxes = new Map<string, Sandbox>();
 
 export async function initDemo(): Promise<void> {
-  // Осиротевшие файлы прошлого запуска бесполезны: реестр живёт в памяти
+  // Orphaned files from the previous run are useless: the registry lives in memory
   rmSync(demoDir, { recursive: true, force: true });
   mkdirSync(sandboxesDir, { recursive: true });
 
@@ -59,7 +60,7 @@ export async function initDemo(): Promise<void> {
 
   setInterval(sweep, SWEEP_MS).unref();
   setInterval(() => {
-    buildTemplate().catch((err) => log.error('демо: пересборка шаблона не удалась', err));
+    buildTemplate().catch((err) => log.error('demo: template rebuild failed', err));
   }, TEMPLATE_REBUILD_MS).unref();
 
   log.block([
@@ -73,9 +74,9 @@ export async function initDemo(): Promise<void> {
 }
 
 /**
- * Шаблон строится во временный файл и подменяется атомарно: создание
- * песочницы в момент пересборки скопирует либо старый шаблон, либо новый —
- * но никогда полусобранный.
+ * The template is built into a temp file and swapped in atomically: a
+ * sandbox created mid-rebuild copies either the old template or the new
+ * one — never a half-built one.
  */
 async function buildTemplate(): Promise<void> {
   const tmp = `${templatePath}.new`;
@@ -88,26 +89,26 @@ async function buildTemplate(): Promise<void> {
       await seedDemo();
     });
   } finally {
-    // close() выкатывает WAL в основной файл — копия будет цельной
+    // close() flushes the WAL into the main file — the copy will be whole
     template.close();
   }
   renameSync(tmp, templatePath);
-  log.info('демо: шаблон собран');
+  log.info('demo: template built');
 }
 
 export function createSandbox(): Sandbox {
   if (sandboxes.size >= MAX_SANDBOXES) evictOldest();
 
-  // Идентификатор — фактически вторая часть авторизации, поэтому
-  // непредсказуемый. В пути файла участвует только сгенерированное здесь
-  // значение, кука посетителя ищется исключительно как ключ реестра.
+  // The identifier is effectively the second half of authorization, hence
+  // unpredictable. Only the value generated here goes into the file path;
+  // the visitor's cookie is looked up strictly as a registry key.
   const id = randomBytes(16).toString('base64url');
   const file = join(sandboxesDir, `${id}.db`);
   copyFileSync(templatePath, file);
 
   const sandbox: Sandbox = { id, db: openDatabase(file), file, lastSeen: Date.now() };
   sandboxes.set(id, sandbox);
-  log.info(`демо: песочница создана (${sandboxes.size} активных)`);
+  log.info(`demo: sandbox created (${sandboxes.size} active)`);
   return sandbox;
 }
 
@@ -125,7 +126,7 @@ export function destroySandbox(id: string): void {
   try {
     sandbox.db.close();
   } catch (err) {
-    log.warn('демо: база песочницы не закрылась', err);
+    log.warn('demo: sandbox database failed to close', err);
   }
   for (const suffix of ['', '-wal', '-shm']) {
     rmSync(`${sandbox.file}${suffix}`, { force: true });

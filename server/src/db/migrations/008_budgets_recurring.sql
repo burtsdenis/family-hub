@@ -1,10 +1,10 @@
--- Лимиты по категориям и регулярные операции.
+-- Category budgets and recurring transactions.
 
 /*
-  Лимит задаётся на категорию в конкретной валюте.
-  month IS NULL — постоянный лимит, действует каждый месяц.
-  month = 'ГГГГ-ММ' — исключение на один месяц, перебивает постоянный.
-  Так «в декабре на подарки больше» не требует переписывать общий лимит.
+  A budget is set per category in a specific currency.
+  month IS NULL — standing budget, applies every month.
+  month = 'YYYY-MM' — one-month exception, overrides the standing one.
+  This way "more for gifts in December" doesn't require rewriting the standing budget.
 */
 CREATE TABLE budgets (
   id          TEXT PRIMARY KEY,
@@ -19,13 +19,13 @@ CREATE UNIQUE INDEX idx_budget_unique
   ON budgets(category_id, currency, coalesce(month, ''));
 
 /*
-  Регулярная операция — это шаблон, а не запись в истории.
-  Фактические операции создаются из него по датам правила повтора.
+  A recurring transaction is a template, not a history entry.
+  Actual transactions are created from it on the recurrence rule's dates.
 
-  auto_create = 1 — создавать самостоятельно (аренда: списывают в срок).
-  auto_create = 0 — предлагать к подтверждению (зарплата: приходит с
-  задержкой, и автоматическая запись испортила бы остаток именно в тот
-  момент, когда на него смотрят).
+  auto_create = 1 — create on its own (rent: charged on schedule).
+  auto_create = 0 — offer for confirmation (salary: arrives late, and an
+  automatic entry would corrupt the balance at exactly the moment
+  someone is looking at it).
 */
 CREATE TABLE recurring_transactions (
   id              TEXT PRIMARY KEY,
@@ -48,8 +48,8 @@ CREATE TABLE recurring_transactions (
 );
 CREATE INDEX idx_recurring_active ON recurring_transactions(active);
 
--- Пропущенный экземпляр: «в этом месяце платежа не было».
--- Само правило при этом остаётся.
+-- A skipped instance: "no payment this month".
+-- The rule itself stays.
 CREATE TABLE recurring_skips (
   recurring_id TEXT NOT NULL REFERENCES recurring_transactions(id) ON DELETE CASCADE,
   occurred_on  TEXT NOT NULL,
@@ -58,11 +58,11 @@ CREATE TABLE recurring_skips (
 
 ALTER TABLE transactions ADD COLUMN recurring_id TEXT
   REFERENCES recurring_transactions(id) ON DELETE SET NULL;
--- Дата экземпляра серии, из которого создана операция
+-- Date of the series instance the transaction was created from
 ALTER TABLE transactions ADD COLUMN recurring_on TEXT;
 
--- Гарантия идемпотентности: один экземпляр серии — не более одной операции.
--- Без этого повторный запуск создателя задваивал бы аренду.
+-- Idempotency guarantee: one series instance — at most one transaction.
+-- Without it, re-running the creator would double the rent.
 CREATE UNIQUE INDEX idx_tx_recurring_once
   ON transactions(recurring_id, recurring_on)
   WHERE recurring_id IS NOT NULL;

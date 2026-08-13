@@ -1,5 +1,5 @@
--- Family Hub — начальная схема
--- Все временные метки хранятся как ISO-8601 UTC (TEXT), даты — как YYYY-MM-DD.
+-- Family Hub — initial schema
+-- All timestamps are stored as ISO-8601 UTC (TEXT), dates as YYYY-MM-DD.
 
 CREATE TABLE users (
   id            TEXT PRIMARY KEY,
@@ -22,7 +22,7 @@ CREATE TABLE sessions (
 CREATE INDEX idx_sessions_user ON sessions(user_id);
 CREATE INDEX idx_sessions_expires ON sessions(expires_at);
 
--- ── Задачи ──────────────────────────────────────────────────────────────
+-- ── Tasks ───────────────────────────────────────────────────────────────
 
 CREATE TABLE projects (
   id          TEXT PRIMARY KEY,
@@ -41,7 +41,7 @@ CREATE TABLE tasks (
   id          TEXT PRIMARY KEY,
   project_id  TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   parent_id   TEXT REFERENCES tasks(id) ON DELETE CASCADE,
-  -- 0 = стори, 1 = таск, 2 = сабтаск. Глубже нельзя.
+  -- 0 = story, 1 = task, 2 = subtask. No deeper nesting.
   level       INTEGER NOT NULL DEFAULT 0 CHECK (level BETWEEN 0 AND 2),
   title       TEXT NOT NULL,
   description TEXT,
@@ -52,7 +52,7 @@ CREATE TABLE tasks (
   due_date    TEXT,
   assignee_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   position    REAL NOT NULL DEFAULT 0,
-  -- Подмножество RRULE, например FREQ=WEEKLY;INTERVAL=2
+  -- RRULE subset, e.g. FREQ=WEEKLY;INTERVAL=2
   recurrence_rule       TEXT,
   recurrence_parent_id  TEXT REFERENCES tasks(id) ON DELETE SET NULL,
   completed_at TEXT,
@@ -66,7 +66,7 @@ CREATE INDEX idx_tasks_due ON tasks(due_date) WHERE due_date IS NOT NULL;
 CREATE INDEX idx_tasks_status ON tasks(status);
 CREATE INDEX idx_tasks_assignee ON tasks(assignee_id);
 
--- ── Заметки ─────────────────────────────────────────────────────────────
+-- ── Notes ───────────────────────────────────────────────────────────────
 
 CREATE TABLE folders (
   id         TEXT PRIMARY KEY,
@@ -85,7 +85,7 @@ CREATE TABLE notes (
   visibility  TEXT NOT NULL DEFAULT 'shared' CHECK (visibility IN ('shared','private')),
   owner_id    TEXT REFERENCES users(id) ON DELETE SET NULL,
   is_template INTEGER NOT NULL DEFAULT 0,
-  -- daily note: одна на дату
+  -- daily note: one per date
   daily_date  TEXT UNIQUE,
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
@@ -103,8 +103,8 @@ CREATE TABLE note_versions (
 );
 CREATE INDEX idx_note_versions_note ON note_versions(note_id, created_at DESC);
 
--- Связи [[wiki-links]]. Ссылка может указывать на ещё не созданную заметку,
--- поэтому храним и текст цели тоже.
+-- [[wiki-links]]. A link may point to a note that doesn't exist yet,
+-- so we store the target title as text too.
 CREATE TABLE note_links (
   source_note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
   target_note_id TEXT REFERENCES notes(id) ON DELETE CASCADE,
@@ -134,7 +134,7 @@ CREATE TABLE attachments (
 CREATE INDEX idx_attachments_note ON attachments(note_id);
 CREATE INDEX idx_attachments_task ON attachments(task_id);
 
--- ── Календарь ───────────────────────────────────────────────────────────
+-- ── Calendar ────────────────────────────────────────────────────────────
 
 CREATE TABLE calendars (
   id       TEXT PRIMARY KEY,
@@ -162,7 +162,7 @@ CREATE TABLE events (
 CREATE INDEX idx_events_range ON events(starts_at, ends_at);
 CREATE INDEX idx_events_calendar ON events(calendar_id);
 
--- ── Системное ───────────────────────────────────────────────────────────
+-- ── System ──────────────────────────────────────────────────────────────
 
 CREATE TABLE settings (
   key        TEXT PRIMARY KEY,
@@ -180,8 +180,8 @@ CREATE TABLE audit_log (
 );
 CREATE INDEX idx_audit_created ON audit_log(created_at DESC);
 
--- Значения по умолчанию для виджетов дашборда. Нейтральные: свои
--- название события и подписи каждая семья задаёт в настройках.
+-- Dashboard widget defaults. Neutral on purpose: each family sets
+-- its own event name and labels in settings.
 INSERT INTO settings (key, value) VALUES
   ('savings.amount_eur', '0'),
   ('savings.goal_eur', '0'),

@@ -8,24 +8,24 @@ import { z } from 'zod';
 import { db, id, now, today } from '../db/index.js';
 import { paths } from '../env.js';
 
-/** Потолок на файл. Больше — это уже не заметка, а файловое хранилище. */
+/** The per-file ceiling. Beyond it this is no longer a note but file storage. */
 export const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
-/** Бюджет хранилища: до него — предупреждаем в UI, после — отказываем. */
+/** The storage budget: below it — warn in the UI, above it — refuse. */
 const BUDGET_BYTES = 2 * 1024 * 1024 * 1024;
 
 const IMAGE_MIME = /^image\/(png|jpeg|gif|webp|avif|heic|svg\+xml)$/;
 
 /*
-  Отдавать inline можно только растровые форматы. SVG — это документ со
-  скриптами: открытый напрямую по /api/attachments/:id, он исполнился бы
-  с origin хаба. CSP script-src 'self' это уже глушит, но защита не должна
-  держаться на одном слое. В <img> заметок SVG продолжает показываться —
-  картинкам заголовок Content-Disposition безразличен.
+  Only raster formats may be served inline. SVG is a document with
+  scripts: opened directly at /api/attachments/:id, it would execute
+  with the hub's origin. CSP script-src 'self' already mutes that, but
+  defense must not rest on a single layer. SVG keeps showing in note
+  <img> tags — images don't care about the Content-Disposition header.
 */
 const INLINE_MIME = /^image\/(png|jpeg|gif|webp|avif|heic)$/;
 
-/** MIME приходит от клиента: что не похоже на MIME — становится octet-stream. */
+/** MIME comes from the client: whatever doesn't look like MIME becomes octet-stream. */
 function safeMime(mime: string): string {
   return /^[\w.+-]{1,80}\/[\w.+-]{1,80}$/.test(mime) ? mime : 'application/octet-stream';
 }
@@ -42,16 +42,17 @@ interface AttachmentRow {
 }
 
 /**
- * Имя файла от человека не участвует в пути на диске никогда.
- * Файл кладётся под сгенерированным именем, а исходное имя живёт в базе —
- * иначе «../../» в имени увело бы запись куда угодно.
+ * A human-supplied filename never takes part in the on-disk path.
+ * The file is stored under a generated name while the original name
+ * lives in the database — otherwise "../../" in a name would steer
+ * the write anywhere.
  */
 function storageNameFor(originalName: string): string {
   const ext = extname(originalName).toLowerCase().replace(/[^.a-z0-9]/g, '');
   return `${id()}${ext.slice(0, 12)}`;
 }
 
-/** Заголовок для отдачи: имя может быть на любом языке. */
+/** The header for serving: the name may be in any language. */
 function contentDisposition(filename: string, inline: boolean): string {
   const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '');
   return `${inline ? 'inline' : 'attachment'}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(
@@ -59,7 +60,7 @@ function contentDisposition(filename: string, inline: boolean): string {
   )}`;
 }
 
-/** Вложение видно тем же, кому видна заметка, к которой оно приложено. */
+/** An attachment is visible to whoever can see the note it is attached to. */
 function loadVisible(attachmentId: string, userId: string): AttachmentRow | null {
   const row = db
     .prepare(
@@ -85,11 +86,12 @@ interface UploadedInfo {
 }
 
 /**
- * Приём файлов одним куском: либо сохранились все, либо ни один.
+ * Files are accepted as one piece: either all are saved, or none.
  *
- * Раньше превышение лимита на втором файле возвращало 413, но первый уже
- * лежал на диске и в базе — клиент видел ошибку, а половина вложений тихо
- * прикреплялась. Теперь при отказе откатываются и записи, и файлы.
+ * Exceeding the limit on the second file used to return a 413, but the
+ * first one already sat on disk and in the database — the client saw an
+ * error while half the attachments quietly attached. Now a refusal rolls
+ * back both the records and the files.
  */
 async function receiveFiles(
   req: FastifyRequest,
@@ -108,8 +110,9 @@ async function receiveFiles(
     for (const path of savedPaths) await unlink(path).catch(() => {});
   };
 
-  // Бюджет проверяется на входе: уже принятое не отзываем, но следующий
-  // запрос поверх переполненного хранилища получает отказ, а не диск до дна
+  // The budget is checked on entry: what's already accepted isn't recalled,
+  // but the next request atop an overflowing store gets a refusal instead
+  // of the disk drained to the bottom
   const { used } = db
     .prepare('SELECT coalesce(sum(size_bytes), 0) AS used FROM attachments')
     .get() as { used: number };
@@ -120,7 +123,7 @@ async function receiveFiles(
 
   for await (const part of req.files()) {
     const storageName = storageNameFor(part.filename);
-    // Папка месяца — по местным часам, как и всё остальное в приложении
+    // The month folder — by the local clock, like everything else in the app
     const month = today().slice(0, 7);
     const folder = join(paths.attachments, month);
     await mkdir(folder, { recursive: true });
@@ -128,7 +131,7 @@ async function receiveFiles(
 
     await pipeline(part.file, createWriteStream(fullPath));
 
-    // Превышение лимита multipart обрубает поток, а не бросает исключение
+    // Exceeding the multipart limit truncates the stream rather than throwing
     if (part.file.truncated) {
       await unlink(fullPath).catch(() => {});
       await rollback();
@@ -149,7 +152,7 @@ async function receiveFiles(
       part.filename,
       safeMime(part.mimetype),
       size,
-      // В базе только относительный путь: каталог данных может переехать
+      // Only the relative path goes in the database: the data directory may move
       join(month, storageName),
       target.note_id,
       target.transaction_id,
@@ -230,7 +233,7 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
     if (!attachment) return reply.code(404).send({ error: 'Файл не найден' });
 
     const fullPath = resolve(paths.attachments, attachment.storage_path);
-    // Страховка от выхода за пределы каталога вложений
+    // Insurance against escaping the attachments directory
     if (!fullPath.startsWith(resolve(paths.attachments))) {
       return reply.code(400).send({ error: 'Некорректный путь' });
     }
@@ -245,7 +248,7 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
     return reply
       .header('Content-Type', safeMime(attachment.mime))
       .header('Content-Disposition', contentDisposition(attachment.filename, inline))
-      // Содержимое по идентификатору неизменно, можно кэшировать надолго
+      // Content under an id never changes; safe to cache for a long time
       .header('Cache-Control', 'private, max-age=31536000, immutable')
       .send(createReadStream(fullPath));
   });
@@ -257,7 +260,7 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
     if (!attachment) return reply.code(404).send({ error: 'Файл не найден' });
 
     db.prepare('DELETE FROM attachments WHERE id = ?').run(attachmentId);
-    // Запись удалена в любом случае; отсутствующий на диске файл не повод падать
+    // The record is deleted either way; a file missing from disk is no reason to crash
     await unlink(resolve(paths.attachments, attachment.storage_path)).catch(() => {});
 
     return { ok: true };

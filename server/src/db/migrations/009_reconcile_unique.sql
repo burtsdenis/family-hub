@@ -1,15 +1,16 @@
--- Сверка за день одна: повторная в тот же день обновляет предыдущую.
+-- One reconciliation per day: a repeat on the same day updates the previous one.
 --
--- Раньше каждая сверка добавляла строку, и вторая за день создавала
--- двойника с той же датой. Выборка «последняя сверка» упорядочивалась
--- только по checked_on, при равных датах SQLite возвращал первую попавшуюся
--- — обычно старую. Снаружи это выглядело так: кнопка «Сверить» срабатывает
--- один раз, а дальше игнорируется.
+-- Previously every reconciliation added a row, and a second one that day
+-- created a twin with the same date. The "latest reconciliation" query
+-- ordered only by checked_on; on equal dates SQLite returned whichever came
+-- first — usually the old one. From the outside it looked like the
+-- "Reconcile" button works once and is then ignored.
 --
--- Несколько сверок одного счёта за один день не несут смысла: важен
--- фактический остаток на дату, а не история попыток его ввести.
+-- Multiple reconciliations of one account on one day carry no meaning:
+-- what matters is the actual balance on a date, not the history of attempts
+-- to enter it.
 
--- Существующие двойники убираем, оставляя последнюю введённую
+-- Remove existing twins, keeping the last one entered
 DELETE FROM reconciliations
  WHERE rowid NOT IN (
    SELECT max(rowid) FROM reconciliations GROUP BY account_id, checked_on

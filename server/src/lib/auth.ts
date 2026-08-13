@@ -14,7 +14,7 @@ export interface AuthUser {
   role: 'admin' | 'member' | 'kid';
   color: string;
   must_change_password: number;
-  /** Привязан ли Google — фронту хватает факта, сам sub наружу не ходит. */
+  /** Whether Google is linked — the fact is enough for the frontend, the sub itself never leaves. */
   google_linked: number;
   password_login_disabled: number;
 }
@@ -29,7 +29,7 @@ export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-// ── Сессии ────────────────────────────────────────────────────────────────
+// ── Sessions ──────────────────────────────────────────────────────────────
 
 export function createSession(userId: string, userAgent: string | undefined): string {
   const token = randomBytes(32).toString('base64url');
@@ -78,19 +78,19 @@ export function clearSessionCookie(reply: FastifyReply): void {
   reply.clearCookie(SESSION_COOKIE, { path: '/' });
 }
 
-// ── Защита маршрутов ──────────────────────────────────────────────────────
+// ── Route protection ──────────────────────────────────────────────────────
 
 const PUBLIC_PATHS = new Set([
   '/api/health',
   '/api/auth/login',
   '/api/auth/state',
-  // Вход в демо: создаёт песочницу и сессию, живёт до них обеих
+  // Demo login: creates the sandbox and the session, so it predates both
   '/api/auth/demo',
-  // Вход через Google: начало и возврат живут до сессии.
-  // Привязки (/google/link) здесь нет намеренно — она требует сессии.
+  // Google sign-in: start and callback predate the session.
+  // Linking (/google/link) is deliberately absent — it requires a session.
   '/api/auth/google/start',
   '/api/auth/google/callback',
-  // Онбординг: первичная настройка и вход по приглашению — до сессии
+  // Onboarding: initial setup and invite login — before any session
   '/api/auth/setup',
   '/api/auth/invite',
   '/api/auth/join',
@@ -107,13 +107,13 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply): Pr
     return reply.code(401).send({ error: 'Нужно войти' });
   }
 
-  // Пока пароль не сменён, доступен только сам метод смены
+  // Until the password is changed, only the change endpoint is available
   if (user.must_change_password && path !== '/api/auth/change-password' && path !== '/api/auth/me') {
     return reply.code(403).send({ error: 'Сначала смените пароль', code: 'must_change_password' });
   }
 
-  // Публичная песочница: смена паролей, состава семьи и загрузка файлов
-  // отключены — остальное нарочно живое
+  // Public sandbox: password changes, family membership and file uploads
+  // are disabled — everything else is deliberately live
   if (env.demoMode) {
     const { demoBlocked } = await import('./demo.js');
     if (demoBlocked(req.method, path)) {
@@ -132,13 +132,14 @@ export function requireAdmin(req: FastifyRequest, reply: FastifyReply): boolean 
   return true;
 }
 
-// ── Первый запуск ─────────────────────────────────────────────────────────
+// ── First start ───────────────────────────────────────────────────────────
 
 /**
- * Пустая база — не повод писать пароли в журнал. Первую учётку человек
- * создаёт сам через браузер (экран первичной настройки), сервер лишь
- * подсказывает об этом в лог. Печать одноразового пароля администратора
- * ушла вместе со служебной учёткой: первый настроивший и есть администратор.
+ * An empty database is no reason to write passwords into the log. The
+ * person creates the first account themselves in the browser (the initial
+ * setup screen); the server only hints at it in the log. Printing a
+ * one-time admin password left together with the service account:
+ * whoever sets up first is the admin.
  */
 export function announceSetupIfEmpty(): void {
   const count = (db.prepare('SELECT count(*) AS n FROM users').get() as { n: number }).n;
@@ -153,7 +154,7 @@ export function announceSetupIfEmpty(): void {
   ]);
 }
 
-/** Протухшие сессии убираем при старте, чтобы таблица не росла бесконечно. */
+/** Expired sessions are removed at startup so the table doesn't grow forever. */
 export function pruneSessions(): void {
   db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(new Date().toISOString());
 }

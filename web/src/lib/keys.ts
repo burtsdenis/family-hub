@@ -1,15 +1,15 @@
 import type { KeyboardEvent } from 'react';
 
 /**
- * Enter отправляет форму.
+ * Enter submits the form.
  *
- * Полагаться только на неявную отправку формы браузером оказалось ненадёжно:
- * поведение отличается между полями, браузерами и экранной клавиатурой.
- * Дешевле обработать явно везде, где человек может нажать Enter.
+ * Relying on the browser's implicit form submission proved unreliable:
+ * behavior differs across fields, browsers and the on-screen keyboard.
+ * Cheaper to handle it explicitly wherever a person might press Enter.
  *
- * Ввод иероглифов и других языков с составным вводом не ломаем: во время
- * набора через IME браузер выставляет isComposing, и Enter там означает
- * «подтвердить символ», а не «отправить».
+ * CJK and other composed input stays intact: while typing through an IME
+ * the browser sets isComposing, and Enter there means "confirm the
+ * character", not "submit".
  */
 export function onEnter<T extends HTMLElement>(action: () => void) {
   return (e: KeyboardEvent<T>) => {
@@ -20,14 +20,14 @@ export function onEnter<T extends HTMLElement>(action: () => void) {
 }
 
 /**
- * Клавиши диалога, слушаются на уровне окна: Enter выполняет главное
- * действие, Escape закрывает — где бы ни находился фокус, а не только
- * в текстовом поле с собственным обработчиком.
+ * Dialog keys, listened for at the window level: Enter runs the primary
+ * action, Escape closes — wherever the focus is, not just in a text field
+ * with its own handler.
  *
- * Enter пропускается там, где у него уже есть работа: в textarea и
- * редакторе он вводит перенос строки, на кнопке и ссылке — нажимает их.
- * Полевой обработчик onEnter срабатывает раньше и ставит defaultPrevented,
- * поэтому отправка не задваивается.
+ * Enter is skipped where it already has a job: in a textarea and the
+ * editor it inserts a line break, on a button or link it presses them.
+ * The field-level onEnter handler fires first and sets defaultPrevented,
+ * so submission never doubles.
  */
 export function dialogKeys(submit: () => void, close: () => void) {
   return (e: globalThis.KeyboardEvent) => {

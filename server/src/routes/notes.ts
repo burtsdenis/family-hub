@@ -20,9 +20,9 @@ interface NoteRow {
 }
 
 /**
- * Приватную заметку видит только владелец.
- * Роль здесь не участвует: администратор — служебная учётка для управления
- * системой, а не суперпользователь над содержимым. См. раздел о ролях в ТЗ.
+ * A private note is visible to its owner only.
+ * Role plays no part here: the admin is a service account for managing
+ * the system, not a superuser over content. See the roles section of the spec.
  */
 const VISIBLE = "(n.visibility = 'shared' OR n.owner_id = ?)";
 
@@ -53,7 +53,7 @@ function loadVisible(noteId: string, userId: string): NoteRow | null {
   return row ?? null;
 }
 
-/** Менять заметку может любой домочадец, кроме чужих приватных. */
+/** Any family member may edit a note, except other people's private ones. */
 function guard(
   noteId: string,
   req: FastifyRequest,
@@ -67,15 +67,15 @@ function guard(
   return note;
 }
 
-// ── Ссылки [[Заголовок]] ──────────────────────────────────────────────────
+// ── [[Title]] links ───────────────────────────────────────────────────────
 
 const WIKI_LINK = /\[\[([^\][|]{1,200})\]\]/g;
 const ESCAPED_WIKI_LINK = /\\\[\\\[([^\][|]{1,200})\\\]\\\]/g;
 
 /**
- * Редакторы markdown любят экранировать квадратные скобки. Приводим ссылки
- * к каноничному виду до того, как текст попадёт в базу: иначе заметка
- * читается глазами нормально, а связь между заметками теряется.
+ * Markdown editors love escaping square brackets. Links are normalized to
+ * canonical form before the text reaches the database: otherwise the note
+ * reads fine to the eye while the connection between notes is lost.
  */
 export function normalizeWikiLinks(body: string): string {
   return body.replace(ESCAPED_WIKI_LINK, '[[$1]]');
@@ -91,9 +91,9 @@ export function extractLinks(body: string): string[] {
 }
 
 /**
- * Перестраивает исходящие ссылки заметки.
- * Ссылка на ещё не созданную заметку сохраняется с пустой целью — когда
- * заметка с таким заголовком появится, связь подхватится автоматически.
+ * Rebuilds a note's outgoing links.
+ * A link to a not-yet-created note is stored with an empty target — when
+ * a note with that title appears, the connection picks up automatically.
  */
 function rebuildLinks(noteId: string, body: string): void {
   db.prepare('DELETE FROM note_links WHERE source_note_id = ?').run(noteId);
@@ -104,7 +104,7 @@ function rebuildLinks(noteId: string, body: string): void {
   for (const title of extractLinks(body)) insert.run(noteId, title, title);
 }
 
-/** Подтягивает висящие ссылки на заметку с таким заголовком. */
+/** Picks up dangling links pointing at a note with this title. */
 function resolveIncoming(noteId: string, title: string): void {
   db.prepare(
     `UPDATE note_links SET target_note_id = ?
@@ -113,18 +113,18 @@ function resolveIncoming(noteId: string, title: string): void {
 }
 
 /**
- * Подстановки в шаблоне. Раскрываются один раз, в момент создания заметки:
- * дальше это обычный текст, который можно править. Живых, пересчитываемых
- * значений здесь сознательно нет — заметка должна означать одно и то же
- * и через год.
+ * Template placeholders. Expanded once, at note creation: after that it
+ * is plain editable text. Live, recomputed values are deliberately absent
+ * here — a note must mean the same thing a year later.
  */
 export function applyPlaceholders(text: string, authorName: string): string {
   const date = new Date();
   const values: Record<string, string> = {
     дата: new Intl.DateTimeFormat('ru-RU', { dateStyle: 'long' }).format(date),
     date: new Intl.DateTimeFormat('ru-RU', { dateStyle: 'long' }).format(date),
-    // По местным часам, как {{дата}} и {{время}}: toISOString() дал бы
-    // дату по Гринвичу, и заметка, созданная в 00:30, помечалась бы вчерашним днём
+    // By the local clock, like the date and time placeholders: toISOString()
+    // would give the Greenwich date, and a note created at 00:30 would be
+    // stamped with yesterday
     изо: today(),
     iso: today(),
     время: new Intl.DateTimeFormat('ru-RU', { timeStyle: 'short' }).format(date),
@@ -139,14 +139,14 @@ export function applyPlaceholders(text: string, authorName: string): string {
   });
 }
 
-// ── История версий ────────────────────────────────────────────────────────
+// ── Version history ───────────────────────────────────────────────────────
 
 const VERSION_GAP_MINUTES = 10;
 
 /**
- * Снимок предыдущего содержимого — но не на каждое сохранение.
- * Автосохранение срабатывает раз в пару секунд, и без этого условия
- * история за один вечер работы превратилась бы в тысячу бесполезных строк.
+ * A snapshot of the previous content — but not on every save.
+ * Autosave fires every couple of seconds, and without this condition one
+ * evening of work would turn the history into a thousand useless rows.
  */
 function snapshotIfNeeded(note: NoteRow, authorId: string): void {
   const last = db
@@ -170,7 +170,7 @@ function snapshotIfNeeded(note: NoteRow, authorId: string): void {
   ).run(id(), note.id, note.title, note.body_md, authorId, now());
 }
 
-// ── Схемы ─────────────────────────────────────────────────────────────────
+// ── Schemas ───────────────────────────────────────────────────────────────
 
 const createInput = z.object({
   title: z.string().max(200).optional(),
@@ -192,7 +192,7 @@ const patchInput = z.object({
 });
 
 export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
-  // ── Папки ───────────────────────────────────────────────────────────────
+  // ── Folders ─────────────────────────────────────────────────────────────
 
   app.get('/api/folders', () =>
     db.prepare('SELECT * FROM folders ORDER BY position, name').all(),
@@ -249,7 +249,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
-  // ── Список заметок ──────────────────────────────────────────────────────
+  // ── Note list ───────────────────────────────────────────────────────────
 
   app.get('/api/notes', (req) => {
     const q = z
@@ -292,7 +292,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
     return rows.map((r) => ({ ...r, excerpt: excerptOf(String(r.excerpt ?? '')) }));
   });
 
-  // ── Одна заметка со связями ─────────────────────────────────────────────
+  // ── One note with its connections ───────────────────────────────────────
 
   app.get('/api/notes/:id', (req, reply) => {
     const { id: noteId } = z.object({ id: z.string().uuid() }).parse(req.params);
@@ -335,7 +335,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
     return { ...note, outgoing, backlinks, attachments };
   });
 
-  // ── Создание ────────────────────────────────────────────────────────────
+  // ── Creation ────────────────────────────────────────────────────────────
 
   app.post('/api/notes', (req, reply) => {
     const parsed = createInput.safeParse(req.body);
@@ -356,8 +356,8 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
     let titleFromTemplate: string | null = null;
 
     if (d.template_id) {
-      // Шаблон подчиняется той же видимости, что и обычная заметка:
-      // чужой приватный шаблон нельзя развернуть, даже зная его идентификатор
+      // A template obeys the same visibility as a regular note: someone
+      // else's private template can't be expanded even knowing its id
       const template = db
         .prepare(
           `SELECT title, body_md FROM notes
@@ -375,8 +375,9 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
         | NoteRow
         | undefined;
       if (existing) {
-        // Чужая приватная заметка дня не отдаётся — как и в GET /api/notes/daily.
-        // Вторую на ту же дату не создать (daily_date уникальна), поэтому 409.
+        // Someone else's private daily note is not returned — same as in
+        // GET /api/notes/daily. A second one for the same date can't be
+        // created (daily_date is unique), hence 409.
         if (existing.visibility === 'private' && existing.owner_id !== userId) {
           return reply
             .code(409)
@@ -413,7 +414,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(201).send(db.prepare('SELECT * FROM notes WHERE id = ?').get(noteId));
   });
 
-  // ── Изменение ───────────────────────────────────────────────────────────
+  // ── Editing ─────────────────────────────────────────────────────────────
 
   app.patch('/api/notes/:id', (req, reply) => {
     const { id: noteId } = z.object({ id: z.string().uuid() }).parse(req.params);
@@ -427,7 +428,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
     const d = parsed.data;
     const userId = req.user?.id ?? '';
 
-    // Сделать заметку приватной может только тот, кто станет её владельцем
+    // Only the person who would become its owner may make a note private
     if (d.visibility === 'private' && note.owner_id && note.owner_id !== userId) {
       return reply.code(403).send({ error: 'Приватной заметку делает её владелец' });
     }
@@ -447,7 +448,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
       if (d.is_template !== undefined) fields.push(['is_template', d.is_template ? 1 : 0]);
       if (d.visibility !== undefined) {
         fields.push(['visibility', d.visibility]);
-        // Приватная заметка обязана иметь владельца, иначе её не увидит никто
+        // A private note must have an owner, or nobody would see it at all
         if (d.visibility === 'private' && !note.owner_id) fields.push(['owner_id', userId]);
       }
 
@@ -473,8 +474,8 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
     const note = guard(noteId, req, reply);
     if (!note) return;
 
-    // Строки в базе уйдут каскадом, но файлы на диске нужно убрать руками,
-    // иначе каталог вложений будет расти вечно.
+    // Database rows go away via cascade, but files on disk must be removed
+    // by hand, or the attachments directory grows forever.
     const files = db
       .prepare('SELECT storage_path FROM attachments WHERE note_id = ?')
       .all(noteId) as { storage_path: string }[];
@@ -487,7 +488,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
-  // ── История ─────────────────────────────────────────────────────────────
+  // ── History ─────────────────────────────────────────────────────────────
 
   app.get('/api/notes/:id/versions', (req, reply) => {
     const { id: noteId } = z.object({ id: z.string().uuid() }).parse(req.params);
@@ -533,7 +534,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
 
     const userId = req.user?.id ?? '';
     const run = db.transaction(() => {
-      // Текущее состояние сохраняем всегда: откат тоже должен быть обратим
+      // The current state is always saved: a rollback must be reversible too
       db.prepare(
         `INSERT INTO note_versions (id, note_id, title, body_md, author_id, created_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
@@ -552,7 +553,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
     return db.prepare('SELECT * FROM notes WHERE id = ?').get(noteId);
   });
 
-  // ── Заметка дня ─────────────────────────────────────────────────────────
+  // ── Daily note ──────────────────────────────────────────────────────────
 
   app.get('/api/notes/daily/:date', (req, reply) => {
     const { date } = z

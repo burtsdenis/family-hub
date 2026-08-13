@@ -80,7 +80,7 @@ function PaletteSection() {
   );
 }
 
-/** Сообщения после возврата от Google на привязке — код в ?google= */
+/** Messages after returning from Google during linking — the code is in ?google= */
 const LINK_MESSAGES: Record<string, string> = {
   linked: t('Google привязан. Теперь можно входить кнопкой на экране входа.'),
   taken: t('Этот Google-аккаунт уже привязан к другой учётке.'),
@@ -88,9 +88,9 @@ const LINK_MESSAGES: Record<string, string> = {
 };
 
 /**
- * Способы входа. Правила серверные, здесь только их отражение:
- * пароль отключается лишь при привязанном Google и не у администратора,
- * отвязать Google нельзя, пока пароль отключён.
+ * Sign-in methods. The rules are server-side, this is only their mirror:
+ * the password can be disabled only with Google linked and never for the
+ * admin; Google cannot be unlinked while the password is disabled.
  */
 function SignInSection() {
   const { user, refresh } = useAuth();
