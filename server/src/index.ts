@@ -110,12 +110,15 @@ await app.register(fastifyCookie);
   for a fresh sandbox.
 */
 if (env.demoMode) {
-  const { SANDBOX_COOKIE, getSandbox } = await import('./lib/sandbox.js');
+  const { SANDBOX_COOKIE, getSandbox, trackRequest } = await import('./lib/sandbox.js');
   const { runWithDb } = await import('./db/index.js');
   app.addHook('onRequest', (req, _reply, done) => {
     const sandboxId = req.cookies[SANDBOX_COOKIE];
     const sandbox = sandboxId ? getSandbox(sandboxId) : null;
-    if (sandbox) return runWithDb(sandbox.db, done);
+    if (sandbox) {
+      trackRequest(sandbox, req.method, req.url);
+      return runWithDb(sandbox.db, done);
+    }
     done();
   });
 }
@@ -280,6 +283,12 @@ process.on('uncaughtException', (err) => {
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, async () => {
     await app.close();
+    // Close the stats rows of live sandboxes with reason "shutdown":
+    // without it every deploy manufactures sessions that never ended
+    if (env.demoMode) {
+      const { shutdownDemo } = await import('./lib/sandbox.js');
+      shutdownDemo();
+    }
     // An explicit close runs a WAL checkpoint: the database stays a single
     // file, no -wal/-shm next to it — safer to copy and move around
     try {

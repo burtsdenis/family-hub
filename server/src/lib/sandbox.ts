@@ -6,6 +6,14 @@ import { openDatabase, runWithDb } from '../db/index.js';
 import { migrate } from '../db/migrate.js';
 import { env } from '../env.js';
 import { seedDemo } from './demo.js';
+import {
+  type EndReason,
+  apiModule,
+  closeDemoStats,
+  initDemoStats,
+  statsSessionEnded,
+  statsSessionStarted,
+} from './demo-stats.js';
 import { log } from './log.js';
 
 /*
@@ -42,16 +50,23 @@ const demoDir = join(env.dataDir, 'demo');
 const templatePath = join(demoDir, 'template.db');
 const sandboxesDir = join(demoDir, 'sandboxes');
 
-interface Sandbox {
+export interface Sandbox {
   id: string;
   db: Database.Database;
   file: string;
   lastSeen: number;
+  /** Row in demo-stats.db to close when the sandbox dies (null — stats are off). */
+  statsId: number | null;
+  requests: number;
+  writes: number;
+  modules: Set<string>;
 }
 
 const sandboxes = new Map<string, Sandbox>();
 
 export async function initDemo(): Promise<void> {
+  initDemoStats();
+
   // Orphaned files from the previous run are useless: the registry lives in memory
   rmSync(demoDir, { recursive: true, force: true });
   mkdirSync(sandboxesDir, { recursive: true });
@@ -96,7 +111,10 @@ async function buildTemplate(): Promise<void> {
   log.info('demo: template built');
 }
 
-export function createSandbox(): Sandbox {
+export function createSandbox(meta: {
+  referrer?: string | null;
+  userAgent?: string | null;
+} = {}): Sandbox {
   if (sandboxes.size >= MAX_SANDBOXES) evictOldest();
 
   // The identifier is effectively the second half of authorization, hence
@@ -106,10 +124,32 @@ export function createSandbox(): Sandbox {
   const file = join(sandboxesDir, `${id}.db`);
   copyFileSync(templatePath, file);
 
-  const sandbox: Sandbox = { id, db: openDatabase(file), file, lastSeen: Date.now() };
+  const sandbox: Sandbox = {
+    id,
+    db: openDatabase(file),
+    file,
+    lastSeen: Date.now(),
+    statsId: statsSessionStarted(meta.referrer, meta.userAgent),
+    requests: 0,
+    writes: 0,
+    modules: new Set(),
+  };
   sandboxes.set(id, sandbox);
   log.info(`demo: sandbox created (${sandboxes.size} active)`);
   return sandbox;
+}
+
+/**
+ * Engagement counters for the stats row. Only API calls that say
+ * something about the visitor count (see apiModule); the numbers stay
+ * in memory on the sandbox and hit the disk once, at death.
+ */
+export function trackRequest(sandbox: Sandbox, method: string, url: string): void {
+  const module = apiModule(url);
+  if (!module) return;
+  sandbox.requests += 1;
+  if (method !== 'GET' && method !== 'HEAD') sandbox.writes += 1;
+  sandbox.modules.add(module);
 }
 
 export function getSandbox(id: string): Sandbox | null {
@@ -119,10 +159,11 @@ export function getSandbox(id: string): Sandbox | null {
   return sandbox;
 }
 
-export function destroySandbox(id: string): void {
+export function destroySandbox(id: string, reason: EndReason): void {
   const sandbox = sandboxes.get(id);
   if (!sandbox) return;
   sandboxes.delete(id);
+  statsSessionEnded(sandbox.statsId, reason, sandbox);
   try {
     sandbox.db.close();
   } catch (err) {
@@ -133,19 +174,31 @@ export function destroySandbox(id: string): void {
   }
 }
 
+/**
+ * Graceful shutdown: close every stats row with an honest reason —
+ * otherwise a deploy in the middle of someone's visit leaves a session
+ * that never ended, and the report reads it as an eternal visitor.
+ */
+export function shutdownDemo(): void {
+  for (const sandbox of [...sandboxes.values()]) destroySandbox(sandbox.id, 'shutdown');
+  closeDemoStats();
+}
+
 function evictOldest(): void {
   let oldest: Sandbox | null = null;
   for (const sandbox of sandboxes.values()) {
     if (!oldest || sandbox.lastSeen < oldest.lastSeen) oldest = sandbox;
   }
-  if (oldest) destroySandbox(oldest.id);
+  if (oldest) destroySandbox(oldest.id, 'lru');
 }
 
 function sweep(): void {
   const now = Date.now();
   for (const sandbox of [...sandboxes.values()]) {
-    const idle = now - sandbox.lastSeen > TTL_MS;
-    const oversized = existsSync(sandbox.file) && statSync(sandbox.file).size > MAX_DB_BYTES;
-    if (idle || oversized) destroySandbox(sandbox.id);
+    if (now - sandbox.lastSeen > TTL_MS) {
+      destroySandbox(sandbox.id, 'idle');
+    } else if (existsSync(sandbox.file) && statSync(sandbox.file).size > MAX_DB_BYTES) {
+      destroySandbox(sandbox.id, 'oversize');
+    }
   }
 }

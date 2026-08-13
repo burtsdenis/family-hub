@@ -278,6 +278,22 @@ just as much a one-domain job.
 No nightly reset cron is needed: sandbox cleanup and daily template
 rebuilds happen inside the app itself.
 
+### Usage statistics
+
+The demo keeps anonymous usage statistics in `demo-stats.db` next to its
+data: one row per sandbox — when it was created, the referrer that
+brought the visitor, how long they stayed, whether they changed anything
+and which modules they touched. No IPs or visitor identifiers are
+stored. A ready-made report:
+
+```bash
+docker exec family-hub-demo bash scripts/demo-stats.sh
+```
+
+It prints sessions by day, engagement, top referrers and module
+popularity. The file is an ordinary SQLite database — for anything
+deeper, copy it off the server and query it however you like.
+
 The auto-deploy below picks the demo up automatically: it checks the
 server's `.env` for `DEMO_DOMAIN` and, when set, restarts both stacks —
 the image is shared, so shipping a new image updates both.
