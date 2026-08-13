@@ -1,6 +1,6 @@
 import { lang, setLang, t } from '../lib/i18n';
 import { setWeekStart, weekStart } from '../lib/format';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -8,6 +8,77 @@ import { useDialogs } from '../components/Dialog';
 import { plural } from '../lib/format';
 import { Page } from '../components/Page';
 import { onEnter } from '../lib/keys';
+import { PALETTE, addToPalette, loadCustomPalette, removeFromPalette } from '../lib/palette';
+
+/**
+ * The hub's custom colors on top of the stock palette. The list also grows
+ * from the color pickers in entity dialogs; this is where it gets pruned.
+ */
+function PaletteSection() {
+  const [custom, setCustom] = useState<string[] | null>(null);
+  // The native color input fires change per drag tick — debounce the save
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    void loadCustomPalette()
+      .then(setCustom)
+      .catch(() => setCustom([]));
+  }, []);
+
+  function add(color: string) {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void addToPalette(color).then(setCustom);
+    }, 800);
+  }
+
+  return (
+    <section className="rounded-card border border-line bg-surface p-5">
+      <h2 className="eyebrow mb-3">{t('Палитра')}</h2>
+      <p className="mb-3 text-xs text-muted">
+        {t('Свои цвета для проектов, счетов, категорий и календарей — поверх стандартных. Пополняется и отсюда, и кнопкой «+» прямо в выборе цвета.')}
+      </p>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {PALETTE.map((color) => (
+          <span
+            key={color}
+            className="size-7 rounded-full opacity-60"
+            style={{ backgroundColor: color }}
+            title={t('Стандартный цвет')}
+          />
+        ))}
+        {(custom ?? []).map((color) => (
+          <button
+            key={color}
+            type="button"
+            onClick={() => void removeFromPalette(color).then(setCustom)}
+            style={{ backgroundColor: color }}
+            title={t('Убрать {color}', { color })}
+            aria-label={t('Убрать {color}', { color })}
+            className="group relative size-7 rounded-full"
+          >
+            <span className="absolute inset-0 grid place-items-center rounded-full bg-black/40 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+              ×
+            </span>
+          </button>
+        ))}
+        <label
+          className="grid size-7 cursor-pointer place-items-center rounded-full border border-dashed border-line text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+          title={t('Добавить цвет')}
+        >
+          +
+          <input
+            type="color"
+            onChange={(e) => add(e.target.value)}
+            className="sr-only"
+            aria-label={t('Добавить цвет')}
+          />
+        </label>
+      </div>
+    </section>
+  );
+}
 
 /** Сообщения после возврата от Google на привязке — код в ?google= */
 const LINK_MESSAGES: Record<string, string> = {
@@ -262,6 +333,8 @@ export function Settings() {
           </button>
         </div>
       </section>
+
+      <PaletteSection />
 
       <SignInSection />
 

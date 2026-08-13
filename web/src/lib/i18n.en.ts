@@ -626,6 +626,13 @@ export const en: Record<string, string> = {
   'Понедельник': 'Monday',
   'Воскресенье': 'Sunday',
   'Демо': 'Demo',
+  'Палитра': 'Palette',
+  'Свои цвета для проектов, счетов, категорий и календарей — поверх стандартных. Пополняется и отсюда, и кнопкой «+» прямо в выборе цвета.':
+    'Your own colors for projects, accounts, categories and calendars — on top of the stock ones. Grows from here and from the "+" button right in the color picker.',
+  'Стандартный цвет': 'Stock color',
+  'Убрать {color}': 'Remove {color}',
+  'Добавить цвет': 'Add color',
+  'Свой цвет': 'Custom color',
   'Каждые': 'Every',
   'Общий': 'Shared',
   'Проверьте, что сервер хаба запущен, и обновите страницу.':
