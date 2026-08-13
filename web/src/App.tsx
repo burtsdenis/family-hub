@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { AuthProvider, useAuth } from './lib/auth';
 import { DialogProvider } from './components/Dialog';
@@ -8,7 +8,6 @@ import { Tasks } from './pages/Tasks';
 import { Notes } from './pages/Notes';
 import { Calendar } from './pages/Calendar';
 import { Settings } from './pages/Settings';
-import { Users } from './pages/Users';
 import { Money } from './pages/Money';
 
 function Gate() {
@@ -29,7 +28,8 @@ function Gate() {
         <Route path="notes" element={<Notes />} />
         <Route path="money" element={<Money />} />
         <Route path="settings" element={<Settings />} />
-        {user.role === 'admin' && <Route path="users" element={<Users />} />}
+        {/* People management moved into Settings; old bookmarks land there */}
+        <Route path="users" element={<Navigate to="/settings" replace />} />
       </Route>
     </Routes>
   );

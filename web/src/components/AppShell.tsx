@@ -87,18 +87,6 @@ const SECONDARY: NavItem[] = [
   },
 ];
 
-const ADMIN_NAV: NavItem = {
-  to: '/users',
-  label: t('Пользователи'),
-  icon: (
-    <svg viewBox="0 0 24 24" {...stroke}>
-      <circle cx="9" cy="8" r="3.2" />
-      <path d="M3.5 19c0-3 2.5-4.8 5.5-4.8s5.5 1.8 5.5 4.8" />
-      <path d="M16 5.4a3.2 3.2 0 0 1 0 5.2M17.5 14.6c1.9.5 3 2.2 3 4.4" />
-    </svg>
-  ),
-};
-
 function useTheme() {
   const [dark, setDark] = useState(() => {
     const saved = localStorage.getItem('hub.theme');
@@ -169,11 +157,7 @@ export function AppShell() {
   // а боковой панели там нет вовсе.
   const [searchOpen, setSearchOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const sidebarNav = [
-    ...NAV,
-    ...SECONDARY,
-    ...(user?.role === 'admin' ? [ADMIN_NAV] : []),
-  ];
+  const sidebarNav = [...NAV, ...SECONDARY];
 
   return (
     <div className="min-h-dvh md:flex">
@@ -301,7 +285,7 @@ export function AppShell() {
               {t('Поиск')}
             </button>
 
-            {[...SECONDARY, ...(user?.role === 'admin' ? [ADMIN_NAV] : [])].map((item) => (
+            {SECONDARY.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

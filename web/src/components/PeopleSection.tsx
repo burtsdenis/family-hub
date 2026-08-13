@@ -1,10 +1,10 @@
 import { t } from '../lib/i18n';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Empty, Page } from '../components/Page';
+import { Empty } from './Page';
 import { onEnter } from '../lib/keys';
-import { EntityDialog } from '../components/EntityDialog';
-import { useDialogs } from '../components/Dialog';
+import { EntityDialog } from './EntityDialog';
+import { useDialogs } from './Dialog';
 
 interface ManagedUser {
   id: string;
@@ -146,7 +146,13 @@ function InvitesBlock() {
   );
 }
 
-export function Users() {
+/**
+ * People management, formerly a standalone /users page. User feedback:
+ * managing the household happens a few times a year — it does not deserve
+ * a navigation item. It now lives in Settings (admin only) and spans both
+ * columns there.
+ */
+export function PeopleSection() {
   const [users, setUsers] = useState<ManagedUser[] | null>(null);
   const [password, setPassword] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -193,7 +199,8 @@ export function Users() {
   }
 
   return (
-    <Page title={t('Пользователи')} eyebrow={t('Кто живёт в доме')}>
+    <section>
+      <h2 className="eyebrow mb-4">{t('Пользователи')}</h2>
       <InvitesBlock />
 
       {password && <PasswordOnce password={password} onClose={() => setPassword(null)} />}
@@ -293,6 +300,6 @@ export function Users() {
       <p className="mt-5 text-sm text-muted">
         {t('Администратор управляет учётками и настройками, но не видит чужие приватные заметки — выборки фильтруются по владельцу без исключений для роли.')}
       </p>
-    </Page>
+    </section>
   );
 }
