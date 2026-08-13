@@ -157,8 +157,11 @@ export function AppShell() {
           Липкая и со своим скроллом: на длинном списке задач страница
           прокручивается, а панель с разделами остаётся на месте. */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-line bg-surface px-4 py-6 md:sticky md:top-0 md:flex md:h-dvh md:overflow-y-auto 3xl:w-64">
-        <div className="mb-8 px-2">
+        {/* Переключатель темы живёт в шапке: рядом с «Выйти» по нему
+            мисклики разлогинивали — цена промаха несоразмерна кнопке */}
+        <div className="mb-8 flex items-center justify-between px-2">
           <span className="font-display text-lg font-bold tracking-tight text-ink">{t('Дом')}</span>
+          <ThemeToggle />
         </div>
 
         <div className="mb-4">
@@ -195,8 +198,7 @@ export function AppShell() {
             />
             <span className="min-w-0 flex-1 truncate text-sm text-ink">{user?.name}</span>
           </div>
-          <div className="flex items-center gap-2 px-2">
-            <ThemeToggle />
+          <div className="px-2">
             <button
               type="button"
               onClick={() => void logout()}
