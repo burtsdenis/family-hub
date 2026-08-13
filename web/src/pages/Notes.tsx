@@ -46,9 +46,9 @@ interface Note extends NoteStub {
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} ${t('Б')}`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ${t('КБ')}`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} ${t('МБ')}`;
+  if (bytes < 1024) return t('{n} B', { n: bytes });
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ${t('KB')}`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} ${t('MB')}`;
 }
 
 interface Attachment {
@@ -147,7 +147,7 @@ export function Notes() {
       setNote(await api.get<Note>(`/notes/${noteId}`));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось открыть заметку'));
+      setError(err instanceof Error ? err.message : t('Could not open the note'));
     }
   }, []);
   // Arriving from global search: /notes?open=<id>.
@@ -188,7 +188,7 @@ export function Notes() {
       );
     } catch (err) {
       setSaveState('error');
-      setError(err instanceof Error ? err.message : t('Не удалось сохранить'));
+      setError(err instanceof Error ? err.message : t('Could not save'));
     }
   }, [loadNotes]);
 
@@ -235,7 +235,7 @@ export function Notes() {
       // No title is sent when creating from a template: the server takes
       // it from the template and expands the substitutions. An explicit
       // title would override them.
-      ...(templateId ? {} : { title: inTemplates ? t('Новый шаблон') : t('Без названия') }),
+      ...(templateId ? {} : { title: inTemplates ? t('New template') : t('Untitled') }),
       folder_id:
         folderId && folderId !== 'none' && folderId !== 'templates' ? folderId : null,
       ...(inTemplates ? { is_template: true } : {}),
@@ -287,16 +287,16 @@ export function Notes() {
       await openNote(note.id);
       await loadNotes();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось изменить доступ'));
+      setError(err instanceof Error ? err.message : t('Could not change access'));
     }
   }
 
   async function removeNote() {
     if (!note) return;
     const ok = await dialogs.confirm({
-      title: t('Удалить заметку'),
-      message: t('«{title}» и её вложения будут удалены безвозвратно.', { title: note.title }),
-      confirmLabel: t('Удалить'),
+      title: t('Delete note'),
+      message: t('“{title}” and its attachments will be deleted permanently.', { title: note.title }),
+      confirmLabel: t('Delete'),
       danger: true,
     });
     if (!ok) return;
@@ -315,9 +315,9 @@ export function Notes() {
         return;
       }
       const ok = await dialogs.confirm({
-        title: t('Заметки пока нет'),
-        message: t('«{title}» ещё не создана. Создать сейчас?', { title }),
-        confirmLabel: t('Создать'),
+        title: t('No note yet'),
+        message: t('“{title}” does not exist yet. Create it now?', { title }),
+        confirmLabel: t('Create'),
       });
       if (ok) {
         const created = await api.post<Note>('/notes', { title });
@@ -343,7 +343,7 @@ export function Notes() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        setError(body?.error ?? t('Не удалось загрузить файл'));
+        setError(body?.error ?? t('Could not upload the file'));
         return [];
       }
 
@@ -358,9 +358,9 @@ export function Notes() {
   async function removeAttachment(attachment: Attachment) {
     if (!note) return;
     const ok = await dialogs.confirm({
-      title: t('Удалить файл'),
+      title: t('Delete file'),
       message: attachment.filename,
-      confirmLabel: t('Удалить'),
+      confirmLabel: t('Delete'),
       danger: true,
     });
     if (!ok) return;
@@ -380,9 +380,9 @@ export function Notes() {
   async function restore(versionId: string) {
     if (!note) return;
     const ok = await dialogs.confirm({
-      title: t('Вернуть версию'),
-      message: t('Текущее состояние останется в истории, откат можно будет отменить.'),
-      confirmLabel: t('Вернуть'),
+      title: t('Restore version'),
+      message: t('The current state stays in history; the rollback can be undone.'),
+      confirmLabel: t('Restore'),
     });
     if (!ok) return;
     // The pending save holds the text from BEFORE the rollback — it must
@@ -396,7 +396,7 @@ export function Notes() {
   }
 
   const saveLabel = useMemo(
-    () => ({ idle: '', saving: t('Сохраняю…'), saved: t('Сохранено'), error: t('Не сохранено') })[saveState],
+    () => ({ idle: '', saving: t('Saving…'), saved: t('Saved'), error: t('Not saved') })[saveState],
     [saveState],
   );
 
@@ -404,8 +404,8 @@ export function Notes() {
 
   return (
     <Page
-      title={t('Заметки')}
-      eyebrow={t('Что нужно помнить')}
+      title={t('Notes')}
+      eyebrow={t('Things to remember')}
       action={
         <div className="flex gap-2">
           <button
@@ -413,14 +413,14 @@ export function Notes() {
             onClick={() => void openDaily()}
             className="rounded-lg border border-line px-3 py-1.5 text-sm text-muted hover:text-ink"
           >
-            {t('Сегодня')}
+            {t('Today')}
           </button>
           <button
             type="button"
             onClick={() => void createNote()}
             className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
           >
-            {t('Новая')}
+            {t('New')}
           </button>
         </div>
       }
@@ -431,14 +431,14 @@ export function Notes() {
           onClick={() => setFolderId('')}
           className={`${chip} ${folderId === '' ? chipOn : chipOff}`}
         >
-          {t('Все')}
+          {t('All')}
         </button>
         <button
           type="button"
           onClick={() => setFolderId('none')}
           className={`${chip} ${folderId === 'none' ? chipOn : chipOff}`}
         >
-          {t('Без папки')}
+          {t('No folder')}
         </button>
         {folders.map((f) => (
           <span
@@ -452,7 +452,7 @@ export function Notes() {
               <button
                 type="button"
                 onClick={() => setEditingFolder(f)}
-                aria-label={t('Настроить папку {name}', { name: f.name })}
+                aria-label={t('Configure folder {name}', { name: f.name })}
                 className="opacity-60 hover:opacity-100"
               >
                 <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -468,7 +468,7 @@ export function Notes() {
           onClick={() => setCreatingFolder(true)}
           className={`${chip} border-dashed border-line text-muted hover:text-ink`}
         >
-          {t('+ папка')}
+          {t('+ folder')}
         </button>
 
         <button
@@ -479,7 +479,7 @@ export function Notes() {
           }}
           className={`${chip} ml-auto ${inTemplates ? chipOn : chipOff}`}
         >
-          {t('Шаблоны')}
+          {t('Templates')}
         </button>
       </div>
 
@@ -497,7 +497,7 @@ export function Notes() {
         <div className={note ? 'hidden lg:block' : ''}>
           <input
             value={query}
-            placeholder={t('Поиск по заметкам')}
+            placeholder={t('Search notes')}
             onChange={(e) => setQuery(e.target.value)}
             className="mb-3 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
           />
@@ -505,7 +505,7 @@ export function Notes() {
           {notes === null ? (
             <div className="h-40 animate-pulse rounded-card bg-surface-3" />
           ) : notes.length === 0 ? (
-            <Empty>{t('Заметок нет. Начните с кнопки «Новая».')}</Empty>
+            <Empty>{t('No notes. Start with the “New” button.')}</Empty>
           ) : (
             <ul className="overflow-hidden rounded-card border border-line bg-surface">
               {notes.map((n) => (
@@ -519,13 +519,13 @@ export function Notes() {
                   >
                     <p className="flex items-center gap-2 truncate text-sm font-medium text-ink">
                       {n.visibility === 'private' && (
-                        <span className="text-muted" title={t('Приватная')}>
+                        <span className="text-muted" title={t('Private')}>
                           ●
                         </span>
                       )}
                       {n.title}
                     </p>
-                    <p className="mt-0.5 truncate text-xs text-muted">{n.excerpt || t('Пусто')}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted">{n.excerpt || t('Empty')}</p>
                   </button>
                 </li>
               ))}
@@ -534,7 +534,7 @@ export function Notes() {
 
           {templates.length > 0 && !inTemplates && (
             <div className="mt-4">
-              <p className="eyebrow mb-2">{t('Из шаблона')}</p>
+              <p className="eyebrow mb-2">{t('From template')}</p>
               <div className="flex flex-wrap gap-2">
                 {templates.map((t) => (
                   <button
@@ -564,7 +564,7 @@ export function Notes() {
                 onClick={() => setNote(null)}
                 className="text-sm text-muted hover:text-ink lg:hidden"
               >
-                {t('← Список')}
+                {t('← List')}
               </button>
 
               <input
@@ -588,7 +588,7 @@ export function Notes() {
                 }}
                 className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-accent"
               >
-                <option value="">{t('Без папки')}</option>
+                <option value="">{t('No folder')}</option>
                 {folders.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
@@ -602,23 +602,23 @@ export function Notes() {
                 disabled={!isOwner}
                 title={
                   isOwner
-                    ? t('Приватную заметку видит только её владелец')
-                    : t('Заметка принадлежит другому человеку')
+                    ? t('A private note is visible only to its owner')
+                    : t('The note belongs to someone else')
                 }
                 className={`${chip} ${
                   note.visibility === 'private' ? chipOn : chipOff
                 } disabled:opacity-40`}
               >
-                {note.visibility === 'private' ? t('Приватная') : t('Общая')}
+                {note.visibility === 'private' ? t('Private') : t('Shared with the family')}
               </button>
 
               <button
                 type="button"
                 onClick={() => void toggleTemplate()}
-                title={t('Шаблон не попадает в общий список и предлагается при создании заметки')}
+                title={t('Templates stay out of the main list and are offered when creating a note')}
                 className={`${chip} ${note.is_template ? chipOn : chipOff}`}
               >
-                {note.is_template ? t('Шаблон') : t('Обычная')}
+                {note.is_template ? t('Template') : t('Regular')}
               </button>
 
               <button
@@ -626,7 +626,7 @@ export function Notes() {
                 onClick={() => void showVersions()}
                 className={`${chip} ${chipOff}`}
               >
-                {t('История')}
+                {t('History')}
               </button>
 
               <button
@@ -634,7 +634,7 @@ export function Notes() {
                 onClick={() => void removeNote()}
                 className="ml-auto text-sm text-muted underline underline-offset-2 hover:text-urgent"
               >
-                {t('Удалить')}
+                {t('Delete')}
               </button>
             </div>
 
@@ -642,7 +642,7 @@ export function Notes() {
               <div className="mb-3 overflow-hidden rounded-card border border-line bg-surface">
                 {versions.length === 0 ? (
                   <p className="px-4 py-3 text-sm text-muted">
-                    {t('История пуста — заметку ещё не правили после создания.')}
+                    {t('History is empty — the note has not been edited since creation.')}
                   </p>
                 ) : (
                   <ul>
@@ -659,7 +659,7 @@ export function Notes() {
                           onClick={() => void restore(v.id)}
                           className="text-xs text-accent underline underline-offset-2"
                         >
-                          {t('Вернуть')}
+                          {t('Restore')}
                         </button>
                       </li>
                     ))}
@@ -670,12 +670,12 @@ export function Notes() {
 
             {note.is_template === 1 && (
               <p className="mb-3 rounded-lg border border-line bg-surface-2 px-4 py-2.5 text-xs text-muted">
-                {t('Подстановки раскроются при создании заметки:')}{' '}
-                <code className="font-mono text-ink">{t('{{дата}}')}</code>,{' '}
-                <code className="font-mono text-ink">{t('{{время}}')}</code>,{' '}
-                <code className="font-mono text-ink">{t('{{автор}}')}</code>,{' '}
-                <code className="font-mono text-ink">{t('{{изо}}')}</code> — {t('дата в виде 2026-08-02.')}
-                {t('Работают и в заголовке.')}
+                {t('Placeholders expand when a note is created:')}{' '}
+                <code className="font-mono text-ink">{t('{{date}}')}</code>,{' '}
+                <code className="font-mono text-ink">{t('{{time}}')}</code>,{' '}
+                <code className="font-mono text-ink">{t('{{author}}')}</code>,{' '}
+                <code className="font-mono text-ink">{t('{{iso}}')}</code> — {t('date like 2026-08-02.')}
+                {t('They work in the title too.')}
               </p>
             )}
 
@@ -690,7 +690,7 @@ export function Notes() {
 
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <label className="cursor-pointer rounded-lg border border-line px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink">
-                {t('Прикрепить файл')}
+                {t('Attach a file')}
                 <input
                   type="file"
                   multiple
@@ -703,7 +703,7 @@ export function Notes() {
                 />
               </label>
               <span className="text-xs text-muted">
-                {t('Файлы можно перетащить в текст или вставить из буфера')}
+                {t('Drag files into the text or paste from the clipboard')}
               </span>
             </div>
 
@@ -722,7 +722,7 @@ export function Notes() {
                       />
                     ) : (
                       <span className="grid size-9 shrink-0 place-items-center rounded bg-surface-2 font-mono text-[0.625rem] text-muted uppercase">
-                        {(a.filename.split('.').pop() ?? t('файл')).slice(0, 4)}
+                        {(a.filename.split('.').pop() ?? t('file')).slice(0, 4)}
                       </span>
                     )}
 
@@ -742,7 +742,7 @@ export function Notes() {
                       onClick={() => void removeAttachment(a)}
                       className="text-xs text-muted underline underline-offset-2 hover:text-urgent"
                     >
-                      {t('Удалить')}
+                      {t('Delete')}
                     </button>
                   </li>
                 ))}
@@ -752,7 +752,7 @@ export function Notes() {
           </div>
         ) : (
           <div className="hidden lg:block">
-            <Empty>{t('Выберите заметку слева или создайте новую.')}</Empty>
+            <Empty>{t('Pick a note on the left or create a new one.')}</Empty>
           </div>
         )}
 
@@ -761,7 +761,7 @@ export function Notes() {
             <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-1">
               {note.outgoing.length > 0 && (
                 <section className="rounded-card border border-line bg-surface p-4">
-                  <h3 className="eyebrow mb-2.5">{t('Ссылается на')}</h3>
+                  <h3 className="eyebrow mb-2.5">{t('Links to')}</h3>
                   <ul className="space-y-1.5">
                     {note.outgoing.map((l) => (
                       <li key={l.target_title}>
@@ -773,7 +773,7 @@ export function Notes() {
                           }`}
                         >
                           {l.target_title}
-                          {!l.exists_now && t(' — ещё нет')}
+                          {!l.exists_now && t(' — none yet')}
                         </button>
                       </li>
                     ))}
@@ -783,7 +783,7 @@ export function Notes() {
 
               {note.backlinks.length > 0 && (
                 <section className="rounded-card border border-line bg-surface p-4">
-                  <h3 className="eyebrow mb-2.5">{t('Упоминают эту')}</h3>
+                  <h3 className="eyebrow mb-2.5">{t('Mentioned by')}</h3>
                   <ul className="space-y-1.5">
                     {note.backlinks.map((b) => (
                       <li key={b.id}>
@@ -802,14 +802,14 @@ export function Notes() {
             </div>
 
             <p className="mt-4 text-xs text-muted">
-              {t('Ссылка на другую заметку — двойные квадратные скобки. Переход по ней: Cmd или Ctrl и щелчок.')}
+              {t('Link to another note with double square brackets. Follow it with Cmd or Ctrl and a click.')}
             </p>
           </aside>
         )}
       </div>
       {creatingFolder && (
         <EntityDialog
-          title={t('Новая папка')}
+          title={t('New folder')}
           initial={{ name: '' }}
           onSave={async (draft) => {
             await api.post('/folders', { name: draft.name });
@@ -821,7 +821,7 @@ export function Notes() {
 
       {editingFolder && (
         <EntityDialog
-          title={t('Папка')}
+          title={t('Folder')}
           initial={{ name: editingFolder.name }}
           deletable
           onSave={async (draft) => {

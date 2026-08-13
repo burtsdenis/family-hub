@@ -22,7 +22,7 @@ const stroke = {
 const NAV: NavItem[] = [
   {
     to: '/',
-    label: t('Сегодня'),
+    label: t('Today'),
     icon: (
       <svg viewBox="0 0 24 24" {...stroke}>
         <path d="M4 11 12 4l8 7" />
@@ -32,7 +32,7 @@ const NAV: NavItem[] = [
   },
   {
     to: '/tasks',
-    label: t('Задачи'),
+    label: t('Tasks'),
     icon: (
       <svg viewBox="0 0 24 24" {...stroke}>
         <path d="M4 7h10M4 12h10M4 17h6" />
@@ -42,7 +42,7 @@ const NAV: NavItem[] = [
   },
   {
     to: '/calendar',
-    label: t('Календарь'),
+    label: t('Calendar'),
     icon: (
       <svg viewBox="0 0 24 24" {...stroke}>
         <rect x="3.5" y="5.5" width="17" height="15" rx="2" />
@@ -52,7 +52,7 @@ const NAV: NavItem[] = [
   },
   {
     to: '/notes',
-    label: t('Заметки'),
+    label: t('Notes'),
     icon: (
       <svg viewBox="0 0 24 24" {...stroke}>
         <path d="M6 3.5h9l4 4V20a.5.5 0 0 1-.5.5h-12A.5.5 0 0 1 6 20V4a.5.5 0 0 1 .5-.5Z" />
@@ -62,7 +62,7 @@ const NAV: NavItem[] = [
   },
   {
     to: '/money',
-    label: t('Деньги'),
+    label: t('Money'),
     icon: (
       <svg viewBox="0 0 24 24" {...stroke}>
         <rect x="3" y="6.5" width="18" height="12" rx="2" />
@@ -77,7 +77,7 @@ const NAV: NavItem[] = [
 const SECONDARY: NavItem[] = [
   {
     to: '/settings',
-    label: t('Настройки'),
+    label: t('Settings'),
     icon: (
       <svg viewBox="0 0 24 24" {...stroke}>
         <circle cx="12" cy="12" r="3" />
@@ -124,7 +124,7 @@ function ThemeToggle() {
       type="button"
       onClick={toggle}
       className="rounded-full border border-line p-2 text-muted transition-colors hover:text-ink"
-      aria-label={dark ? t('Включить светлую тему') : t('Включить тёмную тему')}
+      aria-label={dark ? t('Switch to light theme') : t('Switch to dark theme')}
     >
       <ThemeIcon dark={dark} className="size-4" />
     </button>
@@ -144,7 +144,7 @@ function ThemeRow() {
       <span className="size-5 text-muted">
         <ThemeIcon dark={dark} className="size-5" />
       </span>
-      {dark ? t('Включить светлую тему') : t('Включить тёмную тему')}
+      {dark ? t('Switch to light theme') : t('Switch to dark theme')}
     </button>
   );
 }
@@ -168,7 +168,7 @@ export function AppShell() {
         {/* The theme toggle lives in the header: next to Sign out a missed
             click cost a whole session — a price out of scale for the button */}
         <div className="mb-8 flex items-center justify-between px-2">
-          <span className="font-display text-lg font-bold tracking-tight text-ink">{t('Дом')}</span>
+          <span className="font-display text-lg font-bold tracking-tight text-ink">{t('Home')}</span>
           <ThemeToggle />
         </div>
 
@@ -212,7 +212,7 @@ export function AppShell() {
               onClick={() => void logout()}
               className="rounded-lg px-2.5 py-1.5 text-sm text-muted transition-colors hover:text-ink"
             >
-              {t('Выйти')}
+              {t('Sign out')}
             </button>
           </div>
         </div>
@@ -257,7 +257,7 @@ export function AppShell() {
             <circle cx="12" cy="12" r="1.2" />
             <circle cx="19" cy="12" r="1.2" />
           </svg>
-          {t('Ещё')}
+          {t('More')}
         </button>
       </nav>
 
@@ -265,7 +265,7 @@ export function AppShell() {
         <div className="fixed inset-0 z-20 md:hidden">
           <button
             type="button"
-            aria-label={t('Закрыть')}
+            aria-label={t('Close')}
             onClick={() => setMoreOpen(false)}
             className="absolute inset-0 bg-black/40"
           />
@@ -282,7 +282,7 @@ export function AppShell() {
                 <circle cx="11" cy="11" r="6.5" />
                 <path d="m16 16 4 4" />
               </svg>
-              {t('Поиск')}
+              {t('Search')}
             </button>
 
             {SECONDARY.map((item) => (
@@ -306,7 +306,7 @@ export function AppShell() {
                 onClick={() => void logout()}
                 className="text-sm text-muted underline underline-offset-2"
               >
-                {t('Выйти')}
+                {t('Sign out')}
               </button>
             </div>
           </div>

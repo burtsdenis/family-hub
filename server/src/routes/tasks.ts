@@ -26,11 +26,11 @@ interface TaskRow {
 const createInput = z.object({
   project_id: z.string().uuid(),
   parent_id: z.string().uuid().nullable().optional(),
-  title: z.string().min(1, 'У задачи должно быть название').max(300),
+  title: z.string().min(1, 'The task needs a title').max(300),
   description: z.string().max(10_000).nullable().optional(),
   status: z.enum(STATUSES).optional(),
   priority: z.enum(PRIORITIES).optional(),
-  due_date: z.string().regex(DATE, 'Дата в формате ГГГГ-ММ-ДД').nullable().optional(),
+  due_date: z.string().regex(DATE, 'Date must be YYYY-MM-DD').nullable().optional(),
   assignee_id: z.string().uuid().nullable().optional(),
   recurrence_rule: z.string().max(100).nullable().optional(),
 });
@@ -150,15 +150,15 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/tasks', (req, reply) => {
     const parsed = createInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const d = parsed.data;
 
     if (!db.prepare('SELECT 1 FROM projects WHERE id = ?').get(d.project_id)) {
-      return reply.code(400).send({ error: 'Проект не найден' });
+      return reply.code(400).send({ error: 'Project not found' });
     }
     if (d.recurrence_rule && !isValidRecurrence(d.recurrence_rule)) {
-      return reply.code(400).send({ error: 'Правило повтора не разобрать' });
+      return reply.code(400).send({ error: 'Could not parse the recurrence rule' });
     }
 
     let level = 0;
@@ -166,14 +166,14 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
       const parent = db.prepare('SELECT level, project_id FROM tasks WHERE id = ?').get(d.parent_id) as
         | { level: number; project_id: string }
         | undefined;
-      if (!parent) return reply.code(400).send({ error: 'Родительская задача не найдена' });
+      if (!parent) return reply.code(400).send({ error: 'Parent task not found' });
       if (parent.project_id !== d.project_id) {
-        return reply.code(400).send({ error: 'Родительская задача из другого проекта' });
+        return reply.code(400).send({ error: 'Parent task belongs to another project' });
       }
       if (parent.level >= 2) {
         return reply
           .code(400)
-          .send({ error: 'Глубже трёх уровней задачи не вкладываются: стори, таск, сабтаск' });
+          .send({ error: 'Tasks nest at most three levels deep: story, task, subtask' });
       }
       level = parent.level + 1;
     }
@@ -206,15 +206,15 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
     const { id: taskId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const parsed = patchInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
 
     const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId) as TaskRow | undefined;
-    if (!task) return reply.code(404).send({ error: 'Задача не найдена' });
+    if (!task) return reply.code(404).send({ error: 'Task not found' });
 
     const d = parsed.data;
     if (d.recurrence_rule && !isValidRecurrence(d.recurrence_rule)) {
-      return reply.code(400).send({ error: 'Правило повтора не разобрать' });
+      return reply.code(400).send({ error: 'Could not parse the recurrence rule' });
     }
 
     // A parent change recomputes the level of the whole subtree
@@ -223,21 +223,21 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
       let newLevel = 0;
       if (d.parent_id) {
         if (d.parent_id === taskId || isDescendant(d.parent_id, taskId)) {
-          return reply.code(400).send({ error: 'Задачу нельзя вложить в саму себя' });
+          return reply.code(400).send({ error: 'A task cannot be nested inside itself' });
         }
         const parent = db.prepare('SELECT level, project_id FROM tasks WHERE id = ?').get(d.parent_id) as
           | { level: number; project_id: string }
           | undefined;
-        if (!parent) return reply.code(400).send({ error: 'Родительская задача не найдена' });
+        if (!parent) return reply.code(400).send({ error: 'Parent task not found' });
         if (parent.project_id !== task.project_id) {
-          return reply.code(400).send({ error: 'Родительская задача из другого проекта' });
+          return reply.code(400).send({ error: 'Parent task belongs to another project' });
         }
         newLevel = parent.level + 1;
       }
       if (newLevel + subtreeDepth(taskId) > 2) {
         return reply
           .code(400)
-          .send({ error: 'Не помещается: глубже трёх уровней задачи не вкладываются' });
+          .send({ error: 'Does not fit: tasks nest at most three levels deep' });
       }
       levelDelta = newLevel - task.level;
     }
@@ -311,7 +311,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
    */
   app.post('/api/tasks/reorder', (req, reply) => {
     const parsed = z.object({ ids: z.array(z.string().uuid()).max(500) }).safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Ожидается список задач' });
+    if (!parsed.success) return reply.code(400).send({ error: 'A list of tasks is expected' });
 
     const stmt = db.prepare('UPDATE tasks SET position = ? WHERE id = ?');
     const run = db.transaction((ids: string[]) => {
@@ -328,7 +328,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
     ).n;
 
     const result = db.prepare('DELETE FROM tasks WHERE id = ?').run(taskId);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Задача не найдена' });
+    if (result.changes === 0) return reply.code(404).send({ error: 'Task not found' });
     return { ok: true, deleted_children: children };
   });
 }

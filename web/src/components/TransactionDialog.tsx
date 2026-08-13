@@ -88,7 +88,7 @@ export function TransactionDialog({
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        setError(body?.error ?? t('Не удалось загрузить чек'));
+        setError(body?.error ?? t('Could not upload the receipt'));
         return;
       }
       setReceipts(await api.get<typeof receipts>(`/transactions/${transaction.id}/attachments`));
@@ -116,19 +116,19 @@ export function TransactionDialog({
   async function save() {
     const amount = parseAmount(draft.amount);
     if (amount === null || amount === 0) {
-      setError(t('Укажите сумму больше нуля'));
+      setError(t('Enter an amount above zero'));
       return;
     }
 
     let toAmount: number | null = null;
     if (kind === 'transfer') {
       if (!draft.to_account_id) {
-        setError(t('Выберите счёт получателя'));
+        setError(t('Choose a destination account'));
         return;
       }
       toAmount = needsSecondAmount ? parseAmount(draft.to_amount) : amount;
       if (toAmount === null || toAmount === 0) {
-        setError(t('Укажите полученную сумму'));
+        setError(t('Enter the amount received'));
         return;
       }
     }
@@ -152,7 +152,7 @@ export function TransactionDialog({
       onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось сохранить'));
+      setError(err instanceof Error ? err.message : t('Could not save'));
       setBusy(false);
     }
   }
@@ -166,7 +166,7 @@ export function TransactionDialog({
 
   return (
     <Modal
-      title={editing ? t('Операция') : t('Новая операция')}
+      title={editing ? t('Transaction') : t('New transaction')}
       width="max-w-md"
       onClose={onClose}
       onSubmit={() => {
@@ -180,14 +180,14 @@ export function TransactionDialog({
               onClick={() => void remove()}
               className={`${dialogDanger} mr-auto`}
             >
-              {t('Удалить')}
+              {t('Delete')}
             </button>
           )}
           <button type="button" onClick={onClose} className={dialogGhost}>
-            {t('Отмена')}
+            {t('Cancel')}
           </button>
           <button type="button" disabled={busy} onClick={() => void save()} className={dialogPrimary}>
-            {t('Сохранить')}
+            {t('Save')}
           </button>
         </>
       }
@@ -213,7 +213,7 @@ export function TransactionDialog({
 
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className={dialogLabel}>{kind === 'transfer' ? t('Списать') : t('Сумма')}</span>
+            <span className={dialogLabel}>{kind === 'transfer' ? t('Debit') : t('Amount')}</span>
             <input
               autoFocus
               inputMode="decimal"
@@ -227,7 +227,7 @@ export function TransactionDialog({
           </label>
 
           <label className="block">
-            <span className={dialogLabel}>{t('Дата')}</span>
+            <span className={dialogLabel}>{t('Date')}</span>
             <input
               type="date"
               value={draft.occurred_on}
@@ -238,7 +238,7 @@ export function TransactionDialog({
         </div>
 
         <label className="block">
-          <span className={dialogLabel}>{kind === 'transfer' ? t('Со счёта') : t('Счёт')}</span>
+          <span className={dialogLabel}>{kind === 'transfer' ? t('From account') : t('Account')}</span>
           <select
             value={draft.account_id}
             onChange={(e) => setDraft({ ...draft, account_id: e.target.value })}
@@ -247,7 +247,7 @@ export function TransactionDialog({
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name} · {a.currency}
-                {a.shared ? '' : t(' · личный')}
+                {a.shared ? '' : t(' · personal')}
               </option>
             ))}
           </select>
@@ -256,19 +256,19 @@ export function TransactionDialog({
         {kind === 'transfer' && (
           <>
             <label className="block">
-              <span className={dialogLabel}>{t('На счёт')}</span>
+              <span className={dialogLabel}>{t('To account')}</span>
               <select
                 value={draft.to_account_id}
                 onChange={(e) => setDraft({ ...draft, to_account_id: e.target.value })}
                 className={dialogField}
               >
-                <option value="">{t('Выберите счёт')}</option>
+                <option value="">{t('Choose an account')}</option>
                 {accounts
                   .filter((a) => a.id !== draft.account_id)
                   .map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name} · {a.currency}
-                      {a.shared ? '' : t(' · личный')}
+                      {a.shared ? '' : t(' · personal')}
                     </option>
                   ))}
               </select>
@@ -276,7 +276,7 @@ export function TransactionDialog({
 
             {needsSecondAmount && (
               <label className="block">
-                <span className={dialogLabel}>{t('Зачислить')}, {toAccount.currency}</span>
+                <span className={dialogLabel}>{t('Credit')}, {toAccount.currency}</span>
                 <input
                   inputMode="decimal"
                   value={draft.to_amount}
@@ -285,7 +285,7 @@ export function TransactionDialog({
                   className={`${dialogField} font-mono`}
                 />
                 <span className="mt-1 block text-xs text-muted">
-                  {t('Валюты разные, а курса в системе нет — введите, сколько пришло по факту')}
+                  {t('The currencies differ and there is no exchange rate — enter the amount actually received')}
                 </span>
               </label>
             )}
@@ -294,10 +294,10 @@ export function TransactionDialog({
 
         {kind !== 'transfer' && (
           <div>
-            <span className={dialogLabel}>{t('Категория')}</span>
+            <span className={dialogLabel}>{t('Category')}</span>
             {visibleCategories.length === 0 ? (
               <p className="text-sm text-muted">
-                {t('Категорий этого вида пока нет — их можно завести на странице денег.')}
+                {t('No categories of this kind yet — create them on the Money page.')}
               </p>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -330,7 +330,7 @@ export function TransactionDialog({
 
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className={dialogLabel}>{t('Где')}</span>
+            <span className={dialogLabel}>{t('Where')}</span>
             <input
               value={draft.place}
               onChange={(e) => setDraft({ ...draft, place: e.target.value })}
@@ -338,7 +338,7 @@ export function TransactionDialog({
             />
           </label>
           <label className="block">
-            <span className={dialogLabel}>{t('Заметка')}</span>
+            <span className={dialogLabel}>{t('Note')}</span>
             <input
               value={draft.note}
               onChange={(e) => setDraft({ ...draft, note: e.target.value })}
@@ -350,10 +350,10 @@ export function TransactionDialog({
 
         {editing && (
           <div>
-            <span className={dialogLabel}>{t('Чек')}</span>
+            <span className={dialogLabel}>{t('Receipt')}</span>
             <div className="flex flex-wrap items-center gap-3">
               <label className="cursor-pointer rounded-lg border border-line px-3 py-1.5 text-sm text-muted hover:text-ink">
-                {uploading ? t('Загружаю…') : t('Приложить')}
+                {uploading ? t('Loading…') : t('Attach')}
                 <input
                   type="file"
                   accept="image/*,application/pdf"
@@ -388,7 +388,7 @@ export function TransactionDialog({
                   <button
                     type="button"
                     onClick={() => void removeReceipt(r.id)}
-                    aria-label={t('Убрать чек')}
+                    aria-label={t('Remove receipt')}
                     className="text-xs text-muted hover:text-urgent"
                   >
                     ✕
@@ -397,13 +397,13 @@ export function TransactionDialog({
               ))}
             </div>
             <p className="mt-1 text-xs text-muted">
-              {t('Снимок уменьшается перед отправкой — читать с чека нужно сумму и дату')}
+              {t('The photo is downscaled before upload — it only needs to show the amount and date')}
             </p>
           </div>
         )}
 
         {!editing && (
-          <p className="text-xs text-muted">{t('Чек можно приложить после сохранения операции.')}</p>
+          <p className="text-xs text-muted">{t('A receipt can be attached after the transaction is saved.')}</p>
         )}
 
         {error && <p className="text-sm text-urgent">{error}</p>}

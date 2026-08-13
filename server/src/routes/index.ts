@@ -35,13 +35,13 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     // plenty of headroom.
     const parsed = z
       .record(
-        z.string().max(64).regex(/^[a-zA-Z0-9._-]+$/, 'Некорректный ключ настройки'),
+        z.string().max(64).regex(/^[a-zA-Z0-9._-]+$/, 'Invalid settings key'),
         z.string().max(500),
       )
-      .refine((r) => Object.keys(r).length <= 20, 'Слишком много настроек за раз')
+      .refine((r) => Object.keys(r).length <= 20, 'Too many settings at once')
       .safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: 'Настройки должны быть парами строк' });
+      return reply.code(400).send({ error: 'Settings must be pairs of strings' });
     }
     // A ceiling on the total key count — the same protection from the other
     // end. Only new keys count: updating existing ones doesn't grow the base.
@@ -54,7 +54,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       )
       .get(...keys) as { known: number };
     if (n - known + keys.length > 200) {
-      return reply.code(400).send({ error: 'Слишком много настроек' });
+      return reply.code(400).send({ error: 'Too many settings' });
     }
     const stmt = db.prepare(
       `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
@@ -83,7 +83,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     const { q } = z.object({ q: z.string() }).parse(req.query);
     const query = q.trim();
     if (query.length < 3) {
-      return reply.code(400).send({ error: 'Для поиска нужно минимум 3 символа' });
+      return reply.code(400).send({ error: 'Search needs at least 3 characters' });
     }
     const userId = req.user?.id ?? '';
     const match = `"${query.replace(/"/g, '""')}"`;
@@ -195,7 +195,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
           kind: 'note' as const,
           id: n.id,
           title: n.title,
-          subtitle: n.folder_name ?? (n.visibility === 'private' ? 'Приватная' : 'Без папки'),
+          subtitle: n.folder_name ?? (n.visibility === 'private' ? 'Private' : 'No folder'),
           excerpt: excerptOf.get(n.id) ?? '',
           color: null,
           badge: null,
@@ -215,7 +215,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
           kind: 'project' as const,
           id: p.id,
           title: p.title,
-          subtitle: 'Проект',
+          subtitle: 'Project',
           excerpt: excerptOf.get(p.id) ?? '',
           color: p.color,
           badge: null,
@@ -225,7 +225,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
           kind: 'attachment' as const,
           id: a.id,
           title: a.filename,
-          subtitle: a.note_title ?? 'Файл',
+          subtitle: a.note_title ?? 'File',
           excerpt: '',
           color: null,
           badge: null,

@@ -96,7 +96,7 @@ export function Money() {
       );
     } catch (err) {
       if (!fresh()) return;
-      setError(err instanceof Error ? err.message : t('Не удалось загрузить'));
+      setError(err instanceof Error ? err.message : t('Could not load'));
     }
   }, [from, to, isLatest]);
 
@@ -129,21 +129,21 @@ export function Money() {
       setQuickAmount('');
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось добавить'));
+      setError(err instanceof Error ? err.message : t('Could not add'));
     }
   }
 
   async function reconcile(account: Account) {
     const entered = await dialogs.prompt({
-      title: t('Сверка: {name}', { name: account.name }),
-      label: t('Фактический остаток по банку, {currency}', { currency: account.currency }),
+      title: t('Reconcile: {name}', { name: account.name }),
+      label: t('Actual bank balance, {currency}', { currency: account.currency }),
       value: (account.balance / 100).toString(),
-      confirmLabel: t('Сверить'),
+      confirmLabel: t('Reconcile'),
     });
     if (!entered) return;
     const actual = parseAmount(entered);
     if (actual === null) {
-      setError(t('Не разобрал сумму'));
+      setError(t('Could not parse the amount'));
       return;
     }
     await api.post(`/accounts/${account.id}/reconcile`, {
@@ -232,15 +232,15 @@ export function Money() {
 
   return (
     <Page
-      title={t('Деньги')}
-      eyebrow={t('Счета и траты')}
+      title={t('Money')}
+      eyebrow={t('Accounts and spending')}
       action={
         <button
           type="button"
           onClick={() => setCreatingTx(true)}
           className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
         >
-          {t('Операция')}
+          {t('Transaction')}
         </button>
       }
     >
@@ -255,14 +255,14 @@ export function Money() {
       ) : accounts.length === 0 ? (
         <div className="space-y-4">
           <Empty>
-            {t('Счетов пока нет. Начните с того, где лежат деньги: карта, наличные, копилка.')}
+            {t('No accounts yet. Start with wherever the money is: a card, cash, a piggy bank.')}
           </Empty>
           <button
             type="button"
             onClick={() => setCreatingAccount(true)}
             className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
-            {t('Добавить счёт')}
+            {t('Add account')}
           </button>
         </div>
       ) : (
@@ -298,13 +298,13 @@ export function Money() {
                             <p className="truncate text-sm font-medium text-ink">{a.name}</p>
                             <p className="text-xs text-muted">
                               {ACCOUNT_KIND_LABEL[a.kind]}
-                              {a.shared ? '' : ` · ${t('личный')}`}
+                              {a.shared ? '' : ` · ${t('personal')}`}
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={() => setEditingAccount(a)}
-                            aria-label={t('Настроить счёт {name}', { name: a.name })}
+                            aria-label={t('Configure account {name}', { name: a.name })}
                             className="text-muted opacity-60 hover:opacity-100"
                           >
                             <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -320,14 +320,14 @@ export function Money() {
 
                         <div className="mt-2 flex items-center justify-between gap-2">
                           {diff === null ? (
-                            <span className="text-xs text-muted">{t('Не сверялся')}</span>
+                            <span className="text-xs text-muted">{t('Never reconciled')}</span>
                           ) : diff === 0 ? (
                             <span className="text-xs text-done">
-                              {t('Сходится с банком')}, {formatDate(a.last_checked_on!)}
+                              {t('Matches the bank')}, {formatDate(a.last_checked_on!)}
                             </span>
                           ) : (
                             <span className="text-xs text-urgent">
-                              {t('Расхождение')} {formatMoney(diff, a.currency)},{' '}
+                              {t('Discrepancy')} {formatMoney(diff, a.currency)},{' '}
                               {formatDate(a.last_checked_on!)}
                             </span>
                           )}
@@ -336,7 +336,7 @@ export function Money() {
                             onClick={() => void reconcile(a)}
                             className="shrink-0 text-xs text-accent underline underline-offset-2"
                           >
-                            {t('Сверить')}
+                            {t('Reconcile')}
                           </button>
                         </div>
                       </article>
@@ -348,7 +348,7 @@ export function Money() {
                     onClick={() => setCreatingAccount(true)}
                     className="rounded-card border border-dashed border-line p-4 text-sm text-muted hover:border-accent hover:text-ink"
                   >
-                    {t('+ счёт')}
+                    {t('+ account')}
                   </button>
                 </div>
               </section>
@@ -357,10 +357,10 @@ export function Money() {
 
           {/* Quick expense entry */}
           <section className="rounded-card border border-line bg-surface p-4">
-            <h2 className="eyebrow mb-3">{t('Записать трату')}</h2>
+            <h2 className="eyebrow mb-3">{t('Record an expense')}</h2>
             <div className="flex flex-wrap items-end gap-3">
               <label className="block">
-                <span className="mb-1.5 block text-xs text-muted">{t('Сумма')}</span>
+                <span className="mb-1.5 block text-xs text-muted">{t('Amount')}</span>
                 <input
                   inputMode="decimal"
                   value={quickAmount}
@@ -372,7 +372,7 @@ export function Money() {
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs text-muted">{t('Счёт')}</span>
+                <span className="mb-1.5 block text-xs text-muted">{t('Account')}</span>
                 <select
                   value={quickAccount}
                   onChange={(e) => setQuickAccount(e.target.value)}
@@ -391,7 +391,7 @@ export function Money() {
                 onClick={() => void quickAdd()}
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
               >
-                {t('Добавить')}
+                {t('Add')}
               </button>
             </div>
 
@@ -418,11 +418,11 @@ export function Money() {
                 }}
                 className={`${chip} border-dashed border-line text-muted hover:text-ink`}
               >
-                {t('+ категория')}
+                {t('+ category')}
               </button>
             </div>
             <p className="mt-2 text-xs text-muted">
-              {t('Дата — сегодня. Перевод, доход или другую дату задайте кнопкой «Операция».')}
+              {t('The date is today. For a transfer, income or another date use the “Transaction” button.')}
             </p>
           </section>
 
@@ -435,7 +435,7 @@ export function Money() {
                 <button
                   type="button"
                   onClick={() => setAnchor(addMonths(anchor, -1))}
-                  aria-label={t('Предыдущий месяц')}
+                  aria-label={t('Previous month')}
                   className="grid size-8 place-items-center rounded-lg border border-line text-muted hover:text-ink"
                 >
                   ‹
@@ -445,12 +445,12 @@ export function Money() {
                   onClick={() => setAnchor(today)}
                   className="rounded-lg border border-line px-3 py-1.5 text-sm text-muted hover:text-ink"
                 >
-                  {t('Этот месяц')}
+                  {t('This month')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setAnchor(addMonths(anchor, 1))}
-                  aria-label={t('Следующий месяц')}
+                  aria-label={t('Next month')}
                   className="grid size-8 place-items-center rounded-lg border border-line text-muted hover:text-ink"
                 >
                   ›
@@ -461,9 +461,9 @@ export function Money() {
               <div className="ml-auto flex gap-1 rounded-lg border border-line p-0.5">
                 {(
                   [
-                    ['operations', t('Операции')],
-                    ['budgets', t('Лимиты')],
-                    ['recurring', t('Регулярные')],
+                    ['operations', t('Transactions')],
+                    ['budgets', t('Budgets')],
+                    ['recurring', t('Recurring')],
                   ] as const
                 ).map(([value, label]) => (
                   <button
@@ -505,7 +505,7 @@ export function Money() {
               {/* Transactions */}
               <div>
                 {byDate.length === 0 ? (
-                  <Empty>{t('За этот месяц операций нет.')}</Empty>
+                  <Empty>{t('No transactions this month.')}</Empty>
                 ) : (
                   <ul className="space-y-3">
                     {byDate.map(([date, items]) => (
@@ -533,13 +533,13 @@ export function Money() {
                                   <span className="block truncate text-sm text-ink">
                                     {tx.kind === 'transfer'
                                       ? `${tx.account_name} → ${tx.to_account_name}`
-                                      : tx.category_name ?? tx.place ?? t('Без категории')}
+                                      : tx.category_name ?? tx.place ?? t('No category')}
                                   </span>
                                   <span className="block truncate text-xs text-muted">
                                     {tx.kind !== 'transfer' && tx.account_name}
                                     {tx.place && tx.category_name ? ` · ${tx.place}` : ''}
                                     {tx.note ? ` · ${tx.note}` : ''}
-                                    {tx.receipts > 0 ? ` · ${t('чек')}` : ''}
+                                    {tx.receipts > 0 ? ` · ${t('receipt')}` : ''}
                                   </span>
                                 </span>
                                 <span
@@ -567,14 +567,14 @@ export function Money() {
               {/* Totals */}
               <aside className="space-y-4">
                 <section className="rounded-card border border-line bg-surface p-4">
-                  <h3 className="eyebrow mb-2.5">{t('Итоги месяца')}</h3>
+                  <h3 className="eyebrow mb-2.5">{t('Month summary')}</h3>
                   {expenseTotals.length === 0 && incomeTotals.length === 0 ? (
-                    <p className="text-sm text-muted">{t('Пока пусто.')}</p>
+                    <p className="text-sm text-muted">{t('Nothing here yet.')}</p>
                   ) : (
                     <ul className="space-y-1.5 text-sm">
                       {incomeTotals.map((r) => (
                         <li key={`in-${r.currency}`} className="flex justify-between">
-                          <span className="text-muted">{t('Доходы')}, {r.currency}</span>
+                          <span className="text-muted">{t('Income')}, {r.currency}</span>
                           <span className="font-mono text-done">
                             +{formatMoney(r.total, r.currency)}
                           </span>
@@ -582,7 +582,7 @@ export function Money() {
                       ))}
                       {expenseTotals.map((r) => (
                         <li key={`ex-${r.currency}`} className="flex justify-between">
-                          <span className="text-muted">{t('Траты')}, {r.currency}</span>
+                          <span className="text-muted">{t('Spending')}, {r.currency}</span>
                           <span className="font-mono text-ink">
                             −{formatMoney(r.total, r.currency)}
                           </span>
@@ -591,14 +591,14 @@ export function Money() {
                     </ul>
                   )}
                   <p className="mt-3 text-xs text-muted">
-                    {t('Валюты не складываются: курса в системе нет, поэтому общего итога тоже.')}
+                    {t('Currencies are not added together: there is no exchange rate in the system, so no grand total either.')}
                   </p>
                 </section>
 
                 <section className="rounded-card border border-line bg-surface p-4">
-                  <h3 className="eyebrow mb-2.5">{t('По категориям')}</h3>
+                  <h3 className="eyebrow mb-2.5">{t('By category')}</h3>
                   {expenseByCurrency.length === 0 ? (
-                    <p className="text-sm text-muted">{t('Трат за месяц нет.')}</p>
+                    <p className="text-sm text-muted">{t('No spending this month.')}</p>
                   ) : (
                     <div className="space-y-5">
                       {expenseByCurrency.map(({ currency, rows, total }) => (
@@ -611,7 +611,7 @@ export function Money() {
                               segments={rows.map((r) => ({
                                 value: r.total,
                                 color: r.color ?? 'var(--c-text-muted)',
-                                label: r.name ?? t('Без категории'),
+                                label: r.name ?? t('No category'),
                               }))}
                               centerLabel={formatMoney(total, currency)}
                             />
@@ -640,7 +640,7 @@ export function Money() {
                                         aria-hidden
                                       />
                                       <span className="truncate text-ink">
-                                        {r.name ?? t('Без категории')}
+                                        {r.name ?? t('No category')}
                                       </span>
                                       {r.children.length > 0 && (
                                         <span className="text-xs text-muted" aria-hidden>
@@ -653,7 +653,7 @@ export function Money() {
                                     </span>
                                   </button>
                                   <p className="mt-0.5 pl-4 text-xs text-muted">
-                                    {r.count} {plural(r.count, 'операция', 'операции', 'операций')}
+                                    {r.count} {plural(r.count, 'transaction', 'transactions')}
                                     {' · '}
                                     {Math.round((r.total / total) * 100)}%
                                   </p>
@@ -693,7 +693,7 @@ export function Money() {
                                         return (
                                           <li className="flex items-center justify-between gap-2 text-xs">
                                             <span className="pl-3.5 text-muted">
-                                              {t('Само по себе')}
+                                              {t('The category itself')}
                                             </span>
                                             <span className="shrink-0 font-mono text-muted">
                                               {formatMoney(own, r.currency)}
@@ -714,7 +714,7 @@ export function Money() {
                 </section>
 
                 <section className="rounded-card border border-line bg-surface p-4">
-                  <h3 className="eyebrow mb-2.5">{t('Категории')}</h3>
+                  <h3 className="eyebrow mb-2.5">{t('Categories')}</h3>
                   <div className="flex flex-wrap gap-2">
                     {orderCategories(categories).map(({ category: c, depth }) => (
                       <button
@@ -734,7 +734,7 @@ export function Money() {
                         {depth === 1 && <span aria-hidden>↳</span>}
                         {c.name}
                         <span className="text-xs opacity-60">
-                          {c.kind === 'income' ? t('доход') : t('трата')}
+                          {c.kind === 'income' ? t('income') : t('expense')}
                         </span>
                       </button>
                     ))}
@@ -746,7 +746,7 @@ export function Money() {
                       }}
                       className={`${chip} border-dashed border-line text-muted hover:text-ink`}
                     >
-                      {t('+ трата')}
+                      {t('+ expense')}
                     </button>
                     <button
                       type="button"
@@ -756,7 +756,7 @@ export function Money() {
                       }}
                       className={`${chip} border-dashed border-line text-muted hover:text-ink`}
                     >
-                      {t('+ доход')}
+                      {t('+ income')}
                     </button>
                   </div>
                 </section>
@@ -786,10 +786,10 @@ export function Money() {
 
       {creatingAccount && (
         <EntityDialog
-          title={t('Новый счёт')}
+          title={t('New account')}
           initial={{ name: '', color: PALETTE[0], flag: false }}
-          flagLabel={t('Личный')}
-          flagHint={t('Операции и остаток видите только вы')}
+          flagLabel={t('Personal')}
+          flagHint={t('Only you can see its transactions and balance')}
           onSave={async (draft) => {
             await api.post('/accounts', {
               name: draft.name,
@@ -802,7 +802,7 @@ export function Money() {
           onClose={() => setCreatingAccount(false)}
         >
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-ink">{t('Валюта')}</span>
+            <span className="mb-1.5 block text-sm font-medium text-ink">{t('Currency')}</span>
             <div className="flex flex-wrap gap-2">
               {COMMON_CURRENCIES.map((code) => (
                 <button
@@ -816,7 +816,7 @@ export function Money() {
               ))}
             </div>
             <span className="mt-1 block text-xs text-muted">
-              {t('Валюту потом не сменить, если по счёту уже есть операции')}
+              {t('The currency cannot be changed once the account has transactions')}
             </span>
           </label>
         </EntityDialog>
@@ -824,19 +824,19 @@ export function Money() {
 
       {editingAccount && (
         <EntityDialog
-          title={t('Счёт')}
+          title={t('Account')}
           initial={{
             name: editingAccount.name,
             color: editingAccount.color,
             flag: editingAccount.shared === 0,
           }}
-          flagLabel={t('Личный')}
-          flagHint={t('Операции и остаток видите только вы')}
-          archiveLabel={editingAccount.archived_at ? t('Вернуть из архива') : t('Убрать в архив')}
+          flagLabel={t('Personal')}
+          flagHint={t('Only you can see its transactions and balance')}
+          archiveLabel={editingAccount.archived_at ? t('Unarchive') : t('Move to archive')}
           deletable={editingAccount.tx_count === 0}
-          deleteHint={t('По счёту {n} {unit}. Удаление сотрёт и их — лучше убрать счёт в архив.', {
+          deleteHint={t('The account has {n} {unit}. Deleting wipes them too — archiving is safer.', {
             n: editingAccount.tx_count,
-            unit: plural(editingAccount.tx_count, 'операция', 'операции', 'операций'),
+            unit: plural(editingAccount.tx_count, 'transaction', 'transactions'),
           })}
           onSave={async (draft) => {
             await api.patch(`/accounts/${editingAccount.id}`, {
@@ -860,7 +860,7 @@ export function Money() {
 
       {creatingCategoryKind && (
         <EntityDialog
-          title={creatingCategoryKind === 'expense' ? t('Категория трат') : t('Категория доходов')}
+          title={creatingCategoryKind === 'expense' ? t('Expense category') : t('Income category')}
           initial={{ name: '', color: PALETTE[2] }}
           onSave={async (draft) => {
             await api.post('/categories', {
@@ -884,7 +884,7 @@ export function Money() {
 
       {editingCategory && (
         <EntityDialog
-          title={t('Категория')}
+          title={t('Category')}
           initial={{ name: editingCategory.name, color: editingCategory.color }}
           deletable
           onSave={async (draft) => {
@@ -942,13 +942,13 @@ function CategoryParentField({
 
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-ink">{t('Входит в')}</span>
+      <span className="mb-1.5 block text-sm font-medium text-ink">{t('Belongs to')}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
       >
-        <option value="">{t('Никуда — категория верхнего уровня')}</option>
+        <option value="">{t('Nowhere — a top-level category')}</option>
         {options.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
@@ -956,7 +956,7 @@ function CategoryParentField({
         ))}
       </select>
       <span className="mt-1 block text-xs text-muted">
-        {t('Подкатегории сворачиваются в родителя в сводке, лимит родителя считает их траты')}
+        {t('Subcategories roll up into the parent in the summary; the parent limit counts their spending')}
       </span>
     </label>
   );

@@ -78,7 +78,7 @@ export function Editor({ noteId, revision = 0, initialMarkdown, onChange, onNavi
         TaskItem.configure({ nested: true }),
         TableKit.configure({ table: { resizable: false } }),
         Highlight,
-        Placeholder.configure({ placeholder: t('Начните писать. [[Ссылка]] связывает заметки') }),
+        Placeholder.configure({ placeholder: t('Start writing. [[Link]] connects notes') }),
         // Lazy loading: a decoded photo takes megabytes of tab memory
         // regardless of file size. In a long note full of photos, let
         // the ones on screen decode rather than all of them at once.
@@ -168,7 +168,7 @@ export function Editor({ noteId, revision = 0, initialMarkdown, onChange, onNavi
       {(dropping || uploading) && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-card bg-surface/80">
           <p className="rounded-lg border border-accent bg-surface px-4 py-2 text-sm text-ink">
-            {uploading ? t('Загружаю…') : t('Отпустите — файл прикрепится к заметке')}
+            {uploading ? t('Loading…') : t('Release — the file will attach to the note')}
           </p>
         </div>
       )}
@@ -187,7 +187,7 @@ function Toolbar({ editor }: { editor: TiptapEditor }) {
           type="button"
           onClick={() => editor.chain().focus().toggleHeading({ level }).run()}
           className={cls(editor.isActive('heading', { level }))}
-          title={t('Заголовок {level}', { level })}
+          title={t('Heading {level}', { level })}
         >
           H{level}
         </button>
@@ -199,31 +199,31 @@ function Toolbar({ editor }: { editor: TiptapEditor }) {
         type="button"
         onClick={() => editor.chain().focus().toggleBold().run()}
         className={cls(editor.isActive('bold'))}
-        title={t('Полужирный')}
+        title={t('Bold')}
       >
-        <b>{t('Ж')}</b>
+        <b>{t('B')}</b>
       </button>
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleItalic().run()}
         className={cls(editor.isActive('italic'))}
-        title={t('Курсив')}
+        title={t('Italic')}
       >
-        <i>{t('К')}</i>
+        <i>{t('I')}</i>
       </button>
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleHighlight().run()}
         className={cls(editor.isActive('highlight'))}
-        title={t('Выделение')}
+        title={t('Highlight')}
       >
-        <span className="bg-[#f4e08a] px-0.5 text-[#131c24]">{t('В')}</span>
+        <span className="bg-[#f4e08a] px-0.5 text-[#131c24]">{t('H')}</span>
       </button>
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleCode().run()}
         className={cls(editor.isActive('code'))}
-        title={t('Код')}
+        title={t('Code')}
       >
         <span className="font-mono">{'</>'}</span>
       </button>
@@ -234,7 +234,7 @@ function Toolbar({ editor }: { editor: TiptapEditor }) {
         type="button"
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         className={cls(editor.isActive('bulletList'))}
-        title={t('Список')}
+        title={t('List')}
       >
         •
       </button>
@@ -242,7 +242,7 @@ function Toolbar({ editor }: { editor: TiptapEditor }) {
         type="button"
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
         className={cls(editor.isActive('orderedList'))}
-        title={t('Нумерованный список')}
+        title={t('Numbered list')}
       >
         1.
       </button>
@@ -250,7 +250,7 @@ function Toolbar({ editor }: { editor: TiptapEditor }) {
         type="button"
         onClick={() => editor.chain().focus().toggleTaskList().run()}
         className={cls(editor.isActive('taskList'))}
-        title={t('Чеклист')}
+        title={t('Checklist')}
       >
         ☑
       </button>
@@ -258,7 +258,7 @@ function Toolbar({ editor }: { editor: TiptapEditor }) {
         type="button"
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
         className={cls(editor.isActive('blockquote'))}
-        title={t('Цитата')}
+        title={t('Quote')}
       >
         ❝
       </button>
@@ -268,7 +268,7 @@ function Toolbar({ editor }: { editor: TiptapEditor }) {
           editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
         }
         className={btn}
-        title={t('Таблица')}
+        title={t('Table')}
       >
         ▦
       </button>
@@ -279,7 +279,7 @@ function Toolbar({ editor }: { editor: TiptapEditor }) {
         type="button"
         onClick={() => editor.chain().focus().insertContent('[[]]').run()}
         className={btn}
-        title={t('Ссылка на заметку')}
+        title={t('Link to a note')}
       >
         [[ ]]
       </button>

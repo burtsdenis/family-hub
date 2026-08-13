@@ -67,7 +67,7 @@ const loginInput = z.object({
 
 const changeInput = z.object({
   current_password: z.string().min(1).max(500),
-  new_password: z.string().min(10, 'Пароль должен быть не короче 10 символов').max(500),
+  new_password: z.string().min(10, 'Password must be at least 10 characters').max(500),
 });
 
 export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
@@ -96,11 +96,11 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     // Demo is entered only through a sandbox: visitors have no passwords,
     // and a public stand has no use for guessing at other people's accounts
     if (env.demoMode) {
-      return reply.code(403).send({ error: 'Отключено в демо-режиме' });
+      return reply.code(403).send({ error: 'Disabled in demo mode' });
     }
     const parsed = loginInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: 'Введите логин и пароль' });
+      return reply.code(400).send({ error: 'Enter a login and password' });
     }
     const email = parsed.data.email.trim().toLowerCase();
 
@@ -108,7 +108,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       log.warn(`login blocked by the brake: ${email} from ${req.ip}`);
       return reply
         .code(429)
-        .send({ error: 'Слишком много попыток. Попробуйте через 15 минут' });
+        .send({ error: 'Too many attempts. Try again in 15 minutes' });
     }
 
     const user = db
@@ -127,14 +127,14 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     // after verifyPassword so the mode is indistinguishable by timing too.
     if (user && ok && user.password_login_disabled) {
       log.warn(`password login attempt while password is disabled: ${email} from ${req.ip}`);
-      return reply.code(401).send({ error: 'Неверный логин или пароль' });
+      return reply.code(401).send({ error: 'Wrong login or password' });
     }
 
     if (!user || !ok) {
       registerFailure(email);
       registerFailure(`ip:${req.ip}`);
       log.warn(`failed login: ${email} from ${req.ip}`);
-      return reply.code(401).send({ error: 'Неверный логин или пароль' });
+      return reply.code(401).send({ error: 'Wrong login or password' });
     }
 
     attempts.delete(email);
@@ -232,17 +232,17 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   */
   app.post('/api/auth/password-login', (req, reply) => {
     const parsed = z.object({ enabled: z.boolean() }).safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Некорректный запрос' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid request' });
     const user = req.user!;
 
     if (!parsed.data.enabled) {
       if (user.role === 'admin') {
         return reply
           .code(400)
-          .send({ error: 'Администратору пароль отключить нельзя: это аварийный вход' });
+          .send({ error: 'The administrator cannot disable the password: it is the emergency entrance' });
       }
       if (!user.google_linked) {
-        return reply.code(400).send({ error: 'Сначала привяжите Google — иначе входить будет нечем' });
+        return reply.code(400).send({ error: 'Link Google first — otherwise there is no way left to sign in' });
       }
     }
 
@@ -261,7 +261,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     if (user.password_login_disabled) {
       return reply
         .code(400)
-        .send({ error: 'Сначала включите вход по паролю — иначе входить будет нечем' });
+        .send({ error: 'Enable password sign-in first — otherwise there is no way left to sign in' });
     }
     db.prepare('UPDATE users SET google_sub = NULL WHERE id = ?').run(user.id);
     log.info(`google unlinked: ${user.email}`);
@@ -270,13 +270,13 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/api/auth/change-password', async (req, reply) => {
     const token = req.cookies[SESSION_COOKIE];
-    if (!token) return reply.code(401).send({ error: 'Нужно войти' });
+    if (!token) return reply.code(401).send({ error: 'Sign in required' });
 
     const parsed = changeInput.safeParse(req.body);
     if (!parsed.success) {
       return reply
         .code(400)
-        .send({ error: parsed.error.issues[0]?.message ?? 'Проверьте введённые пароли' });
+        .send({ error: parsed.error.issues[0]?.message ?? 'Check the entered passwords' });
     }
 
     const session = db
@@ -288,10 +288,10 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       | { id: string; password_hash: string }
       | undefined;
 
-    if (!session) return reply.code(401).send({ error: 'Нужно войти' });
+    if (!session) return reply.code(401).send({ error: 'Sign in required' });
 
     if (!(await verifyPassword(parsed.data.current_password, session.password_hash))) {
-      return reply.code(400).send({ error: 'Текущий пароль указан неверно' });
+      return reply.code(400).send({ error: 'The current password is incorrect' });
     }
 
     db.prepare(

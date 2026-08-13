@@ -34,9 +34,9 @@ function PaletteSection() {
 
   return (
     <section className="rounded-card border border-line bg-surface p-5">
-      <h2 className="eyebrow mb-3">{t('Палитра')}</h2>
+      <h2 className="eyebrow mb-3">{t('Palette')}</h2>
       <p className="mb-3 text-xs text-muted">
-        {t('Свои цвета для проектов, счетов, категорий и календарей — поверх стандартных. Пополняется и отсюда, и кнопкой «+» прямо в выборе цвета.')}
+        {t('Your own colors for projects, accounts, categories and calendars — on top of the stock ones. Grows from here and from the "+" button right in the color picker.')}
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -45,7 +45,7 @@ function PaletteSection() {
             key={color}
             className="size-7 rounded-full opacity-60"
             style={{ backgroundColor: color }}
-            title={t('Стандартный цвет')}
+            title={t('Stock color')}
           />
         ))}
         {(custom ?? []).map((color) => (
@@ -54,8 +54,8 @@ function PaletteSection() {
             type="button"
             onClick={() => void removeFromPalette(color).then(setCustom)}
             style={{ backgroundColor: color }}
-            title={t('Убрать {color}', { color })}
-            aria-label={t('Убрать {color}', { color })}
+            title={t('Remove {color}', { color })}
+            aria-label={t('Remove {color}', { color })}
             className="group relative size-7 rounded-full"
           >
             <span className="absolute inset-0 grid place-items-center rounded-full bg-black/40 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
@@ -65,14 +65,14 @@ function PaletteSection() {
         ))}
         <label
           className="grid size-7 cursor-pointer place-items-center rounded-full border border-dashed border-line text-sm text-muted transition-colors hover:border-accent hover:text-accent"
-          title={t('Добавить цвет')}
+          title={t('Add color')}
         >
           +
           <input
             type="color"
             onChange={(e) => add(e.target.value)}
             className="sr-only"
-            aria-label={t('Добавить цвет')}
+            aria-label={t('Add color')}
           />
         </label>
       </div>
@@ -82,9 +82,9 @@ function PaletteSection() {
 
 /** Messages after returning from Google during linking — the code is in ?google= */
 const LINK_MESSAGES: Record<string, string> = {
-  linked: t('Google привязан. Теперь можно входить кнопкой на экране входа.'),
-  taken: t('Этот Google-аккаунт уже привязан к другой учётке.'),
-  error: t('Не получилось привязать Google. Попробуйте ещё раз.'),
+  linked: t('Google linked. You can now use the button on the sign-in screen.'),
+  taken: t('This Google account is already linked to another account.'),
+  error: t('Could not link Google. Please try again.'),
 };
 
 /**
@@ -120,7 +120,7 @@ function SignInSection() {
       await action();
       await refresh();
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : t('Не удалось сохранить'));
+      setStatus(err instanceof Error ? err.message : t('Could not save'));
     }
   }
 
@@ -129,13 +129,13 @@ function SignInSection() {
 
   return (
     <section className="rounded-card border border-line bg-surface p-5">
-      <h2 className="eyebrow mb-4">{t('Вход в учётку')}</h2>
+      <h2 className="eyebrow mb-4">{t('Signing in')}</h2>
 
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-ink">Google</p>
           <p className="text-xs text-muted">
-            {linked ? t('Привязан') : googleAvailable ? t('Не привязан') : t('Не настроен на сервере')}
+            {linked ? t('Linked') : googleAvailable ? t('Not linked') : t('Not configured on the server')}
           </p>
         </div>
         {googleAvailable && !linked && (
@@ -146,7 +146,7 @@ function SignInSection() {
               window.location.href = '/api/auth/google/link';
             }}
           >
-            {t('Привязать')}
+            {t('Link')}
           </button>
         )}
         {linked && (
@@ -154,25 +154,25 @@ function SignInSection() {
             type="button"
             className={rowButton}
             disabled={passwordOff}
-            title={passwordOff ? t('Сначала включите вход по паролю') : undefined}
+            title={passwordOff ? t('Enable password sign-in first') : undefined}
             onClick={() => void run(() => api.post('/auth/google/unlink', {}))}
           >
-            {t('Отвязать')}
+            {t('Unlink')}
           </button>
         )}
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4">
         <div>
-          <p className="text-sm font-medium text-ink">{t('Вход по паролю')}</p>
+          <p className="text-sm font-medium text-ink">{t('Password sign-in')}</p>
           <p className="text-xs text-muted">
             {user.role === 'admin'
-              ? t('У администратора не отключается: это аварийный вход')
+              ? t('Cannot be disabled for the administrator: it is the emergency entrance')
               : passwordOff
-                ? t('Отключён — вход только через Google')
+                ? t('Disabled — sign-in via Google only')
                 : linked
-                  ? t('Включён. Можно отключить: Google надёжнее')
-                  : t('Включён. Отключить можно после привязки Google')}
+                  ? t('Enabled. You may disable it: Google is more secure')
+                  : t('Enabled. Can be disabled once Google is linked')}
           </p>
         </div>
         {user.role !== 'admin' && (passwordOff || linked) && (
@@ -183,9 +183,9 @@ function SignInSection() {
               void run(async () => {
                 if (!passwordOff) {
                   const sure = await dialogs.confirm({
-                    title: t('Отключить вход по паролю?'),
-                    message: t('Войти можно будет только через Google. Если гугл-аккаунт станет недоступен, вход вернёт администратор сбросом пароля.'),
-                    confirmLabel: t('Отключить'),
+                    title: t('Disable password sign-in?'),
+                    message: t('You will only be able to sign in with Google. If the Google account becomes unavailable, the administrator can restore access by resetting your password.'),
+                    confirmLabel: t('Disable'),
                   });
                   if (!sure) return;
                 }
@@ -193,7 +193,7 @@ function SignInSection() {
               })
             }
           >
-            {passwordOff ? t('Включить') : t('Отключить')}
+            {passwordOff ? t('Enable') : t('Disable')}
           </button>
         )}
       </div>
@@ -204,14 +204,14 @@ function SignInSection() {
 }
 
 const FIELDS: { key: string; label: string; hint: string; type: string }[] = [
-  { key: 'move.label', label: t('Название события'), hint: t('Заголовок на табло'), type: 'text' },
-  { key: 'move.target_date', label: t('Дата переезда'), hint: t('От неё считается отсчёт'), type: 'date' },
-  { key: 'savings.label', label: t('Подпись к накоплениям'), hint: '', type: 'text' },
-  { key: 'savings.goal_eur', label: t('Цель, €'), hint: t('Ноль — не показывать прогресс'), type: 'number' },
+  { key: 'move.label', label: t('Event name'), hint: t('Board title'), type: 'text' },
+  { key: 'move.target_date', label: t('Moving date'), hint: t('The countdown counts from it'), type: 'date' },
+  { key: 'savings.label', label: t('Savings caption'), hint: '', type: 'text' },
+  { key: 'savings.goal_eur', label: t('Goal, €'), hint: t('Zero — hide the progress bar'), type: 'number' },
   {
     key: 'money.default_currency',
-    label: t('Валюта по умолчанию'),
-    hint: t('Подставляется в новые счета и лимиты. Любой код ISO 4217'),
+    label: t('Default currency'),
+    hint: t('Pre-filled for new accounts and budgets. Any ISO 4217 code'),
     type: 'text',
   },
 ];
@@ -236,22 +236,22 @@ export function Settings() {
     setStatus(null);
     try {
       await api.patch('/settings', values);
-      setStatus(t('Сохранено'));
+      setStatus(t('Saved'));
     } catch {
-      setStatus(t('Не удалось сохранить'));
+      setStatus(t('Could not save'));
     }
   }
 
   if (!values) {
     return (
-      <Page title={t('Настройки')}>
+      <Page title={t('Settings')}>
         <div className="h-40 animate-pulse rounded-card bg-surface-3" />
       </Page>
     );
   }
 
   return (
-    <Page title={t('Настройки')} eyebrow={t('Табло и виджеты')}>
+    <Page title={t('Settings')} eyebrow={t('Board and widgets')}>
       {/* Two columns on wide screens: a single narrow ribbon left the right
           half empty and forced scrolling. Below lg — one column of the old
           max-w-md width (without the cap the forms stretched across the
@@ -278,7 +278,7 @@ export function Settings() {
             onClick={() => void save()}
             className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
-            {t('Сохранить')}
+            {t('Save')}
           </button>
           {status && <span className="text-sm text-muted">{status}</span>}
         </div>
@@ -286,7 +286,7 @@ export function Settings() {
 
       <div className="space-y-5">
       <section className="rounded-card border border-line bg-surface p-5">
-        <h2 className="eyebrow mb-4">{t('Язык')} / Language</h2>
+        <h2 className="eyebrow mb-4">{t('Language')} / Language</h2>
         <div className="flex gap-2">
           <button
             type="button"
@@ -308,10 +308,10 @@ export function Settings() {
           </button>
         </div>
         <p className="mt-3 text-xs text-muted">
-          {t('Настройка этого устройства: телефон и общий стенд могут говорить на разных языках.')}
+          {t('A per-device setting: a phone and the shared kiosk can speak different languages.')}
         </p>
 
-        <h2 className="eyebrow mt-6 mb-4">{t('Начало недели')}</h2>
+        <h2 className="eyebrow mt-6 mb-4">{t('Week starts on')}</h2>
         <div className="flex gap-2">
           <button
             type="button"
@@ -320,7 +320,7 @@ export function Settings() {
               weekStart === 'mon' ? 'border-accent bg-accent-soft text-accent' : 'border-line text-muted hover:text-ink'
             }`}
           >
-            {t('Понедельник')}
+            {t('Monday')}
           </button>
           <button
             type="button"
@@ -329,7 +329,7 @@ export function Settings() {
               weekStart === 'sun' ? 'border-accent bg-accent-soft text-accent' : 'border-line text-muted hover:text-ink'
             }`}
           >
-            {t('Воскресенье')}
+            {t('Sunday')}
           </button>
         </div>
       </section>
@@ -340,10 +340,10 @@ export function Settings() {
 
       {usage && (
         <section className="rounded-card border border-line bg-surface p-5">
-          <h2 className="eyebrow mb-3">{t('Вложения')}</h2>
+          <h2 className="eyebrow mb-3">{t('Attachments')}</h2>
           <p className="text-sm text-ink">
-            {usage.files} {plural(usage.files, 'файл', 'файла', 'файлов')} ·{' '}
-            {(usage.used / 1024 / 1024).toFixed(1)} {t('МБ')}
+            {usage.files} {plural(usage.files, 'file', 'files')} ·{' '}
+            {(usage.used / 1024 / 1024).toFixed(1)} {t('MB')}
           </p>
           <div className="mt-3 h-1 overflow-hidden rounded-full bg-surface-3">
             <div
@@ -352,7 +352,7 @@ export function Settings() {
             />
           </div>
           <p className="mt-2 text-xs text-muted">
-            {t('Ориентир — {n} ГБ. Жёсткого запрета нет, но за ростом стоит следить: вложения не попадают в бэкап на GitHub.', { n: Math.round(usage.budget / 1024 / 1024 / 1024) })}
+            {t('The guideline is {n} GB. There is no hard limit, but keep an eye on growth: attachments are not part of the GitHub backup.', { n: Math.round(usage.budget / 1024 / 1024 / 1024) })}
           </p>
         </section>
       )}

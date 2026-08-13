@@ -52,7 +52,7 @@ export function Tasks() {
       setError(null);
     } catch (err) {
       if (!fresh()) return;
-      setError(err instanceof Error ? err.message : t('Не удалось загрузить задачи'));
+      setError(err instanceof Error ? err.message : t('Could not load tasks'));
     }
   }, [projectId, assignee, priority, includeDone, view, isLatest]);
 
@@ -80,7 +80,7 @@ export function Tasks() {
   const refresh = useCallback(
     (spawned?: Task | null) => {
       if (spawned?.due_date) {
-        setNotice(t('Повтор назначен на {date}', { date: spawned.due_date }));
+        setNotice(t('Next occurrence scheduled for {date}', { date: spawned.due_date }));
         setTimeout(() => setNotice(null), 4000);
       }
       void loadTasks();
@@ -129,8 +129,8 @@ export function Tasks() {
 
   return (
     <Page
-      title={t('Задачи')}
-      eyebrow={t('Проекты и дела')}
+      title={t('Tasks')}
+      eyebrow={t('Projects and tasks')}
       // The board needs its columns more than it needs side margins
       width={view === 'board' ? 'full' : 'default'}
       action={
@@ -144,7 +144,7 @@ export function Tasks() {
                 view === v ? 'bg-accent-soft font-medium text-accent' : 'text-muted hover:text-ink'
               }`}
             >
-              {v === 'list' ? t('Список') : t('Доска')}
+              {v === 'list' ? t('List') : t('Board')}
             </button>
           ))}
         </div>
@@ -162,7 +162,7 @@ export function Tasks() {
                 : 'border-line text-muted hover:text-ink'
             }`}
           >
-            {t('Все проекты')}
+            {t('All projects')}
             {/* The same open-task counter every project has */}
             {totalOpen > 0 && <span className="font-mono text-xs">{totalOpen}</span>}
           </button>
@@ -196,7 +196,7 @@ export function Tasks() {
               <button
                 type="button"
                 onClick={() => setEditingProject(p)}
-                aria-label={t('Настроить проект {title}', { title: projectTitle(p.id, p.title) })}
+                aria-label={t('Configure project {title}', { title: projectTitle(p.id, p.title) })}
                 className="opacity-60 hover:opacity-100"
               >
                 <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -214,7 +214,7 @@ export function Tasks() {
             onClick={() => setCreatingProject(true)}
             className="rounded-full border border-dashed border-line px-3 py-1.5 text-sm text-muted hover:text-ink"
           >
-            {t('+ проект')}
+            {t('+ project')}
           </button>
         )}
 
@@ -228,15 +228,15 @@ export function Tasks() {
             showArchived ? 'border-accent bg-accent-soft text-accent' : 'border-line text-muted hover:text-ink'
           }`}
         >
-          {t('Архив')}
+          {t('Archive')}
         </button>
       </div>
 
       {/* Filters */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={control}>
-          <option value="">{t('Все исполнители')}</option>
-          <option value="none">{t('Без исполнителя')}</option>
+          <option value="">{t('All assignees')}</option>
+          <option value="none">{t('Unassigned')}</option>
           {members.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
@@ -245,7 +245,7 @@ export function Tasks() {
         </select>
 
         <select value={priority} onChange={(e) => setPriority(e.target.value)} className={control}>
-          <option value="">{t('Любой приоритет')}</option>
+          <option value="">{t('Any priority')}</option>
           {PRIORITIES.map((p) => (
             <option key={p} value={p}>
               {PRIORITY_LABEL[p]}
@@ -261,7 +261,7 @@ export function Tasks() {
               onChange={(e) => setIncludeDone(e.target.checked)}
               className="size-4 accent-[var(--c-accent)]"
             />
-            {t('Показывать выполненные')}
+            {t('Show completed')}
           </label>
         )}
       </div>
@@ -273,7 +273,7 @@ export function Tasks() {
         <div className="mb-4 flex flex-wrap gap-2">
           <input
             value={newTitle}
-            placeholder={projectId ? t('Новая задача в этом проекте') : t('Новая задача')}
+            placeholder={projectId ? t('New task in this project') : t('New task')}
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={onEnter(() => void addTask())}
             className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:w-auto sm:flex-1"
@@ -296,7 +296,7 @@ export function Tasks() {
             onClick={() => void addTask()}
             className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
-            {t('Добавить')}
+            {t('Add')}
           </button>
         </div>
       )}
@@ -313,7 +313,7 @@ export function Tasks() {
       )}
 
       {showArchived && projects.length === 0 ? (
-        <Empty>{t('В архиве пока ничего нет. Проект попадает сюда из своих настроек.')}</Empty>
+        <Empty>{t('The archive is empty. A project gets here from its own settings.')}</Empty>
       ) : tasks === null ? (
         <div className="h-40 animate-pulse rounded-card bg-surface-3" />
       ) : view === 'list' ? (
@@ -324,7 +324,7 @@ export function Tasks() {
 
       {creatingProject && (
         <EntityDialog
-          title={t('Новый проект')}
+          title={t('New project')}
           initial={{ name: '', color: PALETTE[0] }}
           onSave={async (draft) => {
             const created = await api.post<Project>('/projects', {
@@ -340,17 +340,16 @@ export function Tasks() {
 
       {editingProject && (
         <EntityDialog
-          title={t('Проект')}
+          title={t('Project')}
           initial={{ name: editingProject.title, color: editingProject.color }}
           archiveLabel={
-            editingProject.archived_at ? t('Вернуть из архива') : t('Убрать в архив')
+            editingProject.archived_at ? t('Unarchive') : t('Move to archive')
           }
           deletable={editingProject.total_tasks === 0}
-          deleteHint={t(
-            'В проекте {n} {unit}. Удаление проекта удалит и задачи — сначала уберите проект в архив или перенесите их.',
+          deleteHint={t('The project has {n} {unit}. Deleting the project deletes its tasks too — archive the project or move them first.',
             {
               n: editingProject.total_tasks,
-              unit: plural(editingProject.total_tasks, 'задача', 'задачи', 'задач'),
+              unit: plural(editingProject.total_tasks, 'task', 'tasks'),
             },
           )}
           onSave={async (draft) => {

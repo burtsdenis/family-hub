@@ -4,13 +4,16 @@ import { t } from './i18n';
 export const SHARED_CALENDAR_ID = '00000000-0000-4000-8000-000000000201';
 
 /**
- * Calendar name for display. «Общий» is data, not UI: a migration seeds it
- * into the DB in Russian, so the t() dictionary never sees it. There is one
- * such calendar with a fixed id — translate in place, same as projectTitle
- * does for the Inbox in tasks.ts.
+ * Calendar name for display. The seeded name is data, not UI, so the t()
+ * dictionary never sees it. There is one such calendar with a fixed id —
+ * translate in place, same as projectTitle does for the Inbox in tasks.ts.
+ * 'Общий' is matched for databases that predate migration 013; a calendar
+ * renamed by the user keeps its custom name.
  */
 export function calendarName(id: string, name: string): string {
-  return id === SHARED_CALENDAR_ID && name === 'Общий' ? t('Общий') : name;
+  return id === SHARED_CALENDAR_ID && (name === 'Shared' || name === 'Общий')
+    ? t('Shared')
+    : name;
 }
 
 export interface Calendar {
@@ -54,18 +57,18 @@ export interface Occurrence {
 export type CalendarView = 'week' | 'month' | 'agenda';
 
 export const VIEW_LABEL: Record<CalendarView, string> = {
-  week: t('Неделя'),
-  month: t('Месяц'),
-  agenda: t('Лента'),
+  week: t('Week'),
+  month: t('Month'),
+  agenda: t('Agenda'),
 };
 
 export const REMIND_OPTIONS: { value: string; label: string }[] = [
-  { value: '', label: t('Не предупреждать') },
-  { value: '1', label: t('За день') },
-  { value: '3', label: t('За три дня') },
-  { value: '7', label: t('За неделю') },
-  { value: '14', label: t('За две недели') },
-  { value: '30', label: t('За месяц') },
+  { value: '', label: t('No reminder') },
+  { value: '1', label: t('A day before') },
+  { value: '3', label: t('Three days before') },
+  { value: '7', label: t('A week before') },
+  { value: '14', label: t('Two weeks before') },
+  { value: '30', label: t('A month before') },
 ];
 
 /**

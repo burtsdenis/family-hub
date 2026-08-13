@@ -104,12 +104,12 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply): Pr
   const token = req.cookies[SESSION_COOKIE];
   const user = token ? userForToken(token) : null;
   if (!user) {
-    return reply.code(401).send({ error: 'Нужно войти' });
+    return reply.code(401).send({ error: 'Sign in required' });
   }
 
   // Until the password is changed, only the change endpoint is available
   if (user.must_change_password && path !== '/api/auth/change-password' && path !== '/api/auth/me') {
-    return reply.code(403).send({ error: 'Сначала смените пароль', code: 'must_change_password' });
+    return reply.code(403).send({ error: 'Change your password first', code: 'must_change_password' });
   }
 
   // Public sandbox: password changes, family membership and file uploads
@@ -117,7 +117,7 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply): Pr
   if (env.demoMode) {
     const { demoBlocked } = await import('./demo.js');
     if (demoBlocked(req.method, path)) {
-      return reply.code(403).send({ error: 'Отключено в демо-режиме' });
+      return reply.code(403).send({ error: 'Disabled in the demo' });
     }
   }
 
@@ -126,7 +126,7 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply): Pr
 
 export function requireAdmin(req: FastifyRequest, reply: FastifyReply): boolean {
   if (req.user?.role !== 'admin') {
-    reply.code(403).send({ error: 'Раздел доступен только администратору' });
+    reply.code(403).send({ error: 'This section is for the administrator only' });
     return false;
   }
   return true;

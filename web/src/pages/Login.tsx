@@ -9,7 +9,7 @@ function Frame({ title, hint, children }: { title: string; hint: string; childre
     <div className="flex min-h-dvh items-center justify-center bg-surface-2 px-5">
       <div className="w-full max-w-sm">
         <div className="mb-7 text-center">
-          <p className="font-display text-2xl font-bold tracking-tight text-ink">{t('Дом')}</p>
+          <p className="font-display text-2xl font-bold tracking-tight text-ink">{t('Home')}</p>
           <p className="mt-1.5 text-sm text-muted">{hint}</p>
         </div>
         <div className="rounded-card border border-line bg-surface p-6">
@@ -38,8 +38,8 @@ const buttonClass =
 /** Messages after returning from Google — the code arrives in ?google= */
 const GOOGLE_MESSAGES: Record<string, string> = {
   not_linked:
-    t('Этот Google-аккаунт не привязан ни к одной учётке. Войдите по паролю и привяжите его в настройках.'),
-  error: t('Не получилось войти через Google. Попробуйте ещё раз или войдите по паролю.'),
+    t('This Google account is not linked to any hub account. Sign in with a password and link it in Settings.'),
+  error: t('Could not sign in with Google. Try again or sign in with a password.'),
 };
 
 export function Login() {
@@ -77,7 +77,7 @@ export function Login() {
     try {
       await login(email, password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось войти'));
+      setError(err instanceof Error ? err.message : t('Could not sign in'));
     } finally {
       setBusy(false);
     }
@@ -94,7 +94,7 @@ export function Login() {
     try {
       await loginDemo();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось войти'));
+      setError(err instanceof Error ? err.message : t('Could not sign in'));
       setBusy(false);
     }
   }
@@ -105,23 +105,23 @@ export function Login() {
   // Demo: no password, the server hands everyone a personal sandbox at the press of a button
   if (demo) {
     return (
-      <Frame title={t('Демо')} hint={t('Семейный хаб')}>
+      <Frame title={t('Demo')} hint={t('Family hub')}>
         <p className="mb-5 text-sm text-muted">
-          {t('Это демо с примером данных: у вас будет собственная копия, трогайте что угодно. Через пару часов простоя она исчезнет без следа.')}
+          {t('This is a demo with sample data: you get your own private copy, so touch anything you like. After a couple idle hours it vanishes without a trace.')}
         </p>
         {error && <p className="mb-4 text-sm text-urgent">{error}</p>}
         <button type="button" disabled={busy} onClick={() => void enterDemo()} className={buttonClass}>
-          {busy ? t('Открываю') : t('Попробовать демо')}
+          {busy ? t('Opening') : t('Try the demo')}
         </button>
       </Frame>
     );
   }
 
   return (
-    <Frame title={t('Вход')} hint={t('Семейный хаб')}>
+    <Frame title={t('Sign in')} hint={t('Family hub')}>
       <form onSubmit={submit} className="space-y-4">
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Логин')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Login')}</span>
           <input
             type="text"
             autoComplete="username"
@@ -134,7 +134,7 @@ export function Login() {
         </label>
 
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Пароль')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Password')}</span>
           <input
             type="password"
             autoComplete="current-password"
@@ -148,14 +148,14 @@ export function Login() {
         {error && <p className="text-sm text-urgent">{error}</p>}
 
         <button type="submit" disabled={busy} className={buttonClass}>
-          {busy ? t('Проверяю') : t('Войти')}
+          {busy ? t('Checking') : t('Sign in')}
         </button>
 
         {googleAvailable && (
           <>
             <div className="flex items-center gap-3 pt-1">
               <div className="h-px flex-1 bg-line" />
-              <span className="text-xs text-muted">{t('или')}</span>
+              <span className="text-xs text-muted">{t('or')}</span>
               <div className="h-px flex-1 bg-line" />
             </div>
             <button
@@ -183,7 +183,7 @@ export function Login() {
                   d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44A11.98 11.98 0 0 0 1.3 6.61l4 3.1C6.23 6.87 8.87 4.77 12 4.77Z"
                 />
               </svg>
-              {t('Войти через Google')}
+              {t('Sign in with Google')}
             </button>
           </>
         )}
@@ -211,27 +211,27 @@ function Setup() {
       await api.post('/auth/setup', { name, email, password });
       window.location.href = '/';
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не получилось'));
+      setError(err instanceof Error ? err.message : t('Something went wrong'));
       setBusy(false);
     }
   }
 
   return (
-    <Frame title={t('Первый запуск')} hint={t('Семейный хаб')}>
+    <Frame title={t('First run')} hint={t('Family hub')}>
       <p className="mb-5 text-sm text-muted">
-        {t('Создайте первую учётку — она станет администратором: сможет приглашать домочадцев и сбрасывать пароли.')}
+        {t('Create the first account — it becomes the administrator: it can invite family members and reset passwords.')}
       </p>
       <form onSubmit={(e) => void submit(e)} className="space-y-4">
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Имя')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Name')}</span>
           <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} autoFocus />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Логин (email)')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Login (email)')}</span>
           <input value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} autoComplete="username" />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Пароль')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Password')}</span>
           <input
             type="password"
             value={password}
@@ -239,11 +239,11 @@ function Setup() {
             className={inputClass}
             autoComplete="new-password"
           />
-          <span className="mt-1 block text-xs text-muted">{t('От 10 символов')}</span>
+          <span className="mt-1 block text-xs text-muted">{t('At least 10 characters')}</span>
         </label>
         {error && <p className="text-sm text-urgent">{error}</p>}
         <button type="submit" disabled={busy} className={buttonClass}>
-          {busy ? t('Создаю') : t('Создать и войти')}
+          {busy ? t('Creating') : t('Create and sign in')}
         </button>
       </form>
     </Frame>
@@ -280,7 +280,7 @@ function Join() {
       await api.post('/auth/join', { token, name, email, password });
       window.location.href = '/';
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не получилось'));
+      setError(err instanceof Error ? err.message : t('Something went wrong'));
       setBusy(false);
     }
   }
@@ -288,28 +288,28 @@ function Join() {
   if (valid === null) return null;
   if (!valid) {
     return (
-      <Frame title={t('Приглашение')} hint={t('Семейный хаб')}>
+      <Frame title={t('Invitation')} hint={t('Family hub')}>
         <p className="text-sm text-muted">
-          {t('Ссылка не действует: истекла или уже использована. Попросите новую у того, кто ведёт хаб.')}
+          {t('This link is no longer valid: it has expired or was already used. Ask the person who runs the hub for a new one.')}
         </p>
       </Frame>
     );
   }
 
   return (
-    <Frame title={t('Приглашение')} hint={t('Семейный хаб')}>
-      <p className="mb-5 text-sm text-muted">{t('Вас пригласили в семейный хаб. Заполните свою учётку:')}</p>
+    <Frame title={t('Invitation')} hint={t('Family hub')}>
+      <p className="mb-5 text-sm text-muted">{t('You have been invited to the family hub. Set up your account:')}</p>
       <form onSubmit={(e) => void submit(e)} className="space-y-4">
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Имя')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Name')}</span>
           <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} autoFocus />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Логин (email)')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Login (email)')}</span>
           <input value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} autoComplete="username" />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Пароль')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Password')}</span>
           <input
             type="password"
             value={password}
@@ -317,11 +317,11 @@ function Join() {
             className={inputClass}
             autoComplete="new-password"
           />
-          <span className="mt-1 block text-xs text-muted">{t('От 10 символов')}</span>
+          <span className="mt-1 block text-xs text-muted">{t('At least 10 characters')}</span>
         </label>
         {error && <p className="text-sm text-urgent">{error}</p>}
         <button type="submit" disabled={busy} className={buttonClass}>
-          {busy ? t('Создаю') : t('Присоединиться')}
+          {busy ? t('Creating') : t('Join')}
         </button>
       </form>
     </Frame>
@@ -340,7 +340,7 @@ export function ChangePassword() {
   async function submit(e?: FormEvent) {
     e?.preventDefault();
     if (next !== repeat) {
-      setError(t('Пароли не совпадают'));
+      setError(t('Passwords do not match'));
       return;
     }
     setBusy(true);
@@ -349,7 +349,7 @@ export function ChangePassword() {
       await api.post('/auth/change-password', { current_password: current, new_password: next });
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось сменить пароль'));
+      setError(err instanceof Error ? err.message : t('Could not change the password'));
     } finally {
       setBusy(false);
     }
@@ -357,25 +357,25 @@ export function ChangePassword() {
 
   if (done) {
     return (
-      <Frame title={t('Пароль изменён')} hint={t('Семейный хаб')}>
+      <Frame title={t('Password changed')} hint={t('Family hub')}>
         <p className="mb-5 text-sm text-muted">
-          {t('Пароль обновлён. Все устройства разлогинены — войдите заново с новым паролем.')}
+          {t('Password updated. All devices were signed out — sign in again with the new password.')}
         </p>
         <button type="button" onClick={() => void logout()} className={buttonClass}>
-          {t('Войти заново')}
+          {t('Sign in again')}
         </button>
       </Frame>
     );
   }
 
   return (
-    <Frame title={t('Смена пароля')} hint={t('Семейный хаб')}>
+    <Frame title={t('Change password')} hint={t('Family hub')}>
       <p className="mb-5 text-sm text-muted">
-        {t('Выданный пароль виден в логе сервера. Задайте свой, прежде чем продолжить.')}
+        {t('The issued password was shown once. Set your own before continuing.')}
       </p>
       <form onSubmit={submit} className="space-y-4">
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Выданный пароль')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Issued password')}</span>
           <input
             type="password"
             autoComplete="current-password"
@@ -387,7 +387,7 @@ export function ChangePassword() {
         </label>
 
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Новый пароль')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('New password')}</span>
           <input
             type="password"
             autoComplete="new-password"
@@ -396,11 +396,11 @@ export function ChangePassword() {
             onKeyDown={onEnter(() => void submit())}
             className={inputClass}
           />
-          <span className="mt-1 block text-xs text-muted">{t('Не короче 10 символов')}</span>
+          <span className="mt-1 block text-xs text-muted">{t('At least 10 characters')}</span>
         </label>
 
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Ещё раз')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Try again')}</span>
           <input
             type="password"
             autoComplete="new-password"
@@ -414,7 +414,7 @@ export function ChangePassword() {
         {error && <p className="text-sm text-urgent">{error}</p>}
 
         <button type="submit" disabled={busy} className={buttonClass}>
-          {busy ? t('Сохраняю') : t('Сменить пароль')}
+          {busy ? t('Saving') : t('Change password')}
         </button>
       </form>
     </Frame>

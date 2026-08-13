@@ -69,7 +69,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
       onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось сохранить'));
+      setError(err instanceof Error ? err.message : t('Could not save'));
     } finally {
       setBusy(false);
     }
@@ -78,11 +78,11 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
   async function remove() {
     const children = task.child_count ?? 0;
     const ok = await dialogs.confirm({
-      title: t('Удалить задачу'),
+      title: t('Delete task'),
       message: children
-        ? t('Вместе с ней удалятся вложенные задачи: {n}.', { n: children })
+        ? t('Its nested tasks will be deleted with it: {n}.', { n: children })
         : task.title,
-      confirmLabel: t('Удалить'),
+      confirmLabel: t('Delete'),
       danger: true,
     });
     if (!ok) return;
@@ -95,7 +95,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
     <div className="fixed inset-0 z-30 flex justify-end">
       <button
         type="button"
-        aria-label={t('Закрыть')}
+        aria-label={t('Close')}
         onClick={onClose}
         className="absolute inset-0 bg-black/40"
       />
@@ -107,19 +107,19 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
             onClick={onClose}
             className="text-sm text-muted hover:text-ink"
           >
-            {t('Закрыть')}
+            {t('Close')}
           </button>
         </header>
 
         {spawnedDate && (
           <p className="border-b border-line bg-accent-soft px-5 py-3 text-sm text-ink">
-            {t('Задача закрыта. Следующий повтор назначен на {date}.', { date: spawnedDate })}
+            {t('Task closed. The next occurrence is scheduled for {date}.', { date: spawnedDate })}
           </p>
         )}
 
         <div className="flex-1 space-y-4 px-5 py-5">
           <label className="block">
-            <span className={label}>{t('Название')}</span>
+            <span className={label}>{t('Name')}</span>
             <input
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
@@ -129,7 +129,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
           </label>
 
           <label className="block">
-            <span className={label}>{t('Описание')}</span>
+            <span className={label}>{t('Description')}</span>
             <textarea
               rows={4}
               value={draft.description}
@@ -140,7 +140,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className={label}>{t('Статус')}</span>
+              <span className={label}>{t('Status')}</span>
               <select
                 value={draft.status}
                 onChange={(e) => setDraft({ ...draft, status: e.target.value as Task['status'] })}
@@ -155,7 +155,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
             </label>
 
             <label className="block">
-              <span className={label}>{t('Приоритет')}</span>
+              <span className={label}>{t('Priority')}</span>
               <select
                 value={draft.priority}
                 onChange={(e) =>
@@ -172,7 +172,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
             </label>
 
             <label className="block">
-              <span className={label}>{t('Срок')}</span>
+              <span className={label}>{t('Due date')}</span>
               <input
                 type="date"
                 value={draft.due_date}
@@ -182,13 +182,13 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
             </label>
 
             <label className="block">
-              <span className={label}>{t('Исполнитель')}</span>
+              <span className={label}>{t('Assignee')}</span>
               <select
                 value={draft.assignee_id}
                 onChange={(e) => setDraft({ ...draft, assignee_id: e.target.value })}
                 className={field}
               >
-                <option value="">{t('Не назначен')}</option>
+                <option value="">{t('Unassigned')}</option>
                 {members.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}
@@ -199,7 +199,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
           </div>
 
           <label className="block">
-            <span className={label}>{t('Повторение')}</span>
+            <span className={label}>{t('Recurrence')}</span>
             <select
               value={draft.recurrence_rule}
               onChange={(e) => setDraft({ ...draft, recurrence_rule: e.target.value })}
@@ -213,7 +213,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
             </select>
             {draft.recurrence_rule && !draft.due_date && (
               <span className="mt-1 block text-xs text-urgent">
-                {t('Повтор считается от срока — задайте дату')}
+                {t('Recurrence counts from the due date — set one')}
               </span>
             )}
           </label>
@@ -227,7 +227,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
             onClick={() => void remove()}
             className="text-sm text-muted underline underline-offset-2 hover:text-urgent"
           >
-            {t('Удалить')}
+            {t('Delete')}
           </button>
           <button
             type="button"
@@ -235,7 +235,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
             disabled={busy}
             className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? t('Сохраняю') : t('Сохранить')}
+            {busy ? t('Saving') : t('Save')}
           </button>
         </footer>
       </div>
