@@ -9,6 +9,18 @@ REPO_DIR="${BACKUP_REPO_DIR:-$HOME/family-hub-backup}"
 AGE_RECIPIENT="${AGE_RECIPIENT:-}"
 STAMP=$(date +%Y-%m-%d)
 
+# Dead-man switch (optional): ping a healthchecks.io-style URL on every
+# outcome, so a backup that silently stops running raises an alarm — the
+# one failure mode a nightly cron hides best. The app container ships no
+# curl; node is always there.
+PING_URL="${BACKUP_PING_URL:-}"
+report() {
+  [ -z "$PING_URL" ] && return 0
+  node -e "fetch(process.argv[1], { signal: AbortSignal.timeout(10000) }).catch(() => {})" \
+    "$PING_URL$1" 2>/dev/null || true
+}
+trap 'status=$?; if [ "$status" -eq 0 ]; then report ""; else report "/fail"; fi' EXIT
+
 mkdir -p "$BACKUP_DIR"
 
 # 1. Consistent database snapshot (safe while the app is running)

@@ -208,7 +208,56 @@ Every couple of months, pull a random archive and verify that it
 decrypts and opens: a backup that has never been restored is a backup
 only nominally.
 
-## 7. Google sign-in (optional)
+## 7. Monitoring
+
+Three small things cover the failure modes that actually happen: the hub
+went down and nobody noticed, the backup silently stopped running, and
+errors piled up in a log nobody reads. None of them require running any
+monitoring software on the VPS itself.
+
+**Uptime.** `/api/health` answers 200 only when the app is up *and* the
+database responds. Point any free uptime service (UptimeRobot,
+Better Stack, …) at it:
+
+```
+https://hub.example.com/api/health
+https://demo.example.com/api/health   # if you run the public demo
+```
+
+**A dead-man switch for the backup.** An alert firing on a failed backup
+is not enough: the worst failure is the cron job not running at all —
+nothing fails, nothing alerts. A dead-man switch inverts the logic: the
+backup script pings a URL after every run, and the service alarms when
+the ping *stops coming*. Create a check at [healthchecks.io](https://healthchecks.io)
+(free tier is plenty) with a daily schedule, put the ping URL into `.env`:
+
+```
+BACKUP_PING_URL=https://hc-ping.com/your-uuid
+```
+
+then `docker compose -f docker-compose.prod.yml up -d` so the container
+picks it up. On success the script pings the URL, on failure `<url>/fail` —
+you learn about both a broken backup and a backup that quietly stopped.
+
+**Error alerts.** The app logs real errors as `ERROR` lines, but nobody
+reads container logs on a schedule. `scripts/alert-errors.sh` does: it
+greps the last hour of logs and pushes anything found to an
+[ntfy](https://ntfy.sh) topic — a push notification straight to your
+phone, no account needed (pick a long unguessable topic name: anyone who
+knows it can read the alerts). Cron on the host:
+
+```bash
+crontab -e
+# add the line:
+5 * * * * ALERT_URL=https://ntfy.sh/<secret-topic> /srv/family-hub/app/scripts/alert-errors.sh
+```
+
+Container logs are capped by the compose files (10 MB × 3 files per
+service), so they never eat the disk. On an install that predates the
+cap, `docker compose -f docker-compose.prod.yml up -d` recreates the
+containers and applies it.
+
+## 8. Google sign-in (optional)
 
 Once, in the [Google Cloud Console](https://console.cloud.google.com/):
 
@@ -241,7 +290,7 @@ Then each person on their own: sign in with the password → Settings →
 administrator's password cannot be disabled — that is deliberate, see
 [features.md](features.md), "Signing in".
 
-## 8. Public demo (optional)
+## 9. Public demo (optional)
 
 A sandbox at its own subdomain, running next to production on the same
 VPS. Every visitor gets their own throwaway copy of a seeded sample
@@ -282,7 +331,7 @@ The auto-deploy below picks the demo up automatically: it checks the
 server's `.env` for `DEMO_DOMAIN` and, when set, restarts both stacks —
 the image is shared, so shipping a new image updates both.
 
-## 9. Auto-deploy from GitHub
+## 10. Auto-deploy from GitHub
 
 Once configured, every push to `master` deploys itself
 (`.github/workflows/deploy.yml`): Actions checks types, **builds the
@@ -338,7 +387,7 @@ path still works as a fallback.
 The deploy never touches `.env` on the server: it is excluded from
 rsync, secrets keep living only on the machine.
 
-## 10. Updates
+## 11. Updates
 
 The code updates itself on a push to `master` (section above). By hand —
 only if Actions is unavailable:

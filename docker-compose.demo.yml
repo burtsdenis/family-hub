@@ -13,12 +13,21 @@
 # itself — no reset cron needed. Passwords, membership and file uploads
 # stay blocked (see docs/deploy-vps.md, "Public demo").
 
+# YAML anchors do not cross files, so the log cap is repeated here
+# (see docker-compose.prod.yml for the reasoning).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   app-demo:
     image: family-hub:prod
     build: .
     container_name: family-hub-demo
     restart: unless-stopped
+    logging: *logging
     environment:
       NODE_ENV: production
       DATA_DIR: /data
