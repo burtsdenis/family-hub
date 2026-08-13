@@ -26,6 +26,26 @@ interface NoteRow {
  */
 const VISIBLE = "(n.visibility = 'shared' OR n.owner_id = ?)";
 
+/**
+ * Превью заметки для списка: markdown-разметка вычищается, остаётся текст.
+ * Разбирать markdown по-настоящему здесь незачем — превью живёт одну строку;
+ * достаточно снять то, что бросается в глаза: картинки, ссылки, вики-ссылки,
+ * маркеры списков и инлайновые значки.
+ */
+export function excerptOf(body: string): string {
+  return body
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // картинки — целиком
+    .replace(/\[\[([^\]]+)\]\]/g, '$1') // [[вики-ссылка]] → её название
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // [ссылка](url) → текст
+    .replace(/^\s*(?:[-*+]|\d+\.)\s+(?:\[[ xX]\]\s*)?/gm, '') // маркеры списков и чекбоксы
+    .replace(/^\s*#{1,6}\s+/gm, '') // заголовки
+    .replace(/^\s*>\s?/gm, '') // цитаты
+    .replace(/[*_`~]/g, '') // жирный/курсив/код/зачёркнутое
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+}
+
 function loadVisible(noteId: string, userId: string): NoteRow | null {
   const row = db
     .prepare(`SELECT n.* FROM notes n WHERE n.id = ? AND ${VISIBLE}`)
@@ -255,17 +275,21 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
       args.push(q.q, q.q);
     }
 
-    return db
+    const rows = db
       .prepare(
         `SELECT n.id, n.title, n.folder_id, n.visibility, n.owner_id, n.pinned,
                 n.daily_date, n.is_template, n.updated_at, u.name AS owner_name,
-                substr(replace(replace(n.body_md, '#', ''), char(10), ' '), 1, 120) AS excerpt
+                substr(n.body_md, 1, 400) AS excerpt
            FROM notes n
            LEFT JOIN users u ON u.id = n.owner_id
           WHERE ${where.join(' AND ')}
           ORDER BY n.pinned DESC, n.updated_at DESC`,
       )
-      .all(...args);
+      .all(...args) as Record<string, unknown>[];
+
+    // Превью очищается от разметки здесь, а не в SQL: раньше запрос резал
+    // сырой markdown, и в списке торчали **звёздочки** и [[скобки]]
+    return rows.map((r) => ({ ...r, excerpt: excerptOf(String(r.excerpt ?? '')) }));
   });
 
   // ── Одна заметка со связями ─────────────────────────────────────────────
