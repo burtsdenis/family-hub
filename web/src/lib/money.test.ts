@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { formatAmountInput, orderCategories, parseAmount, type Category } from './money';
+import {
+  describeRule,
+  formatAmountInput,
+  normalizeRule,
+  orderCategories,
+  parseAmount,
+  type Category,
+} from './money';
 
 describe('parseAmount', () => {
   it('целые и дробные, оба разделителя', () => {
@@ -55,6 +62,27 @@ describe('formatAmountInput → parseAmount: round-trip', () => {
   it('формат без локали и группировки', () => {
     expect(formatAmountInput(150000)).toBe('1500');
     expect(formatAmountInput(123456)).toBe('1234.56');
+  });
+});
+
+describe('normalizeRule / describeRule', () => {
+  it('INTERVAL=1 сводится к канонической форме без интервала', () => {
+    // База и сидинг хранят с ;INTERVAL=1, интерфейс — без: формы эквивалентны
+    expect(normalizeRule('FREQ=MONTHLY;INTERVAL=1')).toBe('FREQ=MONTHLY');
+    expect(normalizeRule('freq=weekly;interval=1')).toBe('FREQ=WEEKLY');
+    expect(normalizeRule('FREQ=MONTHLY;INTERVAL=3')).toBe('FREQ=MONTHLY;INTERVAL=3');
+  });
+
+  it('не-RRULE возвращается как есть', () => {
+    expect(normalizeRule('каждый вторник')).toBe('каждый вторник');
+  });
+
+  it('описание не показывает сырой RRULE человеку', () => {
+    // Тесты идут с языком en (дефолт без localStorage)
+    expect(describeRule('FREQ=MONTHLY;INTERVAL=1')).toBe('Every month');
+    expect(describeRule('FREQ=MONTHLY')).toBe('Every month');
+    expect(describeRule('FREQ=MONTHLY;INTERVAL=6')).toBe('Every 6 months');
+    expect(describeRule('FREQ=DAILY;INTERVAL=10')).toBe('Every 10 days');
   });
 });
 

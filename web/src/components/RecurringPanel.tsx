@@ -13,7 +13,7 @@ import { Empty } from './Page';
 import { onEnter } from '../lib/keys';
 import { formatDate } from '../lib/format';
 import { RECURRENCE_OPTIONS } from '../lib/tasks';
-import { describeRule } from '../lib/money';
+import { describeRule, normalizeRule } from '../lib/money';
 import {
   TX_KIND_LABEL,
   formatAmountInput,
@@ -270,7 +270,9 @@ function RuleDialog({
     title: rule?.title ?? '',
     kind: rule?.kind ?? ('expense' as TxKind),
     start_on: rule?.start_on ?? today,
-    recurrence_rule: rule?.recurrence_rule ?? 'FREQ=MONTHLY',
+    // Нормализация обязательна: правило из базы может быть в форме
+    // «FREQ=MONTHLY;INTERVAL=1», которой нет среди опций select
+    recurrence_rule: normalizeRule(rule?.recurrence_rule ?? 'FREQ=MONTHLY'),
     account_id: rule?.account_id ?? accounts[0]!.id,
     amount: rule ? formatAmountInput(rule.amount) : '',
     to_account_id: rule?.to_account_id ?? '',
