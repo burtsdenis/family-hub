@@ -9,7 +9,7 @@ import {
 } from './money';
 
 describe('parseAmount', () => {
-  it('целые и дробные, оба разделителя', () => {
+  it('integers and decimals, both separators', () => {
     expect(parseAmount('1234')).toBe(123400);
     expect(parseAmount('1234.56')).toBe(123456);
     expect(parseAmount('1234,56')).toBe(123456);
@@ -17,49 +17,49 @@ describe('parseAmount', () => {
     expect(parseAmount('0')).toBe(0);
   });
 
-  it('группировка тысяч: десятичный разделитель — тот, что правее', () => {
+  it('thousands grouping: the decimal separator is the rightmost one', () => {
     expect(parseAmount('1,234.56')).toBe(123456);
     expect(parseAmount('1.234,56')).toBe(123456);
     expect(parseAmount('1 234.56')).toBe(123456);
     expect(parseAmount('1 234,56')).toBe(123456);
   });
 
-  it('одиночный разделитель с тремя знаками — двусмысленность, отказ', () => {
-    // «1,500» — то ли полторы тысячи, то ли полтора: лучше честный отказ,
-    // чем молчаливая ошибка в тысячу раз. Поле ввода такое не порождает
-    // (formatAmountInput не группирует), а вставку из буфера с группировкой
-    // спасает вариант с обоими разделителями выше (там разделитель тысяч
-    // определяется однозначно).
+  it('single separator with three digits is ambiguous — reject', () => {
+    // «1,500» — fifteen hundred or one and a half: an honest rejection
+    // beats a silent thousand-fold error. Input fields never produce this
+    // (formatAmountInput doesn't group), and pasting grouped text from the
+    // clipboard is saved by the both-separators case above (there the
+    // thousands separator is unambiguous).
     expect(parseAmount('1,500')).toBeNull();
     expect(parseAmount('1.500')).toBeNull();
   });
 
-  it('мусор и отрицательные — null', () => {
+  it('garbage and negatives — null', () => {
     expect(parseAmount('')).toBeNull();
     expect(parseAmount('abc')).toBeNull();
-    expect(parseAmount('12.345')).toBeNull(); // три знака после точки — не сумма
+    expect(parseAmount('12.345')).toBeNull(); // three digits after the dot is not an amount
     expect(parseAmount('-5')).toBeNull();
     expect(parseAmount('1..2')).toBeNull();
   });
 
-  it('копейки не теряются на округлении', () => {
-    // 19.99 * 100 = 1998.9999… в плавающей точке — Math.round обязателен
+  it('cents survive rounding', () => {
+    // 19.99 * 100 = 1998.9999… in floating point — Math.round is mandatory
     expect(parseAmount('19.99')).toBe(1999);
     expect(parseAmount('0.07')).toBe(7);
   });
 });
 
 describe('formatAmountInput → parseAmount: round-trip', () => {
-  // Поле ввода обязано показывать то, что разбор гарантированно примет
-  // обратно — реальный баг: локализованное «1,500» разбиралось как 1.5
+  // The input field must show what the parser is guaranteed to accept
+  // back — real bug: localized «1,500» parsed as 1.5
   it.each([0, 1, 99, 100, 123456, 150000, 999999999, 1999, 7])(
-    'минорные %i выживают round-trip',
+    'minor units %i survive the round-trip',
     (minor) => {
       expect(parseAmount(formatAmountInput(minor))).toBe(minor);
     },
   );
 
-  it('формат без локали и группировки', () => {
+  it('formats without locale or grouping', () => {
     expect(formatAmountInput(150000)).toBe('1500');
     expect(formatAmountInput(123456)).toBe('1234.56');
   });
@@ -95,7 +95,7 @@ describe('orderCategories', () => {
     parent_id: parent,
   });
 
-  it('дети идут сразу за родителем с глубиной 1', () => {
+  it('children follow their parent immediately at depth 1', () => {
     const ordered = orderCategories([cat('fuel', 'car'), cat('car'), cat('food')]);
     expect(ordered.map((o) => [o.category.id, o.depth])).toEqual([
       ['car', 0],
@@ -104,13 +104,13 @@ describe('orderCategories', () => {
     ]);
   });
 
-  it('подкатегория со скрытым родителем поднимается на верхний уровень', () => {
-    // Родителя нет в пуле (в архиве) — ребёнок не должен исчезнуть
+  it('a subcategory with a hidden parent is promoted to the top level', () => {
+    // The parent is not in the pool (archived) — the child must not vanish
     const ordered = orderCategories([cat('fuel', 'car-archived')]);
     expect(ordered).toEqual([{ category: cat('fuel', 'car-archived'), depth: 0 }]);
   });
 
-  it('фильтр по kind не ломает связку родитель-ребёнок', () => {
+  it('filtering by kind keeps the parent-child pairing intact', () => {
     const ordered = orderCategories(
       [cat('car'), cat('fuel', 'car'), cat('salary', null, 'income')],
       'expense',

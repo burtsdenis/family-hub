@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Выдача нового пароля администратору.
+ * Issue a new password to the admin.
  *
- * Пароль хранится хешем, и восстановить его нельзя — только заменить.
- * До этого скрипта единственным способом попасть в систему при потерянном
- * пароле было удаление базы, то есть потеря всего.
+ * The password is stored as a hash and can't be recovered — only replaced.
+ * Before this script, the only way into the system with a lost password
+ * was deleting the database, i.e. losing everything.
  *
- * Запуск: npm run admin:reset
- *         npm run admin:reset -- denis@hub.local
- * В Docker: docker compose exec app node scripts/admin-reset.mjs
+ * Usage: npm run admin:reset
+ *        npm run admin:reset -- denis@hub.local
+ * In Docker: docker compose exec app node scripts/admin-reset.mjs
  */
 import Database from 'better-sqlite3';
 import { existsSync } from 'node:fs';
@@ -17,7 +17,7 @@ import { join, resolve } from 'node:path';
 
 const dist = resolve(import.meta.dirname, '..', 'server', 'dist', 'lib', 'password.js');
 if (!existsSync(dist)) {
-  console.error('Сервер не собран. Сначала: npm run build');
+  console.error('The server is not built. First: npm run build');
   process.exit(1);
 }
 const { generatePassword, hashPassword } = await import(dist);
@@ -26,8 +26,8 @@ const dataDir = resolve(process.env.DATA_DIR ?? join(homedir(), '.family-hub'));
 const dbPath = join(dataDir, 'hub.db');
 
 if (!existsSync(dbPath)) {
-  console.error(`Базы нет: ${dbPath}`);
-  console.error('Запустите приложение хотя бы раз — оно создаст базу и напечатает пароль само.');
+  console.error(`No database at: ${dbPath}`);
+  console.error('Run the app at least once — it will create the database and print the password itself.');
   process.exit(1);
 }
 
@@ -42,12 +42,12 @@ const user = wanted
 
 if (!user) {
   const all = db.prepare('SELECT email, role FROM users ORDER BY role, email').all();
-  console.error(wanted ? `Учётки ${wanted} нет.` : 'Администратора в базе нет.');
+  console.error(wanted ? `No account ${wanted}.` : 'No admin in the database.');
   if (all.length > 0) {
-    console.error('Есть такие учётки:');
+    console.error('These accounts exist:');
     for (const u of all) console.error(`  ${u.email} · ${u.role}`);
   } else {
-    console.error('В базе вообще нет пользователей — удалите hub.db и запустите приложение заново.');
+    console.error('The database has no users at all — delete hub.db and start the app again.');
   }
   process.exit(1);
 }
@@ -59,7 +59,7 @@ db.prepare(
   'UPDATE users SET password_hash = ?, must_change_password = 1, disabled_at = NULL WHERE id = ?',
 ).run(hash, user.id);
 
-// Прежние сессии закрываем: если пароль сбрасывают, доверять им нельзя
+// Close previous sessions: if the password is being reset, they can't be trusted
 const closed = db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id).changes;
 db.close();
 
@@ -67,15 +67,15 @@ const line = '─'.repeat(64);
 const out = [
   '',
   line,
-  `  Новый пароль для ${user.name} (${user.email})`,
+  `  New password for ${user.name} (${user.email})`,
   '',
-  `    Логин:  ${user.email}`,
-  `    Пароль: ${password}`,
+  `    Login:    ${user.email}`,
+  `    Password: ${password}`,
   '',
-  '  Пароль показан один раз и требует смены при первом входе.',
+  '  The password is shown once and must be changed on first login.',
 ];
 if (closed > 0) {
-  out.push(`  Прежние сессии закрыты: ${closed} — войти придётся заново везде.`);
+  out.push(`  Previous sessions closed: ${closed} — you will have to sign in again everywhere.`);
 }
 out.push(line, '');
 console.log(out.join('\n'));

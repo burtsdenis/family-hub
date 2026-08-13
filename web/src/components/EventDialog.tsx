@@ -12,7 +12,7 @@ const field =
 const label = 'mb-1.5 block text-sm font-medium text-ink';
 
 interface Props {
-  /** Существующий экземпляр либо дата для нового события. */
+  /** An existing occurrence or a date for a new event. */
   occurrence: Occurrence | null;
   defaultDate: string;
   calendars: Calendar[];
@@ -44,7 +44,7 @@ export function EventDialog({
     end_date: occurrence?.ends_at.slice(0, 10) ?? defaultDate,
     start_time: occurrence ? timeOf(occurrence.starts_at) || '10:00' : '10:00',
     end_time: occurrence ? timeOf(occurrence.ends_at) || '11:00' : '11:00',
-    // Подтягивается ниже: в экземпляре серии правила повтора нет
+    // Fetched below: a series occurrence carries no recurrence rule
     recurrence_rule: '',
     project_id: occurrence?.project_id ?? '',
     remind_days_before:
@@ -57,7 +57,7 @@ export function EventDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Правило повтора и год рождения приходят только с полным событием
+  // The recurrence rule and birth year only come with the full event
   useEffect(() => {
     if (!occurrence) return;
     void api
@@ -74,8 +74,8 @@ export function EventDialog({
       .catch(() => {});
   }, [occurrence]);
 
-  // Без списка зависимостей: подписка обновляется на каждый рендер,
-  // и save всегда видит актуальный черновик
+  // No dependency list: the subscription is refreshed on every render,
+  // so save always sees the current draft
   useEffect(() => {
     const onKey = dialogKeys(() => {
       if (!busy) void save();
@@ -120,7 +120,7 @@ export function EventDialog({
     }
   }
 
-  /** У повторяющегося события удаление — это два разных действия. */
+  /** For a recurring event, deletion is two distinct actions. */
   async function removeOne() {
     if (!occurrence) return;
     await api.delete(`/events/${occurrence.event_id}/occurrences/${occurrence.date}`);

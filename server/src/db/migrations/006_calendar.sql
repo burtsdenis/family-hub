@@ -1,9 +1,9 @@
--- Календарь: доработки к исходной схеме.
+-- Calendar: refinements to the initial schema.
 
 ALTER TABLE events ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL;
--- За сколько дней поднимать событие в сводку. NULL — не предупреждать.
+-- How many days ahead to surface the event in the digest. NULL — no warning.
 ALTER TABLE events ADD COLUMN remind_days_before INTEGER;
--- Для дней рождения: позволяет показать возраст.
+-- For birthdays: allows showing the age.
 ALTER TABLE events ADD COLUMN birth_year INTEGER;
 
 CREATE TABLE event_participants (
@@ -12,8 +12,8 @@ CREATE TABLE event_participants (
   PRIMARY KEY (event_id, user_id)
 );
 
--- Отменённые экземпляры повторяющейся серии: «в эту пятницу тренировки нет».
--- Сама серия при этом остаётся.
+-- Cancelled instances of a recurring series: "no practice this Friday".
+-- The series itself stays.
 CREATE TABLE event_exceptions (
   event_id      TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   excluded_date TEXT NOT NULL,
@@ -22,6 +22,6 @@ CREATE TABLE event_exceptions (
 
 CREATE INDEX idx_events_project ON events(project_id);
 
--- Календарь по умолчанию: событию всегда есть куда лечь
+-- Default calendar: an event always has somewhere to land
 INSERT INTO calendars (id, name, color, owner_id, shared, position) VALUES
   ('00000000-0000-4000-8000-000000000201', 'Общий', '#1F6E8C', NULL, 1, 0);

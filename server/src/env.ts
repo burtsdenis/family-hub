@@ -2,31 +2,32 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 /**
- * По умолчанию данные живут вне папки проекта.
+ * By default the data lives outside the project folder.
  *
- * Раньше база лежала в ./data — то есть внутри каталога, который целиком
- * заменяется при обновлении. Finder на macOS при замене папки не сливает
- * содержимое, а удаляет старую вместе со всем внутри, и база исчезала.
- * Каталог с данными не должен зависеть от того, как обновляют код.
+ * The database used to sit in ./data — inside a directory that gets
+ * replaced wholesale on update. When replacing a folder, Finder on macOS
+ * doesn't merge contents, it deletes the old one with everything inside,
+ * and the database vanished. The data directory must not depend on how
+ * the code is updated.
  *
- * В Docker переменная DATA_DIR задана явно и указывает на том.
+ * In Docker the DATA_DIR variable is set explicitly and points to a volume.
  */
 const DEFAULT_DATA_DIR = join(homedir(), '.family-hub');
 
-/** Старое расположение — из него данные переносятся при первом запуске. */
+/** The old location — data is migrated out of it on first start. */
 export const legacyDataDir = resolve('./data');
 
 /**
- * Числа и флаги из окружения проверяются на месте: опечатка в значении
- * должна останавливать старт или быть видимой, а не молча превращаться
- * в NaN («слушаем порт NaN») или в false («флаг вроде включён, но нет»).
+ * Numbers and flags from the environment are validated on the spot: a typo
+ * in a value must stop startup or be visible, not silently turn into NaN
+ * ("listening on port NaN") or false ("the flag looks enabled, but isn't").
  */
 function intFrom(name: string, fallback: number): number {
   const raw = process.env[name];
   if (raw === undefined || raw === '') return fallback;
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${name}=${raw} — ожидается целое положительное число`);
+    throw new Error(`${name}=${raw} — expected a positive integer`);
   }
   return value;
 }
@@ -35,7 +36,7 @@ function boolFrom(name: string): boolean {
   const raw = process.env[name];
   if (raw === undefined || raw === '' || raw === 'false') return false;
   if (raw === 'true') return true;
-  throw new Error(`${name}=${raw} — ожидается true или false`);
+  throw new Error(`${name}=${raw} — expected true or false`);
 }
 
 export const env = {
@@ -44,28 +45,29 @@ export const env = {
   dataDir: resolve(process.env.DATA_DIR ?? DEFAULT_DATA_DIR),
   webDist: resolve(process.env.WEB_DIST ?? '../web/dist'),
   isProd: process.env.NODE_ENV === 'production',
-  // Включать только после того, как заработал HTTPS (scripts/setup-https.sh).
-  // Если включить раньше, браузер не примет куку и вход перестанет работать.
+  // Enable only after HTTPS is working (scripts/setup-https.sh).
+  // Enabled too early, the browser rejects the cookie and login breaks.
   secureCookies: boolFrom('SECURE_COOKIES'),
-  // Включается, когда приложение стоит за обратным прокси (Caddy на VPS):
-  // адрес клиента тогда берётся из X-Forwarded-For, иначе все запросы
-  // выглядят пришедшими с адреса прокси — и лимиты по IP банят самих себя.
-  // В открытой установке без прокси включать нельзя: заголовок подделывается.
+  // Enabled when the app sits behind a reverse proxy (Caddy on the VPS):
+  // the client address then comes from X-Forwarded-For, otherwise every
+  // request looks like it came from the proxy — and per-IP limits ban
+  // ourselves. Must stay off on an exposed install without a proxy:
+  // the header can be forged.
   trustProxy: boolFrom('TRUST_PROXY'),
-  // ── Вход через Google ───────────────────────────────────────────────────
-  // Оба значения выдаёт Google Cloud Console (OAuth client, Web application).
-  // Пустой clientId выключает возможность целиком: кнопки на входе нет,
-  // маршруты отвечают, что вход через Google не настроен.
+  // ── Sign-in with Google ─────────────────────────────────────────────────
+  // Both values come from Google Cloud Console (OAuth client, Web application).
+  // An empty clientId disables the feature entirely: no button on the login
+  // screen, the routes reply that Google sign-in is not configured.
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-  // Адрес, по которому хаб виден из браузера, — из него собирается
-  // redirect URI для Google. Для прода: https://hub.example.com
+  // The address the hub is reachable at from a browser — the Google
+  // redirect URI is built from it. For production: https://hub.example.com
   publicUrl: (process.env.PUBLIC_URL ?? '').replace(/\/$/, ''),
-  // Публичная песочница: база-однодневка на посетителя.
-  // См. server/src/lib/sandbox.ts и lib/demo.ts
+  // Public sandbox: a throwaway database per visitor.
+  // See server/src/lib/sandbox.ts and lib/demo.ts
   demoMode: boolFrom('DEMO_MODE'),
-  // debug | info | warn | error | silent. По умолчанию warn:
-  // в обычной работе интересны только предупреждения и ошибки.
+  // debug | info | warn | error | silent. Default warn:
+  // in normal operation only warnings and errors are interesting.
   logLevel: process.env.LOG_LEVEL ?? 'warn',
 } as const;
 

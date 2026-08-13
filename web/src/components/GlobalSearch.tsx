@@ -10,7 +10,7 @@ interface Result {
   id: string;
   title: string;
   subtitle: string;
-  /** У задач — для перевода подписи «Входящие» по известному id. */
+  /** For tasks — to translate the "Inbox" label by its well-known id. */
   project_id?: string;
   excerpt: string;
   color: string | null;
@@ -27,9 +27,9 @@ const KIND_LABEL: Record<Result['kind'], string> = {
 };
 
 /*
-  Подписи приходят с сервера по-русски. Пользовательские названия (проект,
-  папка) переводить нельзя, а служебные константы — нужно. Переводим только
-  известный конечный список; названия проектов задач решает projectTitle по id.
+  Subtitles come from the server in Russian. User-given names (project,
+  folder) must not be translated, while built-in constants must be. We only
+  translate a known finite list; task project names are handled by projectTitle by id.
 */
 const SERVER_SUBTITLES = new Set(['Приватная', 'Без папки', 'Проект']);
 
@@ -48,9 +48,9 @@ export function GlobalSearch({
   const navigate = useNavigate();
   const [openLocal, setOpenLocal] = useState(false);
   const open = openProp ?? openLocal;
-  // useCallback обязателен: setOpen участвует в зависимостях эффекта с
-  // window-обработчиком — нестабильная идентичность пересоздавала бы
-  // подписку на каждый рендер (те самые грабли нестабильных хуков)
+  // useCallback is mandatory: setOpen is a dependency of the effect with
+  // the window handler — an unstable identity would recreate the
+  // subscription on every render (the classic unstable-hooks trap)
   const setOpen = useCallback(
     (value: boolean) => {
       setOpenLocal(value);
@@ -64,7 +64,7 @@ export function GlobalSearch({
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Cmd+K уже занят быстрым добавлением, поэтому поиск на Cmd+Shift+F.
+  // Cmd+K is already taken by quick add, so search lives on Cmd+Shift+F.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
@@ -81,7 +81,7 @@ export function GlobalSearch({
     if (open) setTimeout(() => inputRef.current?.focus(), 0);
   }, [open]);
 
-  // Поиск с задержкой: иначе каждый символ уходит в базу
+  // Debounced search: otherwise every keystroke hits the database
   useEffect(() => {
     if (!open) return;
     const trimmed = query.trim();

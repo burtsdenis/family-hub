@@ -1,10 +1,10 @@
 import { intlLocale, tPlural } from './i18n';
 
 /*
-  Начало недели — настройка устройства, как язык: читается синхронно
-  при загрузке модуля, смена перезагружает страницу. Вся сетка календаря
-  считает дни через weekdayIndex/startOfWeek, поэтому параметризуются
-  только они — остальное подстраивается само.
+  Week start is a device setting, like language: read synchronously at
+  module load, changing it reloads the page. The whole calendar grid
+  computes days through weekdayIndex/startOfWeek, so only those two are
+  parameterized — everything else adjusts on its own.
 */
 export type WeekStart = 'mon' | 'sun';
 
@@ -22,17 +22,17 @@ export function setWeekStart(next: WeekStart): void {
   try {
     localStorage.setItem('hub-week-start', next);
   } catch {
-    // Нет localStorage — настройка просто не запомнится
+    // No localStorage — the setting just won't stick
   }
   window.location.reload();
 }
 
-/** Сдвиг дня недели относительно начала недели: 0 — первый день сетки. */
+/** Weekday shift relative to the week start: 0 is the grid's first day. */
 const START_SHIFT = weekStart === 'mon' ? 6 : 0;
 
 /**
- * «14 ноября» / «14 November» — без года, если год текущий.
- * Intl сам знает русский родительный падеж, ручные массивы месяцев не нужны.
+ * «14 ноября» / «14 November» — year omitted when it is the current one.
+ * Intl knows the Russian genitive itself, no hand-rolled month arrays.
  */
 export function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -45,8 +45,9 @@ export function formatDate(iso: string): string {
 }
 
 /**
- * Множественное число. Формы задаются русской тройкой (день/дня/дней) —
- * для английского она же служит ключом словаря пар (см. i18n.en.ts).
+ * Pluralization. Forms are given as the Russian triple (день/дня/дней) —
+ * for English the same triple serves as the key into the pair dictionary
+ * (see i18n.en.ts).
  */
 export function plural(n: number, one: string, few: string, many: string): string {
   return tPlural(n, [one, few, many]);
@@ -69,30 +70,30 @@ export function formatEur(value: number): string {
   }).format(value);
 }
 
-// ── Даты для календаря ────────────────────────────────────────────────────
+// ── Calendar dates ────────────────────────────────────────────────────────
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Названия месяцев в именительном — для заголовков календаря. */
+/** Month names in the nominative case — for calendar headers. */
 export const MONTHS_NOM = Array.from({ length: 12 }, (_, m) =>
   capitalize(
     new Intl.DateTimeFormat(intlLocale, { month: 'long' }).format(new Date(Date.UTC(2026, m, 1))),
   ),
 );
 
-/** Короткие дни недели, с настроенного первого дня. */
+/** Short weekday names, starting from the configured first day. */
 export const WEEKDAYS_SHORT = Array.from({ length: 7 }, (_, i) =>
   capitalize(
     new Intl.DateTimeFormat(intlLocale, { weekday: 'short', timeZone: 'UTC' })
-      // 5 января 2026 — понедельник, 4-е — воскресенье
+      // January 5, 2026 is a Monday, the 4th a Sunday
       .format(new Date(Date.UTC(2026, 0, (weekStart === 'mon' ? 5 : 4) + i)))
       .replace('.', ''),
   ),
 );
 
-/** Все операции с датами — в UTC, чтобы переход на летнее время не сдвигал сетку. */
+/** All date arithmetic in UTC so a DST switch never shifts the grid. */
 export function toDate(iso: string): Date {
   return new Date(`${iso.slice(0, 10)}T00:00:00Z`);
 }
@@ -117,7 +118,7 @@ export function addMonths(iso: string, months: number): string {
   return toISO(d);
 }
 
-/** Первый день недели — по настройке устройства. */
+/** First day of the week — per the device setting. */
 export function startOfWeek(iso: string): string {
   const d = toDate(iso);
   const shift = (d.getUTCDay() + START_SHIFT) % 7;
@@ -141,7 +142,7 @@ export function weekdayIndex(iso: string): number {
   return (toDate(iso).getUTCDay() + START_SHIFT) % 7;
 }
 
-/** Суббота и воскресенье — независимо от того, с чего начинается сетка. */
+/** Saturday and Sunday — regardless of where the grid starts. */
 export function isWeekend(iso: string): boolean {
   const day = toDate(iso).getUTCDay();
   return day === 0 || day === 6;
@@ -153,7 +154,7 @@ export function monthTitle(iso: string): string {
   return `${month} ${d.getUTCFullYear()}`;
 }
 
-/** «3 — 9 августа» или «29 сентября — 5 октября». */
+/** «3 — 9 August» or «29 September — 5 October». */
 export function rangeTitle(from: string, to: string): string {
   const a = toDate(from);
   const b = toDate(to);
@@ -161,15 +162,16 @@ export function rangeTitle(from: string, to: string): string {
   return `${left} — ${formatDate(to)}`;
 }
 
-/** Из '2026-09-15T10:30' достаём '10:30'. */
+/** From '2026-09-15T10:30' extract '10:30'. */
 export function timeOf(value: string): string {
   return value.length > 10 ? value.slice(11, 16) : '';
 }
 
 /**
- * Метка времени из базы в местное время.
- * Сервер пишет ISO в UTC без обозначения зоны, поэтому зону дописываем
- * вручную — иначе браузер считает строку местным временем и час теряется.
+ * DB timestamp rendered in local time.
+ * The server writes ISO in UTC without a zone marker, so the zone is
+ * appended by hand — otherwise the browser reads the string as local
+ * time and an hour goes missing.
  */
 export function formatStamp(stored: string): string {
   const iso = stored.includes('T') ? stored : stored.replace(' ', 'T');

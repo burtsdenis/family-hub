@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
-/* Шрифты подключаются локально пакетами fontsource — приложение
-   не должно ходить в интернет за Google Fonts, оно живёт в офлайне. */
+/* Fonts are bundled locally via fontsource packages — the app must not
+   reach out to Google Fonts, it lives offline. */
 @import '@fontsource-variable/unbounded';
 @import '@fontsource-variable/golos-text';
 @import '@fontsource-variable/jetbrains-mono';
@@ -9,11 +9,11 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
-  Палитра: Адриатика и сухая испанская земля.
-  azulejo — сине-бирюзовый изразец, основной акцент.
-  ochre  — прогретая охра, только для срочного и просроченного.
-  olive  — приглушённая олива, только для выполненного.
-  Три цвета состояния, больше нет: интерфейс не должен пестрить.
+  Palette: the Adriatic and dry Spanish earth.
+  azulejo — blue-turquoise tile, the primary accent.
+  ochre  — sun-warmed ochre, only for urgent and overdue.
+  olive  — muted olive, only for completed.
+  Three state colors, no more: the UI must not turn motley.
 */
 :root {
   --c-surface: #f6f7f4;
@@ -59,9 +59,9 @@
 
   --radius-card: 0.75rem;
 
-  /* Стандартная шкала Tailwind заканчивается на 1536px, а 34-дюймовый
-     монитор — это 3440px. Без этих ступеней рабочая область на нём
-     перестаёт расти и превращается в узкую колонку посреди пустоты. */
+  /* Tailwind's standard scale ends at 1536px, while a 34-inch monitor
+     is 3440px. Without these steps the working area stops growing there
+     and becomes a narrow column in the middle of emptiness. */
   --breakpoint-3xl: 120rem;
   --breakpoint-4xl: 160rem;
 }
@@ -95,7 +95,7 @@ select {
     font-family: var(--font-sans);
     font-synthesis-weight: none;
     text-rendering: optimizeLegibility;
-    /* Стенд на iPad: тянуть страницу за край незачем */
+    /* iPad kiosk: no reason to rubber-band the page past its edge */
     overscroll-behavior: none;
   }
 
@@ -106,8 +106,8 @@ select {
   }
 
 
-  /* Метки разделов: моноширинный, разрядка, верхний регистр.
-     Служебный слой типографики, отделённый от контента. */
+  /* Section labels: monospace, letter-spaced, uppercase.
+     A utility typography layer, kept apart from the content. */
   .eyebrow {
     font-family: var(--font-mono);
     font-size: 0.6875rem;
@@ -127,10 +127,10 @@ select {
   }
 }
 
-/* ── Редактор заметок ─────────────────────────────────────────────────────
-   Типографика тела заметки задана вручную, без плагина typography:
-   набор узлов здесь конечный и известный, а лишняя зависимость в офлайновом
-   приложении дороже двух десятков строк CSS. */
+/* ── Note editor ──────────────────────────────────────────────────────────
+   The note body typography is written by hand, without the typography
+   plugin: the node set here is finite and known, and an extra dependency
+   in an offline app costs more than two dozen lines of CSS. */
 
 .note-content {
   padding: 1.25rem 1.5rem;
@@ -203,7 +203,7 @@ select {
   text-underline-offset: 2px;
 }
 
-/* Чеклисты */
+/* Checklists */
 .note-content ul[data-type='taskList'] {
   list-style: none;
   padding-left: 0;
@@ -220,7 +220,7 @@ select {
   accent-color: var(--c-done);
 }
 
-/* Таблицы */
+/* Tables */
 .note-content table {
   border-collapse: collapse;
   width: 100%;
@@ -237,7 +237,7 @@ select {
   font-weight: 600;
 }
 
-/* Подсказка в пустой заметке */
+/* Placeholder in an empty note */
 .note-content p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
@@ -246,7 +246,7 @@ select {
   color: var(--c-text-muted);
 }
 
-/* Ссылка на другую заметку */
+/* Link to another note */
 .wiki-link {
   color: var(--c-accent);
   background: var(--c-accent-soft);
@@ -255,7 +255,7 @@ select {
   cursor: pointer;
 }
 
-/* Картинки внутри заметки */
+/* Images inside a note */
 .note-content img {
   max-width: 100%;
   height: auto;

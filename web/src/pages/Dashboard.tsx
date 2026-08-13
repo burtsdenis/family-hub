@@ -15,9 +15,9 @@ const PRIORITY_LABEL: Record<Task['priority'], string> = {
 };
 
 /*
-  Каждая строка дашборда ведёт туда, где с ней можно что-то сделать.
-  Задача открывает свою карточку, событие — календарь на нужной дате,
-  заметка — саму заметку. Показывать список без перехода — тупик.
+  Every dashboard row leads to where something can be done about it.
+  A task opens its card, an event the calendar at the right date, a note
+  the note itself. Showing a list with nowhere to go is a dead end.
 */
 function TaskRow({ task, overdue }: { task: Task; overdue?: boolean }) {
   return (
@@ -86,10 +86,10 @@ function EventRow({ occurrence }: { occurrence: Occurrence }) {
 }
 
 /**
- * Быстрые действия — только на телефоне. Главная на телефоне открывается,
- * чтобы что-то записать на ходу: задачу, трату, заметку. Три крупные
- * кнопки решают это в одно касание, на широких экранах их роль выполняют
- * Cmd+K и кнопки разделов.
+ * Quick actions — phone only. On the phone the home screen is opened to
+ * jot something down on the go: a task, an expense, a note. Three big
+ * buttons solve that in one tap; on wide screens Cmd+K and the section
+ * buttons play that role.
  */
 function QuickActions() {
   const navigate = useNavigate();
@@ -170,7 +170,7 @@ export function Dashboard() {
         .catch((e: Error) => alive && setError(e.message));
 
     void load();
-    // Стенд висит открытым сутками — обновляем сам, без перезагрузки страницы.
+    // The kiosk stays open for days — refresh ourselves, no page reload.
     const timer = setInterval(load, 60_000);
     return () => {
       alive = false;

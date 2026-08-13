@@ -18,7 +18,7 @@ export interface Account {
   tx_count: number;
   last_actual: number | null;
   last_checked_on: string | null;
-  /** Остаток на момент последней сверки — с ним и сравнивается актуал. */
+  /** Balance as of the last reconciliation — what the actual is compared against. */
   checked_balance: number | null;
 }
 
@@ -27,14 +27,14 @@ export interface Category {
   name: string;
   kind: 'expense' | 'income';
   color: string;
-  /** Родительская категория. Глубина иерархии — один уровень. */
+  /** Parent category. Hierarchy is exactly one level deep. */
   parent_id: string | null;
 }
 
 /**
- * Категории в порядке показа: родитель, сразу за ним его подкатегории.
- * Подкатегория, чей родитель скрыт (в архиве), поднимается на верхний
- * уровень — иначе она бы исчезла из всех списков.
+ * Categories in display order: parent, then its subcategories right after.
+ * A subcategory whose parent is hidden (archived) is promoted to the top
+ * level — otherwise it would vanish from every list.
  */
 export function orderCategories(
   categories: Category[],
@@ -116,19 +116,19 @@ export const TX_KIND_LABEL: Record<TxKind, string> = {
 };
 
 /**
- * Валюты, которые заводятся в один клик. Любой другой трёхбуквенный код
- * ISO 4217 вводится руками — сервер принимает любой, Intl отформатирует.
+ * One-click currencies. Any other three-letter ISO 4217 code is typed in
+ * by hand — the server accepts anything, Intl handles the formatting.
  */
 export const COMMON_CURRENCIES = ['EUR', 'RSD', 'USD', 'GBP', 'CHF', 'PLN', 'CZK', 'SEK', 'HUF'];
 
 /**
- * Суммы везде целые, в минорных единицах: 1234.56 → 123456.
- * Числа с плавающей точкой в деньгах дают ошибку округления, которая
- * копится в суммах и в итоге расходится с банком.
+ * Amounts are integers everywhere, in minor units: 1234.56 → 123456.
+ * Floating point in money produces rounding error that accumulates in
+ * totals and eventually disagrees with the bank.
  */
 export function formatMoney(minor: number, currency: string): string {
-  // Копейки показываем только когда они есть: в динарах их обычно нет,
-  // и «2 345,00 RSD» вместо «2 345 RSD» лишний шум
+  // Show cents only when present: dinars usually have none, and
+  // «2 345,00 RSD» instead of «2 345 RSD» is just noise
   const fraction = minor % 100 === 0 ? 0 : 2;
   try {
     return new Intl.NumberFormat(intlLocale, {
@@ -138,7 +138,7 @@ export function formatMoney(minor: number, currency: string): string {
       maximumFractionDigits: 2,
     }).format(minor / 100);
   } catch {
-    // Неизвестный код валюты Intl не примет — показываем как есть
+    // Intl rejects unknown currency codes — show it as is
     return `${(minor / 100).toLocaleString(intlLocale, {
       minimumFractionDigits: fraction,
       maximumFractionDigits: 2,
@@ -146,7 +146,7 @@ export function formatMoney(minor: number, currency: string): string {
   }
 }
 
-/** Без знака валюты — для компактных мест, где сумму только читают. */
+/** Without the currency sign — for compact spots where the amount is read-only. */
 export function formatAmount(minor: number): string {
   const fraction = minor % 100 === 0 ? 0 : 2;
   return (minor / 100).toLocaleString(intlLocale, {
@@ -156,13 +156,13 @@ export function formatAmount(minor: number): string {
 }
 
 /**
- * Формат для полей ввода: без локали и группировки, точка как разделитель.
+ * Format for input fields: no locale, no grouping, dot as the separator.
  *
- * Локализованный formatAmount сюда не годится: английская локаль ставит
- * запятую тысяч («1,500»), которую parseAmount принимал за десятичную
- * точку и отклонял строку — при редактировании операции сумму приходилось
- * вводить заново, даже если она не менялась. Поле должно показывать то,
- * что разбор гарантированно примет обратно.
+ * The localized formatAmount won't do here: the English locale inserts a
+ * thousands comma («1,500»), which parseAmount took for a decimal point
+ * and rejected the string — editing a transaction meant retyping the
+ * amount even when it hadn't changed. The field must show what the parser
+ * is guaranteed to accept back.
  */
 export function formatAmountInput(minor: number): string {
   const value = minor / 100;
@@ -170,15 +170,15 @@ export function formatAmountInput(minor: number): string {
 }
 
 /**
- * Разбор введённой суммы в минорные единицы.
- * Принимает «1234,56», «1 234.56», «1,234.56», «1.234,56», «1234».
- * Возвращает null, если не число.
+ * Parse an entered amount into minor units.
+ * Accepts «1234,56», «1 234.56», «1,234.56», «1.234,56», «1234».
+ * Returns null if not a number.
  */
 export function parseAmount(input: string): number | null {
   let cleaned = input.replace(/[\s\u00a0]/g, '');
 
-  // Если есть оба разделителя, десятичный — тот, что правее,
-  // второй группирует тысячи: «1,234.56» и «1.234,56» равнозначны.
+  // When both separators are present, the decimal one is the rightmost,
+  // the other groups thousands: «1,234.56» and «1.234,56» are equivalent.
   const lastComma = cleaned.lastIndexOf(',');
   const lastDot = cleaned.lastIndexOf('.');
   if (lastComma !== -1 && lastDot !== -1) {
@@ -203,7 +203,7 @@ export function monthBounds(anchor: string): { from: string; to: string } {
   return { from, to: last.toISOString().slice(0, 10) };
 }
 
-/** Счета по валютам: общего итога без курса не бывает. */
+/** Accounts grouped by currency: no grand total without an exchange rate. */
 export function groupByCurrency(accounts: Account[]): { currency: string; total: number; items: Account[] }[] {
   const map = new Map<string, Account[]>();
   for (const a of accounts) {

@@ -38,8 +38,8 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [spawnedDate, setSpawnedDate] = useState<string | null>(null);
 
-  // Без списка зависимостей: подписка обновляется на каждый рендер,
-  // и save всегда видит актуальный черновик
+  // No dependency list: the subscription is refreshed on every render,
+  // so save always sees the current draft
   useEffect(() => {
     const onKey = dialogKeys(() => {
       if (!busy) void save();

@@ -4,10 +4,11 @@ import { db, now, today as localToday } from '../db/index.js';
 import { listOccurrences, remindersFor } from './calendar.js';
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
-  // Наружу — только факт жизни. Версия и прочие подробности публичному
-  // интернету ни к чему: чем меньше сканер узнаёт бесплатно, тем лучше.
-  // Запрос к базе — чтобы «жив» означало «жив вместе с базой», а не
-  // «процесс существует»: контейнер с умершим SQLite не должен быть healthy.
+  // Only the fact of life goes outside. The version and other details are
+  // of no use to the public internet: the less a scanner learns for free,
+  // the better. The database query is so "alive" means "alive along with
+  // the database", not "the process exists": a container with a dead
+  // SQLite must not be healthy.
   app.get('/api/health', (_req, reply) => {
     try {
       db.prepare('SELECT 1').get();
@@ -17,7 +18,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 
-  // ── Настройки (в т.ч. виджеты дашборда) ────────────────────────────────
+  // ── Settings (dashboard widgets included) ──────────────────────────────
 
   app.get('/api/settings', () => {
     const rows = db.prepare('SELECT key, value FROM settings').all() as {
@@ -28,10 +29,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.patch('/api/settings', (req, reply) => {
-    // Ключи и значения ограничены по форме и длине: раньше запись была
-    // безразмерной, и это был самый дешёвый способ раздуть базу из-под
-    // любой учётки. Настоящим настройкам (подписи табло, валюта) хватает
-    // с большим запасом.
+    // Keys and values are bounded in shape and length: writes used to be
+    // unbounded, and that was the cheapest way to bloat the database from
+    // any account. Real settings (dashboard labels, currency) fit with
+    // plenty of headroom.
     const parsed = z
       .record(
         z.string().max(64).regex(/^[a-zA-Z0-9._-]+$/, 'Некорректный ключ настройки'),
@@ -42,8 +43,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (!parsed.success) {
       return reply.code(400).send({ error: 'Настройки должны быть парами строк' });
     }
-    // Потолок на общее число ключей — та же защита с другого конца.
-    // Считаются только новые ключи: обновление существующих не растит базу.
+    // A ceiling on the total key count — the same protection from the other
+    // end. Only new keys count: updating existing ones doesn't grow the base.
     const keys = Object.keys(parsed.data);
     if (keys.length === 0) return { ok: true };
     const { n } = db.prepare('SELECT count(*) AS n FROM settings').get() as { n: number };
@@ -66,16 +67,17 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
-  // ── Общий поиск ─────────────────────────────────────────────────────────
+  // ── Global search ───────────────────────────────────────────────────────
 
   /**
-   * Ищем по всему пространству: заметки, задачи, проекты, события, вложения.
+   * Searches the whole space: notes, tasks, projects, events, attachments.
    *
-   * Заметки, задачи и проекты идут через полнотекстовый индекс FTS5 —
-   * там нужен поиск по телу заметки, а это может быть десяток тысяч знаков.
-   * События и вложения ищутся прямым перебором с ci_contains: их немного,
-   * а поддерживать триггеры индекса для сущности, чья видимость зависит от
-   * настроек календаря, — источник рассинхронизации на ровном месте.
+   * Notes, tasks and projects go through the FTS5 full-text index —
+   * note bodies need searching there, and that can be tens of thousands
+   * of characters. Events and attachments are scanned directly with
+   * ci_contains: there are few of them, and maintaining index triggers
+   * for an entity whose visibility depends on calendar settings is a
+   * desync source out of nowhere.
    */
   app.get('/api/search', (req, reply) => {
     const { q } = z.object({ q: z.string() }).parse(req.query);
@@ -233,10 +235,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
-  // ── Дашборд ────────────────────────────────────────────────────────────
+  // ── Dashboard ──────────────────────────────────────────────────────────
 
   app.get('/api/dashboard', (req) => {
-    // По местным часам: по UTC «сегодня» после полуночи ещё вчера
+    // By the local clock: in UTC "today" is still yesterday after midnight
     const today = localToday();
 
     const dueToday = db

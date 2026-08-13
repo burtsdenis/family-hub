@@ -5,8 +5,9 @@ import { destroyAllSessions, requireAdmin } from '../lib/auth.js';
 import { generatePassword, hashPassword } from '../lib/password.js';
 
 /**
- * Аватар — первая буква имени, поэтому людей различает цвет.
- * Одинаковый цвет по умолчанию делал бы «Денис» и «Дочка» неотличимыми.
+ * The avatar is the first letter of the name, so color is what tells
+ * people apart. An identical default color would make "Dad" and
+ * "Daughter" indistinguishable.
  */
 const USER_COLORS = ['#1F6E8C', '#C4842B', '#6B8F5E', '#8C4A6B', '#7A5C9E', '#4A6B8C'];
 
@@ -69,7 +70,7 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
       now(),
     );
 
-    // Пароль возвращается ровно один раз — показать и передать человеку.
+    // The password is returned exactly once — to show and hand to the person.
     return reply.code(201).send({
       user: db
         .prepare('SELECT id, email, name, role, color FROM users WHERE id = ?')
@@ -112,13 +113,13 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
     if (!user) return reply.code(404).send({ error: 'Пользователь не найден' });
 
     const password = generatePassword();
-    // Сброс — это и путь восстановления при умершем гугл-аккаунте,
-    // поэтому парольный вход включается обратно
+    // A reset is also the recovery path for a dead Google account,
+    // so password login gets switched back on
     db.prepare(
       `UPDATE users SET password_hash = ?, must_change_password = 1,
               password_login_disabled = 0 WHERE id = ?`,
     ).run(await hashPassword(password), userId);
-    // Сброс пароля выкидывает пользователя со всех устройств
+    // A password reset kicks the user off every device
     destroyAllSessions(userId);
 
     return { password };

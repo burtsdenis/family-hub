@@ -1,12 +1,13 @@
--- Подкатегории трат и доходов: «Автотраты → Топливо, Парковка, Автосервис».
+-- Expense and income subcategories: "Car → Fuel, Parking, Service".
 --
--- Глубина — ровно один уровень, и это осознанное ограничение: дерево
--- произвольной вложенности превращает каждый отчёт в рекурсию, а на
--- практике семье хватает пары «группа → статья». Сервер следит, чтобы
--- подкатегория не становилась родителем.
+-- Depth is exactly one level, and that's a deliberate limit: a tree of
+-- arbitrary nesting turns every report into recursion, while in practice
+-- a family gets by with "group → line item". The server makes sure a
+-- subcategory never becomes a parent.
 --
--- При удалении родителя подкатегории не пропадают, а поднимаются на
--- верхний уровень (ON DELETE SET NULL): разметка операций дороже иерархии.
+-- Deleting a parent doesn't lose the subcategories — they rise to the
+-- top level (ON DELETE SET NULL): transaction labeling is worth more
+-- than the hierarchy.
 
 ALTER TABLE categories ADD COLUMN parent_id TEXT REFERENCES categories(id) ON DELETE SET NULL;
 

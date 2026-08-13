@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
- * Загрузка данных из архива на новом устройстве.
+ * Import data from an archive on a new device.
  *
- * Перед подменой проверяет целостность базы и сходится ли содержимое
- * с описью. Существующие данные не трогает без явного разрешения:
- * молча переписать чужую базу — самый дорогой из возможных сюрпризов.
+ * Before swapping anything in, it verifies database integrity and that
+ * the contents match the manifest. Existing data is never touched without
+ * explicit permission: silently overwriting someone's database is the most
+ * expensive surprise there is.
  *
- * Запуск: npm run import -- путь/к/family-hub-2026-08-03.tar.gz
- *         npm run import -- архив.tar.gz --force
+ * Usage: npm run import -- path/to/family-hub-2026-08-03.tar.gz
+ *        npm run import -- archive.tar.gz --force
  */
 import Database from 'better-sqlite3';
 import { execFileSync } from 'node:child_process';
@@ -29,11 +30,11 @@ const force = args.includes('--force');
 const archive = args.find((a) => !a.startsWith('--'));
 
 if (!archive) {
-  console.error('Укажите архив: npm run import -- путь/к/family-hub-ГГГГ-ММ-ДД.tar.gz');
+  console.error('Provide an archive: npm run import -- path/to/family-hub-YYYY-MM-DD.tar.gz');
   process.exit(1);
 }
 if (!existsSync(archive)) {
-  console.error(`Архива нет: ${resolve(archive)}`);
+  console.error(`No archive at: ${resolve(archive)}`);
   process.exit(1);
 }
 
@@ -46,7 +47,7 @@ try {
 
   const incomingDb = join(staging, 'hub.db');
   if (!existsSync(incomingDb)) {
-    console.error('В архиве нет hub.db — это не выгрузка Дома.');
+    console.error('No hub.db in the archive — this is not a hub export.');
     process.exit(1);
   }
 
@@ -54,11 +55,11 @@ try {
     ? JSON.parse(readFileSync(join(staging, 'manifest.json'), 'utf8'))
     : null;
 
-  // Проверяем до подмены: битую базу лучше не ставить вовсе
+  // Verify before swapping in: better not to install a broken database at all
   const incoming = new Database(incomingDb, { readonly: true });
   const integrity = incoming.pragma('integrity_check', { simple: true });
   if (integrity !== 'ok') {
-    console.error(`База в архиве повреждена: ${integrity}`);
+    console.error(`The database in the archive is corrupted: ${integrity}`);
     process.exit(1);
   }
 
@@ -68,9 +69,9 @@ try {
       if (expected === null) continue;
       try {
         const actual = incoming.prepare(`SELECT count(*) AS n FROM ${table}`).get().n;
-        if (actual !== expected) mismatches.push(`${table}: в описи ${expected}, в базе ${actual}`);
+        if (actual !== expected) mismatches.push(`${table}: manifest says ${expected}, database has ${actual}`);
       } catch {
-        mismatches.push(`${table}: таблицы нет`);
+        mismatches.push(`${table}: table missing`);
       }
     }
   }
@@ -81,20 +82,20 @@ try {
   incoming.close();
 
   if (mismatches.length > 0) {
-    console.error('Содержимое не сходится с описью:');
+    console.error('Contents do not match the manifest:');
     for (const line of mismatches) console.error(`  ${line}`);
     process.exit(1);
   }
 
-  // Существующие данные
+  // Existing data
   const occupied = existsSync(existingDb);
   if (occupied && !force) {
     console.error('');
-    console.error(`В ${dataDir} уже есть база.`);
-    console.error('Загрузка перезапишет её. Если это то, что нужно, добавьте --force:');
+    console.error(`There is already a database in ${dataDir}.`);
+    console.error('Importing will overwrite it. If that is what you want, add --force:');
     console.error(`  npm run import -- ${archive} --force`);
     console.error('');
-    console.error('Прежняя база будет отложена в сторону, а не удалена.');
+    console.error('The previous database will be set aside, not deleted.');
     process.exit(1);
   }
 
@@ -106,7 +107,7 @@ try {
     for (const suffix of ['-wal', '-shm']) {
       if (existsSync(existingDb + suffix)) rmSync(existingDb + suffix);
     }
-    console.log(`Прежняя база отложена: ${backup}`);
+    console.log(`Previous database set aside: ${backup}`);
   }
 
   cpSync(incomingDb, existingDb);
@@ -117,7 +118,7 @@ try {
   }
   mkdirSync(join(dataDir, 'backups'), { recursive: true });
 
-  // Считаем именно файлы: recursive перечисляет и подкаталоги по месяцам
+  // Count files specifically: recursive also lists the per-month subdirectories
   const attachmentsDir = join(dataDir, 'attachments');
   const files = existsSync(attachmentsDir)
     ? readdirSync(attachmentsDir, { recursive: true, withFileTypes: true }).filter((e) =>
@@ -126,21 +127,21 @@ try {
     : 0;
 
   console.log('');
-  console.log(`Данные загружены в ${dataDir}`);
-  console.log(`Миграций в базе: ${applied.length}, последняя ${applied.at(-1) ?? '—'}`);
+  console.log(`Data imported into ${dataDir}`);
+  console.log(`Migrations in the database: ${applied.length}, latest ${applied.at(-1) ?? '—'}`);
   if (manifest) {
     const rows = Object.entries(manifest.counts)
       .filter(([, n]) => n)
       .map(([table, n]) => `${table}: ${n}`);
-    console.log(`Содержимое: ${rows.join(', ')}`);
-    console.log(`Выгружено: ${manifest.exported_at}`);
+    console.log(`Contents: ${rows.join(', ')}`);
+    console.log(`Exported: ${manifest.exported_at}`);
   }
-  console.log(`Файлов вложений на диске: ${files}`);
+  console.log(`Attachment files on disk: ${files}`);
   console.log('');
-  console.log('Дальше:');
-  console.log('  1. npm run dev  — или docker compose up -d --build');
-  console.log('  2. Пароли и учётки перенеслись, первичная настройка не нужна');
-  console.log('  3. Если был HTTPS: ./scripts/setup-https.sh — сертификат нужен свой');
+  console.log('Next:');
+  console.log('  1. npm run dev  — or docker compose up -d --build');
+  console.log('  2. Passwords and accounts came along, no initial setup needed');
+  console.log('  3. If HTTPS was set up: ./scripts/setup-https.sh — this device needs its own certificate');
   console.log('  4. sudo pmset repeat wakeorpoweron MTWRFSU 06:30:00');
 } finally {
   rmSync(staging, { recursive: true, force: true });

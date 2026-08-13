@@ -27,10 +27,10 @@ interface Props {
 
 export function TaskBoard({ tasks, onChanged, onOpen }: Props) {
   const [dragging, setDragging] = useState<Task | null>(null);
-  // После броска карточки браузер всё равно отдаёт click по ней —
-  // без этого флага перетаскивание заканчивалось бы открытием задачи
+  // After a card is dropped the browser still fires a click on it —
+  // without this flag a drag would end with the task opening
   const justDragged = useRef(false);
-  // Локальная копия, чтобы карточка вставала на место сразу, не дожидаясь сервера
+  // Local copy so the card snaps into place immediately, without waiting for the server
   const [optimistic, setOptimistic] = useState<Task[] | null>(null);
   const current = optimistic ?? tasks;
 
@@ -43,7 +43,7 @@ export function TaskBoard({ tasks, onChanged, onOpen }: Props) {
     return map;
   }, [current]);
 
-  // Планшет: задержка не даёт спутать перетаскивание с прокруткой
+  // Tablet: the delay keeps a drag from being confused with a scroll
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
@@ -54,8 +54,8 @@ export function TaskBoard({ tasks, onChanged, onOpen }: Props) {
     setDragging(current.find((t) => t.id === event.active.id) ?? null);
   }
 
-  // click приходит синхронно после pointerup, то есть до этого таймера —
-  // флаг доживает ровно до конца текущего цикла событий
+  // click arrives synchronously after pointerup, i.e. before this timer —
+  // the flag lives exactly until the end of the current event cycle
   function dropDragFlag() {
     setTimeout(() => {
       justDragged.current = false;
@@ -71,7 +71,7 @@ export function TaskBoard({ tasks, onChanged, onOpen }: Props) {
     const task = current.find((t) => t.id === active.id);
     if (!task) return;
 
-    // Бросок на колонку даёт её идентификатор, бросок на карточку — соседа
+    // Dropping on a column yields its id, dropping on a card yields a sibling
     const overTask = current.find((t) => t.id === over.id);
     const target = (overTask?.status ?? over.id) as Status;
     if (!BOARD_COLUMNS.includes(target)) return;
@@ -167,9 +167,9 @@ function SortableCard({ task, onOpen }: { task: Task; onOpen: (task: Task) => vo
     id: task.id,
   });
 
-  // Клик открывает карточку, перетаскивание — перетаскивает: сенсор
-  // с порогом в 6px начинает drag только после заметного движения,
-  // поэтому обычный клик до него не дотягивает и остаётся кликом
+  // Click opens the card, dragging drags: a sensor with a 6px threshold
+  // starts the drag only after noticeable movement, so an ordinary click
+  // never reaches it and stays a click
   return (
     <div
       ref={setNodeRef}

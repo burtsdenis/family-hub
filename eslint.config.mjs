@@ -1,7 +1,7 @@
-// Линтер настроен узко и по делу: рекомендованный TypeScript-набор плюс
-// react-hooks — нестабильные идентичности хуков уже приводили к тихим
-// циклам запросов, это главные грабли проекта. Стилистику держит сам
-// TypeScript и код-ревью, правил-вкусовщины здесь нет.
+// The linter is scoped narrowly and deliberately: the recommended TypeScript
+// set plus react-hooks — unstable hook identities have already caused silent
+// request loops, the project's main trap. Style is held by TypeScript itself
+// and code review; there are no taste rules here.
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 
@@ -13,18 +13,18 @@ export default tseslint.config(
     plugins: { 'react-hooks': reactHooks },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      // «Загрузить при монтировании и положить в state» — основной способ
-      // получения данных в этом приложении; правило метит каждое такое место.
-      // Реальные грабли (циклы из-за нестабильных зависимостей) ловит
-      // exhaustive-deps — он остаётся ошибкой.
+      // "Load on mount and put into state" is this app's primary way of
+      // fetching data; the rule flags every such place. The real trap
+      // (loops from unstable dependencies) is caught by exhaustive-deps —
+      // which stays an error.
       'react-hooks/set-state-in-effect': 'off',
       'react-hooks/exhaustive-deps': 'error',
     },
   },
   {
     rules: {
-      // Пустой catch — осознанный паттерн проекта («нет localStorage — ну и
-      // ладно»), но переменная ошибки без использования — мусор
+      // An empty catch is a deliberate project pattern ("no localStorage —
+      // fine"), but an unused error variable is litter
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' },

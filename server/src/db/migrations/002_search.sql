@@ -1,8 +1,8 @@
--- Полнотекстовый поиск.
--- Токенизатор trigram выбран сознательно: он ищет по подстроке и поэтому
--- корректно работает с русской морфологией без стеммера —
--- запрос «переезд» находит «переезда», «переезду», «переездом».
--- Требование: минимум 3 символа в запросе.
+-- Full-text search.
+-- The trigram tokenizer is a deliberate choice: it matches substrings and
+-- therefore handles Russian morphology without a stemmer —
+-- a query for «переезд» finds «переезда», «переезду», «переездом».
+-- Requirement: at least 3 characters per query.
 
 CREATE VIRTUAL TABLE search_index USING fts5(
   entity        UNINDEXED,   -- 'note' | 'task' | 'project'
@@ -14,7 +14,7 @@ CREATE VIRTUAL TABLE search_index USING fts5(
   tokenize = 'trigram'
 );
 
--- Заметки
+-- Notes
 
 CREATE TRIGGER notes_ai AFTER INSERT ON notes BEGIN
   INSERT INTO search_index (entity, entity_id, visibility, owner_id, title, body)
@@ -31,7 +31,7 @@ CREATE TRIGGER notes_au AFTER UPDATE ON notes BEGIN
   VALUES ('note', new.id, new.visibility, coalesce(new.owner_id, ''), new.title, new.body_md);
 END;
 
--- Задачи
+-- Tasks
 
 CREATE TRIGGER tasks_ai AFTER INSERT ON tasks BEGIN
   INSERT INTO search_index (entity, entity_id, visibility, owner_id, title, body)
@@ -48,7 +48,7 @@ CREATE TRIGGER tasks_au AFTER UPDATE ON tasks BEGIN
   VALUES ('task', new.id, 'shared', '', new.title, coalesce(new.description, ''));
 END;
 
--- Проекты
+-- Projects
 
 CREATE TRIGGER projects_ai AFTER INSERT ON projects BEGIN
   INSERT INTO search_index (entity, entity_id, visibility, owner_id, title, body)

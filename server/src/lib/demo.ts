@@ -3,20 +3,22 @@ import { db, now, today } from '../db/index.js';
 import { hashPassword } from './password.js';
 
 /*
-  Демо-режим (DEMO_MODE=true) — публичная песочница «потыкать до установки».
+  Demo mode (DEMO_MODE=true) — a public "try before installing" sandbox.
 
-  Здесь живёт содержимое демо: сидинг правдоподобной семьи (задачи, заметки,
-  календарь, деньги) и список запретов. Жизненный цикл — в sandbox.ts:
-  сидинг наполняет шаблонную базу, а каждый посетитель получает её свежую
-  копию, так что чужого мусора в демо не бывает by design.
+  The demo's content lives here: seeding of a plausible family (tasks,
+  notes, calendar, money) and the list of restrictions. The lifecycle is
+  in sandbox.ts: seeding fills the template database, and every visitor
+  gets a fresh copy of it, so other people's garbage never appears in
+  the demo by design.
 
-  Запреты стали короче, чем при общей базе: портить содержимое посетитель
-  может только себе. Остаются закрытыми смена паролей и состава семьи
-  (в песочнице они бессмысленны, а инвайт-ссылки вводят в заблуждение)
-  и загрузка файлов — диск общий, файлопомойку никто не отменял.
+  The restrictions got shorter than with a shared database: a visitor can
+  only spoil the content for themselves. What stays closed: password and
+  family membership changes (meaningless in a sandbox, and invite links
+  mislead) and file uploads — the disk is shared, and a file dump is
+  still a file dump.
 */
 
-/** Что в демо запрещено. Проверяется в authenticate после входа. */
+/** What the demo forbids. Checked in authenticate after login. */
 export function demoBlocked(method: string, path: string): boolean {
   if (method === 'GET' || method === 'HEAD') return false;
   if (path.startsWith('/api/users')) return true;
@@ -24,7 +26,7 @@ export function demoBlocked(method: string, path: string): boolean {
   if (path === '/api/auth/change-password') return true;
   if (path === '/api/auth/password-login') return true;
   if (path.startsWith('/api/auth/google')) return true;
-  // Все загрузки файлов: вложения заметок и чеки операций
+  // All file uploads: note attachments and transaction receipts
   if (method === 'POST' && path.includes('/attachments')) return true;
   if (method === 'POST' && path.includes('/receipts')) return true;
   return false;
@@ -34,7 +36,7 @@ function id(): string {
   return randomUUID();
 }
 
-/** ISO-дата со сдвигом от сегодня, местное время — как везде в хабе. */
+/** ISO date offset from today, local time — as everywhere in the hub. */
 function day(offset: number): string {
   const base = new Date(`${today()}T00:00:00`);
   base.setDate(base.getDate() + offset);
@@ -44,27 +46,27 @@ function day(offset: number): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Наполняет базу текущего контекста примером семьи. Ожидает пустую базу. */
+/** Fills the current context's database with an example family. Expects an empty database. */
 export async function seedDemo(): Promise<void> {
   const n = (db.prepare('SELECT count(*) AS n FROM users').get() as { n: number }).n;
   if (n > 0) return;
 
-  // Вход в демо автоматический (POST /api/auth/demo), пароль никому
-  // не сообщается — поэтому он случайный. Захардкоженный demo1234 был
-  // короче собственного минимума хаба и жил в двух местах кода.
+  // Demo login is automatic (POST /api/auth/demo), the password is never
+  // told to anyone — hence random. The hardcoded demo1234 was shorter
+  // than the hub's own minimum and lived in two places in the code.
   const passwordHash = await hashPassword(randomUUID());
   const alex = id();
   const sam = id();
 
   const seed = db.transaction(() => {
-    // ── Семья ──
+    // ── Family ──
     db.prepare(
       `INSERT INTO users (id, email, name, role, password_hash, color, created_at) VALUES
        (?, 'alex@family.hub', 'Alex', 'admin', ?, '#2E6F8E', ?),
        (?, 'sam@family.hub', 'Sam', 'member', ?, '#B4654A', ?)`,
     ).run(alex, passwordHash, now(), sam, passwordHash, now());
 
-    // ── Проекты и задачи ──
+    // ── Projects and tasks ──
     const home = id();
     const trip = id();
     db.prepare(
@@ -90,12 +92,12 @@ export async function seedDemo(): Promise<void> {
       id(), trip, day(12), sam, sam,
       id(), trip, alex,
     );
-    // Вложенность: «купить краску» — под стори покраски
+    // Nesting: "buy paint" goes under the repaint story
     db.prepare(
       `UPDATE tasks SET parent_id = ?, level = 1 WHERE title IN ('Pick the colour together', 'Buy paint and tape')`,
     ).run(paint);
 
-    // ── Заметки ──
+    // ── Notes ──
     const recipes = id();
     db.prepare(
       `INSERT INTO folders (id, name, position) VALUES (?, 'Recipes', 1)`,
@@ -107,8 +109,8 @@ export async function seedDemo(): Promise<void> {
        (?, 'House rules for guests', 'Wi-Fi: *familyhub / pizzafriday*\n\nCoffee machine: one scoop, button, patience.', NULL, ?, 0)`,
     ).run(id(), alex, id(), recipes, sam, id(), alex);
 
-    // ── Календарь ──
-    const shared = '00000000-0000-4000-8000-000000000201'; // «Общий» из миграции
+    // ── Calendar ──
+    const shared = '00000000-0000-4000-8000-000000000201'; // the seeded shared calendar from the migration
     const gym = id();
     const dentist = id();
     const birthday = id();
@@ -126,7 +128,7 @@ export async function seedDemo(): Promise<void> {
       `INSERT INTO event_participants (event_id, user_id) VALUES (?, ?), (?, ?), (?, ?)`,
     ).run(gym, alex, gym, sam, dentist, sam);
 
-    // ── Деньги ──
+    // ── Money ──
     const card = id();
     const cash = id();
     db.prepare(
@@ -176,7 +178,7 @@ export async function seedDemo(): Promise<void> {
        (?, 'Salary', 'income', ?, 'FREQ=MONTHLY;INTERVAL=1', ?, 210000, ?, 0, 1)`,
     ).run(id(), day(-40), card, household, id(), day(-40), card, salary);
 
-    // ── Табло ──
+    // ── Dashboard ──
     db.prepare(
       `INSERT INTO settings (key, value, updated_at) VALUES
        ('move.label', 'Trip countdown', ?),

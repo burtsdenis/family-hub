@@ -7,17 +7,16 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
 /**
- * Время хранится как местное настенное, без перевода в UTC.
+ * Time is stored as local wall-clock time, with no conversion to UTC.
  *
- * Так делает большинство календарей для событий с фиксированным временем:
- * «каждый вторник в 10:00» должно оставаться в 10:00 и после перевода часов.
- * Хранение в UTC заставило бы пересчитывать каждый экземпляр серии через
- * правила летнего времени — источник тонких ошибок на ровном месте.
- * Дом находится в одном часовом поясе, а Белград и Аликанте — это к тому же
- * один и тот же пояс, так что переезд ничего не меняет.
+ * Most calendars do this for fixed-time events: "every Tuesday at 10:00"
+ * must stay at 10:00 after the clocks change. Storing UTC would force
+ * recomputing every instance of a series through DST rules — a source of
+ * subtle bugs out of nowhere. The home lives in one time zone, and
+ * Belgrade and Alicante happen to share it, so the move changes nothing.
  *
- * Событие на весь день:  starts_at = 'ГГГГ-ММ-ДД'
- * Событие со временем:   starts_at = 'ГГГГ-ММ-ДДTЧЧ:ММ'
+ * All-day event:    starts_at = 'YYYY-MM-DD'
+ * Event with time:  starts_at = 'YYYY-MM-DDTHH:MM'
  */
 const eventBase = z.object({
   calendar_id: z.string().uuid(),
@@ -42,8 +41,8 @@ const eventInput = eventBase.refine(endsAfterStart, {
   path: ['ends_at'],
 });
 
-// Частичное изменение проверяет ту же инвариантность, но только когда
-// в запросе пришли обе границы
+// A partial edit checks the same invariant, but only when both bounds
+// arrived in the request
 const eventPatch = eventBase.partial().refine(endsAfterStart, {
   message: 'Конец события раньше начала',
   path: ['ends_at'],
@@ -67,7 +66,7 @@ interface EventRow {
   project_title: string | null;
 }
 
-/** Календарь виден, если он общий или принадлежит спрашивающему. */
+/** A calendar is visible if it is shared or belongs to the asker. */
 const CALENDAR_VISIBLE = '(c.shared = 1 OR c.owner_id = ?)';
 
 function shiftDays(date: string, days: number): string {
@@ -104,9 +103,9 @@ export interface Occurrence {
 }
 
 /**
- * Развёрнутые экземпляры всех видимых событий в диапазоне дат.
- * Используется и календарём, и дашбордом — чтобы «сегодня» считалось
- * ровно так же, как показывается в сетке.
+ * Expanded instances of all visible events within a date range.
+ * Used by both the calendar and the dashboard — so that "today" is
+ * computed exactly as it is shown in the grid.
  */
 export function listOccurrences(userId: string, from: string, to: string): Occurrence[] {
   const events = db
@@ -137,7 +136,7 @@ export function listOccurrences(userId: string, from: string, to: string): Occur
     const anchor = event.starts_at.slice(0, 10);
     const span = daysBetween(anchor, event.ends_at.slice(0, 10));
 
-    // Длинное событие могло начаться до окна — отступаем на его длительность
+    // A long event may have started before the window — step back by its duration
     const searchFrom = shiftDays(from, -Math.max(span, 0));
     const dates = expandOccurrences(anchor, event.recurrence_rule, searchFrom, to);
 
@@ -181,7 +180,7 @@ export function listOccurrences(userId: string, from: string, to: string): Occur
   return result.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
 }
 
-/** События, о которых пора предупредить именно сегодня. */
+/** Events whose reminder is due precisely today. */
 export function remindersFor(userId: string, today: string): Occurrence[] {
   return listOccurrences(userId, today, shiftDays(today, 365)).filter(
     (o) =>
@@ -192,7 +191,7 @@ export function remindersFor(userId: string, today: string): Occurrence[] {
 }
 
 export async function registerCalendarRoutes(app: FastifyInstance): Promise<void> {
-  // ── Календари ───────────────────────────────────────────────────────────
+  // ── Calendars ───────────────────────────────────────────────────────────
 
   app.get('/api/calendars', (req) =>
     db
@@ -247,7 +246,7 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
       .get(calendarId, req.user?.id ?? '') as { owner_id: string | null } | undefined;
     if (!calendar) return reply.code(404).send({ error: 'Календарь не найден' });
 
-    // Личным календарём распоряжается только владелец
+    // A personal calendar is managed by its owner alone
     if (calendar.owner_id && calendar.owner_id !== req.user?.id) {
       return reply.code(403).send({ error: 'Этот календарь принадлежит другому человеку' });
     }
@@ -284,7 +283,7 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
     return { ok: true };
   });
 
-  // ── События ─────────────────────────────────────────────────────────────
+  // ── Events ──────────────────────────────────────────────────────────────
 
   app.get('/api/events', (req, reply) => {
     const parsed = z
@@ -299,7 +298,7 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
     return listOccurrences(req.user?.id ?? '', parsed.data.from, parsed.data.to);
   });
 
-  /** Полное событие серии — правило повтора и прочее, чего нет в экземпляре. */
+  /** The full series event — the recurrence rule and the rest an instance lacks. */
   app.get('/api/events/:id', (req, reply) => {
     const { id: eventId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const event = db
@@ -427,7 +426,7 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
         }
       }
 
-      // Сдвиг серии обнуляет исключения: старые даты больше ни к чему не относятся
+      // Shifting the series resets exceptions: the old dates no longer refer to anything
       if (d.starts_at !== undefined || d.recurrence_rule !== undefined) {
         db.prepare('DELETE FROM event_exceptions WHERE event_id = ?').run(eventId);
       }
@@ -451,7 +450,7 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
     return { ok: true };
   });
 
-  /** Отменить один экземпляр серии, не трогая саму серию. */
+  /** Cancel a single instance of a series without touching the series itself. */
   app.delete('/api/events/:id/occurrences/:date', (req, reply) => {
     const { id: eventId, date } = z
       .object({ id: z.string().uuid(), date: z.string().regex(DATE) })

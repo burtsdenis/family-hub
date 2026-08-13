@@ -1,17 +1,17 @@
 import type { ReactNode } from 'react';
 
 /**
- * narrow — формы и настройки, шире делать нечего.
- * default — растёт ступенями до 1920px: колонки множатся, строки не удлиняются.
- * full — занимает всё, что дают. Для доски задач, где колонок четыре.
+ * narrow — forms and settings; nothing to gain from going wider.
+ * default — grows up to 1920px: columns multiply, lines don't stretch.
+ * full — takes everything it's given. For the task board with its four columns.
  */
 type Width = 'narrow' | 'default' | 'full';
 
 const WIDTH: Record<Width, string> = {
   narrow: 'max-w-3xl',
-  // Ширина растёт непрерывно до 1920px, а не ступенями по точкам останова.
-  // Ступени создают ровно ту же проблему, от которой мы уходим: между
-  // соседними порогами область снова перестаёт расти и по краям копится пустота.
+  // Width grows continuously up to 1920px, not in breakpoint steps.
+  // Steps recreate exactly the problem we're escaping: between adjacent
+  // thresholds the area stops growing again and emptiness piles up at the edges.
   default: 'max-w-[120rem]',
   full: 'max-w-none',
 };
@@ -46,7 +46,7 @@ export function Page({
   );
 }
 
-/** Пустой экран — это приглашение к действию, а не извинение. */
+/** An empty screen is an invitation to act, not an apology. */
 export function Empty({ children }: { children: ReactNode }) {
   return (
     <div className="rounded-card border border-dashed border-line px-6 py-10 text-center text-sm text-muted">

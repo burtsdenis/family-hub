@@ -1,10 +1,11 @@
 /**
- * Уменьшение изображения перед отправкой.
+ * Downscale an image before upload.
  *
- * Снимок чека с телефона весит 3–5 МБ, а читать с него нужно только сумму
- * и дату. Без уменьшения бюджет вложений в 2 ГБ кончится на пятистах чеках,
- * причём большая часть места уйдёт на детали, которые никто не разглядывает.
- * Не-картинки и мелкие файлы отдаются как есть.
+ * A receipt photo from a phone weighs 3–5 MB, yet all you read off it is
+ * the amount and the date. Without downscaling the 2 GB attachment budget
+ * runs out after five hundred receipts, with most of the space spent on
+ * detail nobody ever inspects. Non-images and small files pass through
+ * untouched.
  */
 const MAX_SIDE = 1600;
 const QUALITY = 0.8;
@@ -12,7 +13,7 @@ const SKIP_BELOW = 300 * 1024;
 
 export async function shrinkImage(file: File): Promise<File> {
   if (!file.type.startsWith('image/')) return file;
-  // SVG — вектор, растрировать его бессмысленно
+  // SVG is a vector format — rasterizing it makes no sense
   if (file.type === 'image/svg+xml') return file;
   if (file.size < SKIP_BELOW) return file;
 
@@ -38,7 +39,7 @@ export async function shrinkImage(file: File): Promise<File> {
     const name = file.name.replace(/\.[^.]+$/, '') + '.jpg';
     return new File([blob], name, { type: 'image/jpeg', lastModified: file.lastModified });
   } catch {
-    // Если браузер не смог разобрать картинку — отправляем оригинал
+    // Browser failed to decode the image — upload the original
     return file;
   }
 }

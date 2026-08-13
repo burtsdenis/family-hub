@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db, id, now } from '../db/index.js';
 
-/** Русское склонение: 1 задача, 2 задачи, 5 задач. */
+/** Russian declension: 1 задача, 2 задачи, 5 задач. */
 function plural(n: number, one: string, few: string, many: string): string {
   const abs = Math.abs(n) % 100;
   const last = abs % 10;
@@ -127,7 +127,7 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
     return { ok: true };
   });
 
-  /** Кому можно назначать задачи. Доступно всем, это не админский раздел. */
+  /** Who tasks can be assigned to. Available to everyone; not an admin section. */
   app.get('/api/household', () =>
     db
       .prepare(

@@ -7,9 +7,9 @@ import { log } from '../lib/log.js';
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), 'migrations');
 
 /**
- * Миграции — обычные .sql файлы, применяются по порядку имени, один раз.
- * Схема живёт в SQL и только в SQL: никакого второго источника правды,
- * который может разъехаться с базой.
+ * Migrations are plain .sql files, applied in name order, once.
+ * The schema lives in SQL and only in SQL: no second source of truth
+ * that could drift away from the database.
  */
 export function migrate(): void {
   db.exec(`
@@ -35,7 +35,7 @@ export function migrate(): void {
       db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(file);
     });
     run();
-    // Миграции печатаются всегда: это единственный след того, что база изменилась
-    log.notice(`миграция применена: ${file}`);
+    // Migrations are always printed: the only trace that the database changed
+    log.notice(`migration applied: ${file}`);
   }
 }

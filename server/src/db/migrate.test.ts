@@ -6,15 +6,15 @@ import { openDatabase, runWithDb } from './index.js';
 import { migrate } from './migrate.js';
 
 /*
-  Смоук всей схемы: каждая миграция обязана применяться на пустой базе
-  с включёнными foreign_keys. Раньше это проверялось руками перед каждым
-  изменением схемы — теперь прогон входит в CI.
+  A smoke test of the whole schema: every migration must apply on an empty
+  database with foreign_keys enabled. This used to be checked by hand
+  before every schema change — now the run is part of CI.
 */
 
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), 'migrations');
 
-describe('миграции', () => {
-  it('все применяются на пустой базе и ровно один раз', () => {
+describe('migrations', () => {
+  it('all apply on an empty database and exactly once', () => {
     const db = openDatabase(':memory:');
     runWithDb(db, () => migrate());
 
@@ -25,14 +25,14 @@ describe('миграции', () => {
 
     expect(applied.map((r) => r.name)).toEqual(files);
 
-    // Повторный прогон — идемпотентен: ничего не применяется заново и не падает
+    // A repeat run is idempotent: nothing re-applies and nothing crashes
     runWithDb(db, () => migrate());
     const again = db.prepare('SELECT count(*) AS n FROM _migrations').get() as { n: number };
     expect(again.n).toBe(files.length);
     db.close();
   });
 
-  it('создаёт ключевые таблицы и служебные строки', () => {
+  it('creates the key tables and the seeded rows', () => {
     const db = openDatabase(':memory:');
     runWithDb(db, () => migrate());
 
@@ -48,18 +48,18 @@ describe('миграции', () => {
       'accounts', 'categories', 'transactions', 'budgets', 'recurring_transactions',
       'settings',
     ]) {
-      expect(tables, `нет таблицы ${table}`).toContain(table);
+      expect(tables, `missing table ${table}`).toContain(table);
     }
 
-    // Засеянные сущности с фиксированными id — на них завязан клиент
+    // Seeded entities with fixed ids — the client depends on them
     const inbox = db
       .prepare('SELECT id FROM projects WHERE id = ?')
       .get('00000000-0000-4000-8000-000000000001');
-    expect(inbox, 'нет проекта «Входящие»').toBeTruthy();
+    expect(inbox, 'missing the Inbox project').toBeTruthy();
     const shared = db
       .prepare('SELECT id FROM calendars WHERE id = ?')
       .get('00000000-0000-4000-8000-000000000201');
-    expect(shared, 'нет общего календаря').toBeTruthy();
+    expect(shared, 'missing the shared calendar').toBeTruthy();
     db.close();
   });
 });

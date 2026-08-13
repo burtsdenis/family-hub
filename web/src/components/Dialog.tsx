@@ -11,11 +11,11 @@ import {
 import { dialogKeys, onEnter } from '../lib/keys';
 
 /**
- * Свои диалоги вместо window.prompt и window.confirm.
+ * Our own dialogs instead of window.prompt and window.confirm.
  *
- * Нативные окна нельзя оформить, они выпадают из интерфейса, а на планшете
- * ведут себя непредсказуемо — на стенде это особенно заметно. Плюс их
- * невозможно проверить автоматически: браузер закрывает их сам.
+ * Native popups can't be styled, they fall outside the interface, and on
+ * a tablet they behave unpredictably — especially noticeable on the kiosk.
+ * Plus they can't be tested automatically: the browser closes them itself.
  */
 
 export function Modal({
@@ -30,7 +30,7 @@ export function Modal({
   children?: ReactNode;
   footer: ReactNode;
   onClose: () => void;
-  /** Главное действие диалога — выполняется по Enter из любого места окна. */
+  /** The dialog's primary action — runs on Enter from anywhere in the window. */
   onSubmit?: () => void;
   width?: string;
 }) {
@@ -70,7 +70,7 @@ export const dialogGhost = 'px-2 py-2 text-sm text-muted hover:text-ink';
 export const dialogDanger =
   'rounded-lg border border-urgent px-4 py-2 text-sm font-medium text-urgent hover:bg-urgent/10';
 
-// ── Контекст ──────────────────────────────────────────────────────────────
+// ── Context ───────────────────────────────────────────────────────────────
 
 interface PromptOptions {
   title: string;
@@ -120,7 +120,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (pending?.kind === 'prompt') {
-      // Значение выделяем целиком: поле почти всегда переписывают, а не дополняют
+      // Select the whole value: the field is almost always rewritten, not appended to
       setTimeout(() => inputRef.current?.select(), 0);
     }
   }, [pending]);

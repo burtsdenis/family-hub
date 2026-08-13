@@ -9,12 +9,13 @@ export interface WikiLinkOptions {
 }
 
 /**
- * Подсветка ссылок вида [[Заголовок]].
+ * Highlighting of [[Title]]-style links.
  *
- * Реализовано декорациями, а не собственным узлом схемы: текст остаётся
- * обычным текстом, поэтому markdown сериализуется без специальной обработки,
- * а заметка читается как есть даже в блокноте. Цена — ссылка не «объект»,
- * её можно испортить правкой руками, но для личных заметок это скорее плюс.
+ * Implemented with decorations rather than a custom schema node: the text
+ * stays plain text, so markdown serializes with no special handling and
+ * the note reads as-is even in a plain text editor. The price: a link is
+ * not an "object" and can be broken by hand-editing — but for personal
+ * notes that's arguably a plus.
  */
 export const WikiLink = Extension.create<WikiLinkOptions>({
   name: 'wikiLink',
@@ -50,7 +51,7 @@ export const WikiLink = Extension.create<WikiLinkOptions>({
           handleClick(_view, _pos, event) {
             const target = event.target as HTMLElement | null;
             const title = target?.closest<HTMLElement>('.wiki-link')?.dataset['title'];
-            // Переход только по Cmd/Ctrl — иначе нельзя было бы поставить курсор
+            // Navigate only with Cmd/Ctrl — otherwise placing the cursor would be impossible
             if (title && (event.metaKey || event.ctrlKey)) {
               onNavigate(title);
               return true;

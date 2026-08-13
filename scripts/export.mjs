@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Выгрузка всех данных в один переносимый архив.
+ * Export all data into one portable archive.
  *
- * Копировать hub.db файловым способом нельзя: база работает в режиме WAL,
- * и свежие записи лежат в соседнем журнале. Поэтому база открывается как
- * база и выгружается через VACUUM INTO — на выходе один согласованный файл,
- * и это безопасно даже при работающем сервере.
+ * hub.db can't be copied as a plain file: the database runs in WAL mode,
+ * and fresh writes live in the sibling journal. So the database is opened
+ * as a database and exported via VACUUM INTO — the output is one consistent
+ * file, and it's safe even while the server is running.
  *
- * Запуск: npm run export
- *         npm run export -- ~/Desktop
+ * Usage: npm run export
+ *        npm run export -- ~/Desktop
  */
 import Database from 'better-sqlite3';
 import { execFileSync } from 'node:child_process';
@@ -22,8 +22,8 @@ const outDir = resolve(process.argv[2] ?? process.cwd());
 const dbPath = join(dataDir, 'hub.db');
 
 if (!existsSync(dbPath)) {
-  console.error(`Базы нет: ${dbPath}`);
-  console.error('Проверьте DATA_DIR или запустите приложение хотя бы раз.');
+  console.error(`No database at: ${dbPath}`);
+  console.error('Check DATA_DIR or run the app at least once.');
   process.exit(1);
 }
 
@@ -54,7 +54,7 @@ function dirSize(dir) {
 try {
   const source = new Database(dbPath, { readonly: true });
 
-  // Согласованный снимок одним файлом, журнал сворачивается внутрь
+  // Consistent snapshot as a single file, the journal is folded in
   source.exec(`VACUUM INTO '${join(staging, 'hub.db').replace(/'/g, "''")}'`);
 
   const manifest = {
@@ -105,15 +105,15 @@ try {
     .map(([table, n]) => `${table}: ${n}`);
 
   console.log('');
-  console.log(`Архив: ${archive}`);
-  console.log(`Размер: ${(size / 1024 / 1024).toFixed(1)} МБ`);
-  console.log(`Вложений: ${manifest.attachments.files} на ${(manifest.attachments.bytes / 1024 / 1024).toFixed(1)} МБ`);
-  console.log(`Содержимое: ${rows.join(', ')}`);
+  console.log(`Archive: ${archive}`);
+  console.log(`Size: ${(size / 1024 / 1024).toFixed(1)} MB`);
+  console.log(`Attachments: ${manifest.attachments.files} totaling ${(manifest.attachments.bytes / 1024 / 1024).toFixed(1)} MB`);
+  console.log(`Contents: ${rows.join(', ')}`);
   console.log('');
-  console.log('Внутри всё, включая приватные заметки и личные счета.');
-  console.log('Передавайте по AirDrop или кабелем, не почтой.');
+  console.log('Everything is inside, including private notes and personal accounts.');
+  console.log('Transfer via AirDrop or a cable, not email.');
   console.log('');
-  console.log('На новом устройстве: npm install && npm run import -- путь/к/архиву');
+  console.log('On the new device: npm install && npm run import -- path/to/archive');
 } finally {
   rmSync(staging, { recursive: true, force: true });
 }

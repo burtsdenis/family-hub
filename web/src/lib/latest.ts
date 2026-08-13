@@ -1,28 +1,28 @@
 import { useCallback, useRef } from 'react';
 
 /**
- * Защита от устаревших ответов.
+ * Guard against stale responses.
  *
- * Когда фильтр или диапазон меняются быстрее, чем отвечает сервер, ответы
- * приходят не в том порядке, в каком уходили запросы. Последний пришедший
- * перетирает состояние — и на экране оказываются данные не того диапазона.
- * Ловится это только в живом браузере: на сервере всё отвечает мгновенно.
+ * When the filter or range changes faster than the server responds,
+ * replies arrive out of request order. The last one in overwrites state —
+ * and the screen ends up showing data for the wrong range. This only
+ * reproduces in a live browser: locally everything responds instantly.
  *
- * Использование:
+ * Usage:
  *   const isLatest = useLatest();
  *   const load = useCallback(async () => {
  *     const fresh = isLatest();
  *     const data = await api.get(...);
- *     if (!fresh()) return;   // пока ждали, запросили другое
+ *     if (!fresh()) return;   // something else was requested meanwhile
  *     setState(data);
  *   }, [...]);
  *
- * Возвращаемая функция обязана быть стабильной (useCallback без
- * зависимостей): она лежит в зависимостях load на каждой странице,
- * а load — в зависимостях эффекта загрузки. Новая функция на каждый
- * рендер замыкала это в кольцо «запрос → setState → рендер → новый
- * load → эффект → запрос»: страницы бесконечно перезагружали данные,
- * прожигая память вкладки и лимиты запросов на сервере.
+ * The returned function must be stable (useCallback with no deps): it
+ * sits in load's dependencies on every page, and load sits in the loading
+ * effect's dependencies. A new function on every render closed this into
+ * a loop of "request → setState → render → new load → effect → request":
+ * pages reloaded data endlessly, burning tab memory and the server's
+ * rate limits.
  */
 export function useLatest(): () => () => boolean {
   const seq = useRef(0);

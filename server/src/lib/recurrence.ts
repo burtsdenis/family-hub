@@ -1,8 +1,8 @@
 /**
- * Подмножество RRULE из RFC 5545: FREQ и INTERVAL.
- * Больше нам не нужно — «раз в месяц оплатить» и «раз в год продлить»
- * покрываются этим полностью, а полный RRULE тянет за собой библиотеку
- * и целый класс краевых случаев.
+ * A subset of RRULE from RFC 5545: FREQ and INTERVAL.
+ * We need no more — "pay once a month" and "renew once a year" are fully
+ * covered by this, while full RRULE drags in a library and a whole class
+ * of edge cases.
  */
 
 export type Freq = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
@@ -37,12 +37,13 @@ export function isValidRecurrence(rule: string): boolean {
 }
 
 /**
- * Дата k-го повтора, считая от начала серии.
+ * The date of the k-th occurrence, counted from the start of the series.
  *
- * Отсчёт всегда ведётся от исходной даты, а не от предыдущего повтора.
- * Иначе «каждое 31 число» после февраля навсегда съезжает на 28-е:
- * 31 января → 28 февраля → 28 марта. Правильно — 31 января → 28 февраля →
- * 31 марта, то есть день месяца прижимается к длине месяца заново каждый раз.
+ * Counting always starts from the original date, not the previous
+ * occurrence. Otherwise "every 31st" slips to the 28th forever after
+ * February: Jan 31 → Feb 28 → Mar 28. Correct is Jan 31 → Feb 28 →
+ * Mar 31, i.e. the day of month is clamped to the month length anew
+ * every time.
  */
 function occurrence(anchor: string, rec: Recurrence, k: number): string | null {
   const date = new Date(`${anchor}T00:00:00Z`);
@@ -69,7 +70,7 @@ function anchorDay(anchor: string): number {
   return Number(anchor.slice(8, 10));
 }
 
-/** Ближайший повтор строго позже даты `after`. */
+/** The nearest occurrence strictly after the date `after`. */
 export function occurrenceAfter(anchor: string, after: string, rule: string): string | null {
   const rec = parseRecurrence(rule);
   if (!rec) return null;
@@ -83,9 +84,9 @@ export function occurrenceAfter(anchor: string, after: string, rule: string): st
 }
 
 /**
- * Прибавление месяцев с прижатием к последнему дню месяца.
- * День берётся из начала серии, поэтому 31 января + 2 месяца = 31 марта,
- * даже если промежуточный повтор пришёлся на 28 февраля.
+ * Adding months with clamping to the last day of the month.
+ * The day comes from the start of the series, so Jan 31 + 2 months =
+ * Mar 31, even if the intermediate occurrence landed on Feb 28.
  */
 function addMonths(date: Date, months: number, day: number): void {
   date.setUTCDate(1);
@@ -121,14 +122,14 @@ export function describeRecurrence(rule: string | null): string | null {
 }
 
 /**
- * Все повторы серии, попадающие в диапазон дат.
+ * All occurrences of a series that fall within a date range.
  *
- * События, в отличие от задач, не «закрываются» — поэтому следующий экземпляр
- * порождать некому, и разворачивать серию приходится на лету при каждом
- * запросе. Материализовать повторы в базу нельзя: «каждый год» без конечной
- * даты — это бесконечная таблица.
+ * Events, unlike tasks, are never "closed" — so nothing gets to spawn
+ * the next instance, and the series has to be expanded on the fly on
+ * every request. Materializing occurrences into the database won't work:
+ * "every year" with no end date is an infinite table.
  *
- * Даты в формате ГГГГ-ММ-ДД, границы включаются.
+ * Dates in YYYY-MM-DD format, bounds inclusive.
  */
 export function expandOccurrences(
   anchor: string,
@@ -144,8 +145,8 @@ export function expandOccurrences(
   if (!rec) return anchor >= from && anchor <= to ? [anchor] : [];
 
   const result: string[] = [];
-  // Потолок на число шагов: защита от «каждый день с 1990 года» и от
-  // правила, которое почему-то не двигает дату вперёд.
+  // A ceiling on the step count: protection against "daily since 1990"
+  // and against a rule that somehow fails to move the date forward.
   const MAX_STEPS = 20_000;
 
   for (let k = 0; k < MAX_STEPS; k++) {

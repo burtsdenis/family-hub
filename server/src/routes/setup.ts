@@ -7,15 +7,15 @@ import { hashPassword } from '../lib/password.js';
 import { log } from '../lib/log.js';
 
 /*
-  Первичная настройка и приглашения — онбординг без чтения логов.
+  Initial setup and invites — onboarding without reading logs.
 
-  Пустая база: хаб при открытии предлагает создать первую учётку —
-  она становится администратором. Никаких паролей в журнале сервера.
+  Empty database: the hub, when opened, offers to create the first
+  account — it becomes the admin. No passwords in the server log.
 
-  Дальше домочадцы добавляются ссылками: администратор создаёт
-  одноразовую ссылку, человек открывает её и сам заполняет имя, логин
-  и пароль. Ссылка живёт неделю, показывается создателю один раз
-  (хранится только хэш) и гаснет после использования.
+  Family members are then added by links: the admin creates a one-time
+  link, the person opens it and fills in their own name, login and
+  password. The link lives a week, is shown to its creator once
+  (only the hash is stored) and goes dark after use.
 */
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60_000;
@@ -35,7 +35,7 @@ interface InviteRow {
   used_at: string | null;
 }
 
-/** Живое приглашение по токену: не использовано и не протухло. */
+/** A live invite by token: not used and not expired. */
 function liveInvite(token: string): InviteRow | null {
   const row = db
     .prepare('SELECT id, role, expires_at, used_at FROM invites WHERE token_hash = ?')
@@ -45,14 +45,14 @@ function liveInvite(token: string): InviteRow | null {
 }
 
 export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
-  // Жёсткий лимит на публичные точки онбординга — как на входе
+  // A strict limit on the public onboarding endpoints — same as on login
   const strictRate = { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } };
 
   /*
-    Первичная настройка. Работает ровно один раз — пока в базе нет ни одного
-    пользователя. Дальше отвечает 403 навсегда: гонку двух одновременных
-    настройщиков решает уникальность момента, проверка и вставка идут
-    в одной транзакции.
+    Initial setup. Works exactly once — while the database has no users
+    at all. Afterwards it answers 403 forever: a race of two simultaneous
+    setups is settled by the uniqueness of the moment, the check and the
+    insert run in one transaction.
   */
   app.post('/api/auth/setup', strictRate, async (req, reply) => {
     const parsed = z
@@ -79,12 +79,12 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(403).send({ error: 'Хаб уже настроен' });
     }
 
-    log.info(`первичная настройка: создан администратор ${parsed.data.email} с ${req.ip}`);
+    log.info(`initial setup: admin ${parsed.data.email} created from ${req.ip}`);
     setSessionCookie(reply, createSession(userId, req.headers['user-agent']));
     return reply.code(201).send({ ok: true });
   });
 
-  // ── Приглашения: административная сторона ─────────────────────────────
+  // ── Invites: the admin side ────────────────────────────────────────────
 
   app.post('/api/invites', (req, reply) => {
     if (req.user?.role !== 'admin') {
@@ -109,7 +109,7 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
       new Date(Date.now() + INVITE_TTL_MS).toISOString().replace('T', ' ').slice(0, 19),
     );
 
-    // Токен наружу отдаётся единственный раз — дальше живёт только хэш
+    // The token leaves the server exactly once — from then on only the hash lives
     return reply.code(201).send({ id: inviteId, path: `/join?token=${token}` });
   });
 
@@ -135,14 +135,14 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(403).send({ error: 'Только администратор' });
     }
     const { id: inviteId } = z.object({ id: z.string().uuid() }).parse(req.params);
-    // Использованные не трогаем — это уже история, а не приглашение
+    // Used ones stay untouched — that's history now, not an invite
     db.prepare('DELETE FROM invites WHERE id = ? AND used_at IS NULL').run(inviteId);
     return { ok: true };
   });
 
-  // ── Приглашения: сторона приглашённого (публичная) ────────────────────
+  // ── Invites: the invitee side (public) ─────────────────────────────────
 
-  // Открывший ссылку узнаёт, жива ли она, до заполнения формы
+  // Whoever opens the link learns whether it is alive before filling the form
   app.get('/api/auth/invite', strictRate, (req, reply) => {
     const { token } = z.object({ token: z.string().min(1) }).parse(req.query);
     const invite = liveInvite(token);
@@ -180,8 +180,8 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
     const passwordHash = await hashPassword(parsed.data.password);
     const userId = id();
 
-    // Гонку двух заходов по одной ссылке решает транзакция:
-    // второй увидит used_at и получит отказ
+    // A race of two visits via one link is settled by the transaction:
+    // the second one sees used_at and gets refused
     const joined = db.transaction(() => {
       const fresh = db
         .prepare('SELECT used_at FROM invites WHERE id = ?')
@@ -203,7 +203,7 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(404).send({ error: 'Ссылка не действует: истекла или уже использована' });
     }
 
-    log.info(`вход по приглашению: ${parsed.data.email} (${invite.role}) с ${req.ip}`);
+    log.info(`invite join: ${parsed.data.email} (${invite.role}) from ${req.ip}`);
     setSessionCookie(reply, createSession(userId, req.headers['user-agent']));
     return reply.code(201).send({ ok: true });
   });

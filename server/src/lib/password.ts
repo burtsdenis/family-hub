@@ -8,10 +8,10 @@ const scryptAsync = promisify(scrypt) as (
   options: { N: number; r: number; p: number; maxmem: number },
 ) => Promise<Buffer>;
 
-// scrypt из стандартной библиотеки Node, не argon2.
-// Он memory-hard, для нашей задачи полностью достаточен, и это на одну
-// нативную зависимость меньше — а её пришлось бы пересобирать при каждом
-// обновлении Node и чинить в Docker.
+// scrypt from Node's standard library, not argon2.
+// It is memory-hard, entirely sufficient for our needs, and one native
+// dependency fewer — one that would need rebuilding on every Node
+// update and fixing in Docker.
 const PARAMS = { N: 32_768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const KEYLEN = 32;
 
@@ -43,7 +43,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-/** Читаемый пароль для первой выдачи: без похожих друг на друга символов. */
+/** A readable password for first issue: no look-alike characters. */
 export function generatePassword(words = 4): string {
   const alphabet = 'abcdefghijkmnpqrstuvwxyz23456789';
   const bytes = randomBytes(words * 4);

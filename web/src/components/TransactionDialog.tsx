@@ -63,8 +63,8 @@ export function TransactionDialog({
   >([]);
   const [uploading, setUploading] = useState(false);
 
-  // Чеки подтягиваем только у существующей операции: к несохранённой
-  // прикладывать нечего
+  // Receipts are fetched only for an existing transaction: there is
+  // nothing to attach to an unsaved one
   useEffect(() => {
     if (!transaction) return;
     void api
@@ -77,7 +77,7 @@ export function TransactionDialog({
     if (!transaction || files.length === 0) return;
     setUploading(true);
     try {
-      // Снимок чека весит несколько мегабайт, а нужны с него сумма и дата
+      // A receipt photo weighs several megabytes, yet all we need from it is the amount and date
       const shrunk = await shrinkAll(files);
       const form = new FormData();
       for (const file of shrunk) form.append('file', file);
@@ -106,8 +106,8 @@ export function TransactionDialog({
 
   const account = accounts.find((a) => a.id === draft.account_id);
   const toAccount = accounts.find((a) => a.id === draft.to_account_id);
-  // Валюты не связаны: у перевода между разными валютами вторая сумма
-  // вводится руками, потому что курса в системе нет
+  // Currencies are unlinked: for a transfer between different currencies
+  // the second amount is entered by hand, because the system has no exchange rate
   const needsSecondAmount =
     kind === 'transfer' && account && toAccount && account.currency !== toAccount.currency;
 

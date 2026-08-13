@@ -47,7 +47,7 @@ export function Money() {
   const [due, setDue] = useState<DueItem[]>([]);
   const [tab, setTab] = useState<'operations' | 'budgets' | 'recurring'>('operations');
 
-  // Быстрый ввод: сумма и категория, всё остальное по умолчанию
+  // Quick entry: amount and category, everything else defaulted
   const [quickAmount, setQuickAmount] = useState('');
   const [quickCategory, setQuickCategory] = useState('');
   const [quickAccount, setQuickAccount] = useState('');
@@ -61,10 +61,10 @@ export function Money() {
   const [creatingCategoryKind, setCreatingCategoryKind] = useState<'expense' | 'income' | null>(
     null,
   );
-  // Родитель в диалоге категории. Своё состояние, потому что EntityDialog
-  // общий и про иерархию категорий ничего не знает.
+  // Parent in the category dialog. Separate state because EntityDialog is
+  // generic and knows nothing about the category hierarchy.
   const [categoryParent, setCategoryParent] = useState('');
-  // Раскрытые родители в сводке «По категориям»
+  // Expanded parents in the "By category" summary
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
 
   const { from, to } = useMemo(() => monthBounds(anchor), [anchor]);
@@ -77,7 +77,7 @@ export function Money() {
         api.get<Category[]>('/categories'),
         api.get<Transaction[]>(`/transactions?from=${from}&to=${to}&limit=200`),
         api.get<Summary>(`/money/summary?from=${from}&to=${to}`),
-        // Этот запрос заодно догоняет то, что помечено «создавать самостоятельно»
+        // This request also catches up whatever is marked "create automatically"
         api.get<DueItem[]>('/recurring/due'),
         api.get<Record<string, string>>('/settings'),
       ]);
@@ -89,7 +89,7 @@ export function Money() {
       setDue(dueItems);
       setError(null);
       setQuickAccount((prev) => prev || acc.find((a) => a.shared === 1)?.id || acc[0]?.id || '');
-      // Валюта нового счёта: настройка хаба, иначе валюта первого счёта
+      // New account currency: the hub setting, else the first account's currency
       const preferred = settings['money.default_currency']?.trim().toUpperCase();
       setNewCurrency((prev) =>
         prev !== 'EUR' ? prev : preferred || acc[0]?.currency || 'EUR',
@@ -104,7 +104,7 @@ export function Money() {
     void load();
   }, [load]);
 
-  // Переход с экрана быстрых действий: /money?add=1 сразу открывает форму
+  // Arriving from the quick-actions screen: /money?add=1 opens the form right away
   const [params, setParams] = useSearchParams();
   useEffect(() => {
     if (!params.get('add')) return;
@@ -166,9 +166,9 @@ export function Money() {
   const expenseTotals = (summary?.byCurrency ?? []).filter((r) => r.kind === 'expense');
   const incomeTotals = (summary?.byCurrency ?? []).filter((r) => r.kind === 'income');
 
-  // Траты по категориям, сгруппированные по валютам: у каждой валюты
-  // свой круг — доли между валютами без курса не имеют смысла.
-  // Подкатегории сворачиваются в родителя; его строка раскрывается по клику.
+  // Expenses by category, grouped by currency: each currency gets its own
+  // donut — shares across currencies mean nothing without a rate.
+  // Subcategories roll up into their parent; its row expands on click.
   const expenseByCurrency = useMemo(() => {
     const rows = (summary?.byCategory ?? []).filter((r) => r.kind === 'expense');
     type Row = (typeof rows)[number];
@@ -189,8 +189,9 @@ export function Money() {
       const bucket = byCurrency.get(r.currency) ?? new Map<string, Rolled>();
       byCurrency.set(r.currency, bucket);
 
-      // Строка сворачивается в родителя, только если тот виден (не в архиве) —
-      // иначе подкатегория показывается сама, как категория верхнего уровня
+      // A row rolls up into its parent only if the parent is visible (not
+      // archived) — otherwise the subcategory shows on its own, as a
+      // top-level category
       const parent = r.parent_id ? byId.get(r.parent_id) : undefined;
       const key = parent?.id ?? r.category_id ?? 'none';
       const entry = bucket.get(key) ?? {
@@ -204,8 +205,8 @@ export function Money() {
       };
       entry.total += r.total;
       entry.count += r.count;
-      // Траты самого родителя в раскрытом списке не строка, а остаток —
-      // отдельной дочерней записи для них не нужно
+      // The parent's own spending in the expanded list is the remainder,
+      // not a row — no separate child entry needed for it
       if (parent) entry.children.push(r);
       bucket.set(key, entry);
     }
@@ -266,7 +267,7 @@ export function Money() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Остатки по валютам */}
+          {/* Balances by currency */}
           <div className="space-y-4">
             {groups.map((group) => (
               <section key={group.currency}>
@@ -279,8 +280,9 @@ export function Money() {
 
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((a) => {
-                    // Расхождение — на момент сверки, а не против текущего
-                    // остатка: операции после сверки его не сдвигают
+                    // The discrepancy is as of the reconciliation, not
+                    // against the current balance: transactions after the
+                    // check do not move it
                     const diff =
                       a.last_actual === null || a.checked_balance === null
                         ? null
@@ -353,7 +355,7 @@ export function Money() {
             ))}
           </div>
 
-          {/* Быстрый ввод траты */}
+          {/* Quick expense entry */}
           <section className="rounded-card border border-line bg-surface p-4">
             <h2 className="eyebrow mb-3">{t('Записать трату')}</h2>
             <div className="flex flex-wrap items-end gap-3">
@@ -426,7 +428,7 @@ export function Money() {
 
           <DuePanel due={due} onChanged={() => void load()} />
 
-          {/* Месяц */}
+          {/* Month */}
           <section>
             <div className="mb-3 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1">
@@ -500,7 +502,7 @@ export function Money() {
 
             {tab === 'operations' && (
             <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-              {/* Операции */}
+              {/* Transactions */}
               <div>
                 {byDate.length === 0 ? (
                   <Empty>{t('За этот месяц операций нет.')}</Empty>
@@ -562,7 +564,7 @@ export function Money() {
                 )}
               </div>
 
-              {/* Итоги */}
+              {/* Totals */}
               <aside className="space-y-4">
                 <section className="rounded-card border border-line bg-surface p-4">
                   <h3 className="eyebrow mb-2.5">{t('Итоги месяца')}</h3>
@@ -680,7 +682,7 @@ export function Money() {
                                           </span>
                                         </li>
                                       ))}
-                                      {/* Остаток — траты, записанные на самого родителя */}
+                                      {/* Remainder — spending recorded on the parent itself */}
                                       {(() => {
                                         const childSum = r.children.reduce(
                                           (sum, c) => sum + c.total,
@@ -765,7 +767,7 @@ export function Money() {
         </div>
       )}
 
-      {/* ── Диалоги ─────────────────────────────────────────────────────── */}
+      {/* ── Dialogs ─────────────────────────────────────────────────────── */}
 
       {(creatingTx || editingTx) && accounts && accounts.length > 0 && (
         <TransactionDialog
@@ -894,15 +896,15 @@ export function Money() {
             await load();
           }}
           onDelete={async () => {
-            // Категория с историей не удаляется, а прячется — иначе прошлые
-            // отчёты потеряли бы разметку
+            // A category with history is hidden, not deleted — otherwise
+            // past reports would lose their labeling
             await api.delete(`/categories/${editingCategory.id}`);
             await load();
           }}
           onClose={() => setEditingCategory(null)}
         >
-          {/* Категория с подкатегориями сама не может стать подкатегорией —
-              сервер это отклонит, поэтому селект просто не показываем */}
+          {/* A category with subcategories cannot itself become one —
+              the server would reject it, so the select simply isn't shown */}
           {!categories.some((c) => c.parent_id === editingCategory.id) && (
             <CategoryParentField
               categories={categories}
@@ -918,7 +920,7 @@ export function Money() {
   );
 }
 
-/** Селект родительской категории для диалогов создания и правки. */
+/** Parent-category select for the create and edit dialogs. */
 function CategoryParentField({
   categories,
   kind,
@@ -932,7 +934,7 @@ function CategoryParentField({
   value: string;
   onChange: (id: string) => void;
 }) {
-  // Родителем может быть только категория верхнего уровня того же вида
+  // Only a top-level category of the same kind can be a parent
   const options = categories.filter(
     (c) => c.kind === kind && !c.parent_id && c.id !== excludeId,
   );

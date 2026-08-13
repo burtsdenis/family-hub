@@ -15,7 +15,7 @@ function visibleAccountIds(userId: string): Set<string> {
   return new Set(rows.map((r) => r.id));
 }
 
-// ── Регулярные операции ───────────────────────────────────────────────────
+// ── Recurring transactions ──────────────────────────────────────────────────
 
 interface RecurringRow {
   id: string;
@@ -48,12 +48,12 @@ export interface DueItem {
 }
 
 /**
- * Экземпляры правил, которым пора наступить, но которых ещё нет.
+ * Rule instances whose time has come but which don't exist yet.
  *
- * Считается вычитанием: все даты правила до сегодня минус уже созданные
- * операции минус пропущенные вручную. Курсор «следующая дата» не храним —
- * он разъезжается после любой правки правила задним числом, а вычитание
- * всегда даёт один и тот же ответ.
+ * Computed by subtraction: all rule dates up to today minus already
+ * created transactions minus manual skips. No "next date" cursor is
+ * stored — it drifts after any backdated edit of the rule, while
+ * subtraction always gives the same answer.
  */
 export function dueOccurrences(userId: string, horizon = today()): DueItem[] {
   const rules = db
@@ -102,7 +102,7 @@ export function dueOccurrences(userId: string, horizon = today()): DueItem[] {
   return due.sort((a, b) => a.occurred_on.localeCompare(b.occurred_on));
 }
 
-/** Создаёт операцию из правила на указанную дату. Повторный вызов безвреден. */
+/** Creates a transaction from a rule for the given date. Calling again is harmless. */
 function materialize(ruleId: string, date: string, userId: string | null): string | null {
   const rule = db.prepare('SELECT * FROM recurring_transactions WHERE id = ?').get(ruleId) as
     | RecurringRow
@@ -138,8 +138,8 @@ function materialize(ruleId: string, date: string, userId: string | null): strin
 }
 
 /**
- * Создаёт всё, что помечено «создавать самостоятельно».
- * Вызывается при старте сервера и при запросе списка ожидающих.
+ * Creates everything marked "create automatically".
+ * Called at server startup and when the pending list is requested.
  */
 export function runAutoCreate(): number {
   const rules = db
@@ -185,7 +185,7 @@ export function runAutoCreate(): number {
   return created;
 }
 
-// ── Схемы ─────────────────────────────────────────────────────────────────
+// ── Schemas ───────────────────────────────────────────────────────────────
 
 const recurringInput = z.object({
   title: z.string().min(1, 'Укажите название').max(200),
@@ -204,12 +204,12 @@ const recurringInput = z.object({
 });
 
 export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> {
-  // ── Лимиты ──────────────────────────────────────────────────────────────
+  // ── Budgets ─────────────────────────────────────────────────────────────
 
   /**
-   * Лимиты на месяц: постоянный, если на этот месяц нет исключения.
-   * Вместе с потраченным и остатком — считать это на клиенте значило бы
-   * повторять там правило выбора лимита.
+   * Monthly limits: the standing one unless this month has an exception.
+   * Together with spent and remaining — computing this on the client
+   * would mean duplicating the limit-selection rule there.
    */
   app.get('/api/budgets', (req, reply) => {
     const parsed = z.object({ month: z.string().regex(MONTH) }).safeParse(req.query);
@@ -221,10 +221,10 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
     const to = `${month}-31`;
 
     /*
-      Выбираем по одному лимиту на пару «категория + валюта»: исключение
-      на запрошенный месяц, иначе постоянный. Исключения других месяцев
-      в выборку не попадают вовсе — иначе лимит на декабрь отменял бы
-      постоянный лимит во все остальные месяцы.
+      One limit is picked per "category + currency" pair: the exception
+      for the requested month, otherwise the standing one. Other months'
+      exceptions don't enter the selection at all — otherwise a December
+      limit would cancel the standing limit in every other month.
     */
     return db
       .prepare(
@@ -242,8 +242,8 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
                 coalesce((
                   SELECT sum(t.amount) FROM transactions t
                     JOIN accounts a ON a.id = t.account_id
-                   -- Лимит на родителя считает и траты подкатегорий:
-                   -- «Автотраты» — это топливо, парковка и сервис вместе
+                   -- A parent's limit counts subcategory spending too:
+                   -- "Car costs" means fuel, parking and service combined
                    WHERE t.category_id IN (
                            SELECT id FROM categories WHERE id = c.id OR parent_id = c.id
                          )
@@ -299,7 +299,7 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
     return { ok: true };
   });
 
-  // ── Регулярные операции ─────────────────────────────────────────────────
+  // ── Recurring transactions ──────────────────────────────────────────────
 
   app.get('/api/recurring', (req) =>
     db
@@ -412,13 +412,13 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
 
   app.delete('/api/recurring/:id', (req, reply) => {
     const { id: ruleId } = z.object({ id: z.string().uuid() }).parse(req.params);
-    // Созданные операции остаются в истории: они уже случились
+    // Created transactions stay in history: they already happened
     const result = db.prepare('DELETE FROM recurring_transactions WHERE id = ?').run(ruleId);
     if (result.changes === 0) return reply.code(404).send({ error: 'Правило не найдено' });
     return { ok: true };
   });
 
-  /** Что пора подтвердить или что уже создалось само. */
+  /** What is due for confirmation, or has already created itself. */
   app.get('/api/recurring/due', (req) => {
     runAutoCreate();
     return dueOccurrences(req.user?.id ?? '');
@@ -429,8 +429,8 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
     const parsed = z
       .object({
         occurred_on: z.string().regex(DATE),
-        // Фактическая сумма может отличаться от плановой: зарплата с премией,
-        // аренда с изменившимся счётом за воду
+        // The actual amount may differ from the planned one: a salary with
+        // a bonus, rent with a changed water bill
         amount: z.number().int().positive().optional(),
       })
       .safeParse(req.body);

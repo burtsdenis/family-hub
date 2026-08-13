@@ -9,8 +9,8 @@ interface Props {
 }
 
 /**
- * Табло переезда — единственный громкий элемент интерфейса.
- * Всё остальное вокруг намеренно тихое.
+ * The move board is the one loud element in the interface.
+ * Everything around it is deliberately quiet.
  */
 export function MoveBoard({ settings, onChange }: Props) {
   const targetDate = settings['move.target_date'] ?? '';
@@ -47,7 +47,7 @@ export function MoveBoard({ settings, onChange }: Props) {
   return (
     <section className="overflow-hidden rounded-card bg-[#131c24] text-[#e8eae5] shadow-sm">
       <div className="grid divide-y divide-white/10 sm:grid-cols-[1.1fr_1fr] sm:divide-x sm:divide-y-0">
-        {/* Отсчёт */}
+        {/* Countdown */}
         <div className="px-6 py-5">
           <p className="eyebrow text-white/45!">{settings['move.label'] ?? t('Переезд')}</p>
           {days === null ? (
@@ -71,7 +71,7 @@ export function MoveBoard({ settings, onChange }: Props) {
           )}
         </div>
 
-        {/* Накопления */}
+        {/* Savings */}
         <div className="px-6 py-5">
           <p className="eyebrow text-white/45!">{settings['savings.label'] ?? t('Накоплено')}</p>
 
@@ -81,8 +81,8 @@ export function MoveBoard({ settings, onChange }: Props) {
                 <input
                   autoFocus
                   inputMode="decimal"
-                  // Сумму почти всегда вводят заново, а не дописывают к старой.
-                  // Без выделения «4500» плюс набранная семёрка давали 45007.
+                  // The amount is almost always retyped, not appended to.
+                  // Without select-all, "4500" plus a typed 7 became 45007.
                   onFocus={(e) => e.currentTarget.select()}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}

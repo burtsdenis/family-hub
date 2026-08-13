@@ -17,9 +17,9 @@ function plural(n: number, one: string, few: string, many: string): string {
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Счёт виден, если он общий или принадлежит спрашивающему.
- * Дальше на этом правиле держится вся приватность денег: у операции
- * отдельного признака приватности нет — она наследует его от счёта.
+ * An account is visible if it is shared or belongs to the asker.
+ * All money privacy rests on this rule from here on: a transaction has
+ * no privacy flag of its own — it inherits it from the account.
  */
 const ACCOUNT_VISIBLE = '(a.shared = 1 OR a.owner_id = ?)';
 
@@ -42,9 +42,9 @@ const categoryInput = z.object({
 });
 
 /**
- * Родитель обязан быть существующей категорией того же вида и сам быть
- * верхнего уровня — глубже одного уровня иерархия не растёт.
- * Возвращает текст ошибки или null, если всё в порядке.
+ * The parent must be an existing category of the same kind and itself be
+ * top-level — the hierarchy never grows deeper than one level.
+ * Returns the error text, or null if all is well.
  */
 function parentProblem(parentId: string, kind: string): string | null {
   const parent = db
@@ -114,11 +114,11 @@ function visibleAccountIds(userId: string): Set<string> {
 }
 
 export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
-  // ── Счета ───────────────────────────────────────────────────────────────
+  // ── Accounts ────────────────────────────────────────────────────────────
 
   /**
-   * Остаток считается, а не хранится: начальный плюс движения.
-   * Хранимый баланс разъезжается с историей после любой правки задним числом.
+   * The balance is computed, not stored: opening balance plus movements.
+   * A stored balance drifts from history after any backdated edit.
    */
   app.get('/api/accounts', (req) => {
     const { archived } = z
@@ -161,16 +161,17 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     })[];
 
     /**
-     * Остаток на момент сверки — для расхождения. Сравнивать актуал из банка
-     * с текущим остатком нельзя: каждая операция после сверки сдвигала бы
-     * расхождение на свою сумму, и счёт приходилось бы сверять заново после
-     * каждой траты.
+     * The balance as of reconciliation — for the discrepancy. Comparing the
+     * bank's actual against the current balance won't do: every transaction
+     * after the reconciliation would shift the discrepancy by its amount,
+     * and the account would need re-reconciling after every purchase.
      *
-     * «На момент сверки» — это операции более ранних дат плюс операции дня
-     * сверки, введённые до неё (у дат нет времени, различаем по created_at).
-     * Обе величины считаются, а не хранятся: пропущенная трата, вписанная
-     * задним числом, пересчитает остаток на момент сверки и закроет
-     * расхождение — ровно тот рабочий процесс, ради которого сверка нужна.
+     * "As of reconciliation" means transactions on earlier dates plus
+     * same-day ones entered before it (dates carry no time, we tell them
+     * apart by created_at). Both quantities are computed, not stored:
+     * a missed expense entered retroactively recomputes the balance as of
+     * reconciliation and closes the discrepancy — exactly the workflow
+     * reconciliation exists for.
      */
     const checkedBalance = db.prepare(
       `SELECT
@@ -246,7 +247,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const d = parsed.data;
-    // Смена валюты у счёта с операциями превратила бы историю в кашу
+    // Changing the currency of an account with transactions would turn history into mush
     if (d.currency && d.currency !== account.currency) {
       const used = (
         db
@@ -317,7 +318,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
-  /** Сверка с банком: фактический остаток и расхождение. */
+  /** Reconciliation against the bank: the actual balance and the discrepancy. */
   app.post('/api/accounts/:id/reconcile', (req, reply) => {
     const { id: accountId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const parsed = z
@@ -334,8 +335,9 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
       .get(accountId, req.user?.id ?? '');
     if (!visible) return reply.code(404).send({ error: 'Счёт не найден' });
 
-    // Повторная сверка в тот же день обновляет предыдущую, а не плодит
-    // двойников: важен фактический остаток на дату, а не история попыток
+    // A repeat reconciliation on the same day updates the previous one
+    // instead of spawning twins: what matters is the actual balance on
+    // the date, not the history of attempts
     db.prepare(
       `INSERT INTO reconciliations (id, account_id, checked_on, actual_balance, note, created_by)
        VALUES (?, ?, ?, ?, ?, ?)
@@ -355,7 +357,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
-  // ── Категории ───────────────────────────────────────────────────────────
+  // ── Categories ──────────────────────────────────────────────────────────
 
   app.get('/api/categories', (req) => {
     const { kind } = z
@@ -443,8 +445,8 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
       }
     ).n;
     if (used > 0) {
-      // Категорию с историей не удаляем, а прячем: иначе прошлые операции
-      // потеряют разметку и отчёты за прошлые месяцы изменятся
+      // A category with history is hidden, not deleted: otherwise past
+      // transactions lose their labeling and past months' reports change
       db.prepare('UPDATE categories SET archived_at = ? WHERE id = ?').run(now(), categoryId);
       return { archived: true, used };
     }
@@ -452,7 +454,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     return { archived: false, used: 0 };
   });
 
-  // ── Операции ────────────────────────────────────────────────────────────
+  // ── Transactions ────────────────────────────────────────────────────────
 
   app.get('/api/transactions', (req) => {
     const q = z
@@ -469,7 +471,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
 
     const userId = req.user?.id ?? '';
     const where: string[] = [
-      // Операция видна, если видна хотя бы одна её сторона
+      // A transaction is visible if at least one of its sides is
       `(a.shared = 1 OR a.owner_id = ? OR b.shared = 1 OR b.owner_id = ?)`,
     ];
     const args: unknown[] = [userId, userId];
@@ -522,8 +524,9 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
 
     const visible = visibleAccountIds(userId);
 
-    // Перевод на чужой личный счёт виден суммой, но без названия счёта:
-    // скрыть уход денег с общего счёта нельзя, иначе остаток будет неверным
+    // A transfer to someone else's personal account shows its amount but
+    // not the account name: money leaving a shared account can't be
+    // hidden, or the balance would be wrong
     return rows.map((row) => {
       const masked = { ...row };
       if (row['to_account_id'] && !visible.has(row['to_account_id'] as string)) {
@@ -608,8 +611,8 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     for (const key of ['occurred_on', 'amount', 'note', 'place', 'to_amount'] as const) {
       if (d[key] !== undefined) fields.push([key, d[key]]);
     }
-    // Категория проверяется так же, как при создании: иначе правкой можно
-    // повесить доходную категорию на трату, и отчёты по категориям поедут
+    // The category is validated the same as on create: otherwise an edit
+    // could hang an income category on an expense, skewing category reports
     if (d.category_id !== undefined) {
       if (d.category_id) {
         if (tx.kind === 'transfer') {
@@ -657,7 +660,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(404).send({ error: 'Операция не найдена' });
     }
 
-    // Строки уйдут каскадом, файлы чеков надо убрать руками
+    // Rows go away via cascade; receipt files must be removed by hand
     const receipts = db
       .prepare('SELECT storage_path FROM attachments WHERE transaction_id = ?')
       .all(txId) as { storage_path: string }[];
@@ -670,7 +673,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
-  /** Операция с чеками — для карточки. */
+  /** A transaction's receipts — for the detail card. */
   app.get('/api/transactions/:id/attachments', (req, reply) => {
     const { id: txId } = z.object({ id: z.string().uuid() }).parse(req.params);
     if (!visibleAccountIds(req.user?.id ?? '').has(
@@ -689,9 +692,9 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
       .all(txId);
   });
 
-  // ── Сводка за месяц ─────────────────────────────────────────────────────
+  // ── Monthly summary ─────────────────────────────────────────────────────
 
-  /** Итоги по каждой валюте отдельно: общего итога без курса не бывает. */
+  /** Totals per currency, separately: no grand total without an exchange rate. */
   app.get('/api/money/summary', (req, reply) => {
     const parsed = z
       .object({ from: z.string().regex(DATE), to: z.string().regex(DATE) })

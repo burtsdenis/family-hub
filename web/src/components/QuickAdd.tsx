@@ -6,9 +6,9 @@ import { TaskDetail } from './TaskDetail';
 import { INBOX_ID, projectTitle } from '../lib/tasks';
 
 /**
- * Быстрое добавление по Cmd/Ctrl+K из любого места.
- * Задача без выбранного проекта уходит во «Входящие» — разбирать потом,
- * важнее не потерять мысль в момент, когда она пришла.
+ * Quick add via Cmd/Ctrl+K from anywhere.
+ * A task with no project selected goes to Inbox — triage later;
+ * what matters is not losing the thought the moment it arrives.
  */
 export function QuickAdd({ onAdded }: { onAdded: () => void }) {
   const [open, setOpen] = useState(false);
@@ -19,8 +19,8 @@ export function QuickAdd({ onAdded }: { onAdded: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
-  // Созданная задача сразу открывается на редактирование:
-  // срок, исполнителя и приоритет удобнее проставить по горячим следам.
+  // A created task opens for editing right away:
+  // due date, assignee and priority are easiest to set while it's fresh.
   const [created, setCreated] = useState<Task | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -32,7 +32,7 @@ export function QuickAdd({ onAdded }: { onAdded: () => void }) {
       }
       if (e.key === 'Escape') setOpen(false);
     };
-    // Открытие извне — с экрана быстрых действий на телефоне
+    // External open — from the quick actions screen on the phone
     const openIt = () => setOpen(true);
     window.addEventListener('keydown', onKey);
     window.addEventListener('hub:quick-add', openIt);

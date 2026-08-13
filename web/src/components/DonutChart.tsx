@@ -1,10 +1,10 @@
 /**
- * Круговая диаграмма долей на чистом SVG.
+ * Donut chart of shares in pure SVG.
  *
- * Библиотеку графиков ради одного круга не тащим: CSP запрещает внешние
- * скрипты, а самим сегментам хватает трюка со stroke-dasharray — каждый
- * сегмент это кольцо, у которого прорисована только его доля окружности,
- * повёрнутая на сумму предыдущих долей.
+ * No chart library for the sake of one circle: CSP forbids external
+ * scripts, and the segments only need the stroke-dasharray trick — each
+ * segment is a ring with only its share of the circumference drawn,
+ * rotated by the sum of the preceding shares.
  */
 
 export interface DonutSegment {
@@ -15,7 +15,7 @@ export interface DonutSegment {
 
 interface Props {
   segments: DonutSegment[];
-  /** Подпись в центре — обычно отформатированный итог. */
+  /** Center label — usually the formatted total. */
   centerLabel?: string;
   size?: number;
 }
@@ -28,9 +28,9 @@ export function DonutChart({ segments, centerLabel, size = 132 }: Props) {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  // Начало — сверху (12 часов): SVG рисует дуги с трёх часов.
-  // Смещения считаются заранее и без мутаций: аккумулятор, изменяемый
-  // внутри JSX-map, ломает предпосылки React о чистоте рендера.
+  // Start at the top (12 o'clock): SVG draws arcs from 3 o'clock.
+  // Offsets are computed up front and without mutation: an accumulator
+  // mutated inside a JSX map breaks React's assumptions about render purity.
   const fractions = segments.map((s) => s.value / total);
   const starts = fractions.map(
     (_, i) => -0.25 + fractions.slice(0, i).reduce((sum, f) => sum + f, 0),

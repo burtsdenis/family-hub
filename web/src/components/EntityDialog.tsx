@@ -12,9 +12,9 @@ import { onEnter } from '../lib/keys';
 import { PALETTE, addToPalette, loadCustomPalette } from '../lib/palette';
 
 /**
- * Проекты, папки и календари — разные сущности, но правятся одинаково:
- * название, цвет, иногда один переключатель, удаление и архив.
- * Один диалог на всех вместо трёх почти одинаковых.
+ * Projects, folders and calendars are different entities but are edited
+ * the same way: name, color, sometimes one toggle, delete and archive.
+ * One dialog for all of them instead of three nearly identical ones.
  */
 
 export { PALETTE } from '../lib/palette';
@@ -28,10 +28,10 @@ export interface EntityDraft {
 interface Props {
   title: string;
   initial: EntityDraft;
-  /** Подпись переключателя. Если не задана — переключателя нет. */
+  /** Toggle label. If absent, there is no toggle. */
   flagLabel?: string;
   flagHint?: string;
-  /** Текст кнопки архива. Если не задан — архива нет. */
+  /** Archive button text. If absent, there is no archive. */
   archiveLabel?: string;
   deletable?: boolean;
   deleteHint?: string;
@@ -39,7 +39,7 @@ interface Props {
   onArchive?: () => Promise<void> | void;
   onDelete?: () => Promise<void> | void;
   onClose: () => void;
-  /** Дополнительные поля, специфичные для сущности. */
+  /** Extra fields specific to the entity. */
   children?: ReactNode;
 }
 

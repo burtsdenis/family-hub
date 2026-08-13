@@ -92,16 +92,16 @@ export function Notes() {
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // Незаписанные правки хранятся вместе с идентификатором заметки.
-  // Иначе при быстром переключении отложенное сохранение уезжает в ту
-  // заметку, что открыта сейчас, и переписывает её чужим текстом.
+  // Unsaved edits are stored together with the note id.
+  // Otherwise on a quick switch the debounced save lands on whichever
+  // note is open now, overwriting it with someone else's text.
   const pending = useRef<{ noteId: string; patch: { title?: string; body_md?: string } } | null>(
     null,
   );
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteRef = useRef<Note | null>(null);
   noteRef.current = note;
-  // flush объявлен ниже openNote, поэтому обращаемся через ссылку
+  // flush is declared below openNote, so it is reached through a ref
   const flushRef = useRef<() => Promise<void>>(async () => {});
 
   const inTemplates = folderId === 'templates';
@@ -112,8 +112,9 @@ export function Notes() {
     else if (folderId) params.set('folder_id', folderId);
     if (query.trim()) params.set('q', query.trim());
 
-    // Поиск отправляет запрос на каждое нажатие; без этой проверки ответ
-    // на «до» может прийти после ответа на «докум» и перетереть выдачу
+    // Search fires a request on every keystroke; without this check the
+    // response for «до» can arrive after the one for «докум» and clobber
+    // the results
     const fresh = isLatest();
     const rows = await api.get<NoteStub[]>(`/notes?${params}`);
     if (!fresh()) return;
@@ -135,7 +136,7 @@ export function Notes() {
 
 
   const openNote = useCallback(async (noteId: string) => {
-    // Уходя с заметки, дописываем то, что не успело сохраниться
+    // Leaving a note, write out whatever has not been saved yet
     if (pending.current) {
       if (timer.current) clearTimeout(timer.current);
       await flushRef.current();
@@ -149,8 +150,8 @@ export function Notes() {
       setError(err instanceof Error ? err.message : t('Не удалось открыть заметку'));
     }
   }, []);
-  // Переход из общего поиска: /notes?open=<id>.
-  // С экрана быстрых действий: /notes?new=1 — сразу новая заметка.
+  // Arriving from global search: /notes?open=<id>.
+  // From the quick-actions screen: /notes?new=1 — a new note right away.
   useEffect(() => {
     const target = params.get('open');
     const wantNew = params.get('new');
@@ -158,11 +159,11 @@ export function Notes() {
     if (target) void openNote(target);
     else void createNote();
     setParams({}, { replace: true });
-    // createNote объявлена ниже как function declaration и потому доступна
+    // createNote is a function declaration below and therefore in scope
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, openNote, setParams]);
 
-  // ── Автосохранение ──────────────────────────────────────────────────────
+  // ── Autosave ────────────────────────────────────────────────────────────
 
   const flush = useCallback(async () => {
     const entry = pending.current;
@@ -174,10 +175,11 @@ export function Notes() {
       setSaveState('saved');
       void loadNotes();
 
-      // Ссылки пересчитываются на сервере при каждом сохранении, поэтому
-      // панель связей надо обновить — иначе она показывает состояние на
-      // момент открытия заметки. Тело и заголовок при этом не трогаем:
-      // человек продолжает печатать, и перезапись сбросила бы курсор.
+      // Links are recomputed on the server on every save, so the
+      // connections panel must be refreshed — otherwise it shows the
+      // state as of when the note was opened. Body and title stay
+      // untouched: the person keeps typing, and overwriting them would
+      // reset the cursor.
       const fresh = await api.get<Note>(`/notes/${entry.noteId}`);
       setNote((prev) =>
         prev && prev.id === fresh.id
@@ -197,7 +199,7 @@ export function Notes() {
       const current = noteRef.current;
       if (!current) return;
 
-      // Накопленное для другой заметки записываем немедленно
+      // Anything accumulated for a different note is written immediately
       if (pending.current && pending.current.noteId !== current.id) void flush();
 
       pending.current = {
@@ -214,7 +216,7 @@ export function Notes() {
     [flush],
   );
 
-  // Недописанное не должно теряться при закрытии вкладки или уходе со страницы
+  // Unfinished text must not be lost when the tab closes or the page is left
   useEffect(() => {
     const onLeave = () => {
       if (pending.current) void flush();
@@ -226,12 +228,13 @@ export function Notes() {
     };
   }, [flush]);
 
-  // ── Действия ────────────────────────────────────────────────────────────
+  // ── Actions ─────────────────────────────────────────────────────────────
 
   async function createNote(templateId?: string) {
     const created = await api.post<Note>('/notes', {
-      // Заголовок при создании из шаблона не передаём: сервер возьмёт его
-      // из шаблона и раскроет подстановки. Явный title их перебил бы.
+      // No title is sent when creating from a template: the server takes
+      // it from the template and expands the substitutions. An explicit
+      // title would override them.
       ...(templateId ? {} : { title: inTemplates ? t('Новый шаблон') : t('Без названия') }),
       folder_id:
         folderId && folderId !== 'none' && folderId !== 'templates' ? folderId : null,
@@ -243,7 +246,7 @@ export function Notes() {
     await openNote(created.id);
   }
 
-  /** Превратить заметку в шаблон и обратно. */
+  /** Turn a note into a template and back. */
   async function toggleTemplate() {
     if (!note) return;
     const next = !note.is_template;
@@ -259,8 +262,8 @@ export function Notes() {
       const daily = await api.get<Note>(`/notes/daily/${date}`);
       await openNote(daily.id);
     } catch {
-      // Шаблон дня ищется по названию в данных, а не по языку интерфейса:
-      // 'Day' у свежих баз, 'День' у живших до перевода
+      // The daily template is looked up by its title in the data, not by
+      // the UI language: 'Day' on fresh DBs, 'День' on pre-translation ones
       const template = templates.find((tpl) => tpl.title === 'Day' || tpl.title === 'День');
       const created = await api.post<Note>('/notes', {
         daily_date: date,
@@ -302,7 +305,7 @@ export function Notes() {
     await loadNotes();
   }
 
-  /** Переход по [[ссылке]]: если заметки нет — предлагаем создать. */
+  /** Following a [[link]]: if the note does not exist, offer to create it. */
   const navigateByTitle = useCallback(
     async (title: string) => {
       const found = await api.get<NoteStub[]>(`/notes?q=${encodeURIComponent(title)}`);
@@ -325,7 +328,7 @@ export function Notes() {
     [openNote, loadNotes, dialogs],
   );
 
-  /** Отправка файлов, прикреплённых к текущей заметке. */
+  /** Upload files attached to the current note. */
   const uploadFiles = useCallback(
     async (files: File[]): Promise<UploadedFile[]> => {
       const current = noteRef.current;
@@ -382,8 +385,8 @@ export function Notes() {
       confirmLabel: t('Вернуть'),
     });
     if (!ok) return;
-    // Отложенное сохранение содержит текст ДО отката — его нужно выбросить,
-    // иначе оно вернёт отменённую правку назад
+    // The pending save holds the text from BEFORE the rollback — it must
+    // be discarded, or it would bring the undone edit right back
     pending.current = null;
     if (timer.current) clearTimeout(timer.current);
 
@@ -549,10 +552,11 @@ export function Notes() {
         </div>
 
         {note ? (
-          /* Ширину ограничиваем на уровне всей колонки, а не текста внутри
-             карточки: иначе панель инструментов начинается у левого края,
-             а строка — где-то посередине, и это читается как поломка.
-             52rem дают около 95 знаков в строке — верх читаемого. */
+          /* Width is capped on the whole column, not on the text inside
+             the card: otherwise the toolbar starts at the left edge while
+             the text line sits somewhere in the middle, which reads as
+             breakage. 52rem gives about 95 characters per line — the
+             upper bound of readable. */
           <div className="w-full max-w-[52rem]">
             <div className="mb-3 flex flex-wrap items-center gap-3">
               <button

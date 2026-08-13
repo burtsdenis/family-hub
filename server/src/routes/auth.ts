@@ -15,25 +15,27 @@ import {
 } from '../lib/auth.js';
 
 /*
-  Тормоз на подбор пароля — в двух измерениях.
+  A brake on password guessing — in two dimensions.
 
-  По логину: пять неверных попыток запирают его на 15 минут, откуда бы
-  попытки ни шли. По адресу: двадцать неверных попыток с одного IP запирают
-  адрес — это ловит перебор по словарю логинов, где каждый логин пробуется
-  по разу и по-логинный счётчик не набирается. Порог по адресу выше,
-  чтобы семья за одним домашним NAT не заперла друг друга случайно.
+  Per login: five wrong attempts lock it for 15 minutes, wherever the
+  attempts come from. Per address: twenty wrong attempts from one IP lock
+  the address — this catches a dictionary sweep of logins, where each
+  login is tried once and the per-login counter never accumulates. The
+  address threshold is higher so a family behind one home NAT doesn't
+  lock each other out by accident.
 
-  Счётчики в памяти: перезапуск их сбрасывает, но снаружи сервер прикрыт
-  ещё и общим лимитом частоты, а на самом маршруте входа — жёстким
-  (см. rateLimit ниже), так что даже со сбросом темп перебора мизерный.
+  Counters live in memory: a restart resets them, but from outside the
+  server is also covered by the general rate limit, and the login route
+  has a strict one of its own (see rateLimit below), so even with resets
+  the guessing tempo is negligible.
 */
 const attempts = new Map<string, { count: number; until: number }>();
 const MAX_ATTEMPTS_LOGIN = 5;
 const MAX_ATTEMPTS_IP = 20;
 const LOCK_MS = 15 * 60_000;
 
-// Протухшие ключи раньше убирались только при повторном обращении к тому же
-// логину/IP — перебор уникальных ключей растил Map безгранично
+// Stale keys used to be removed only on a repeat hit of the same login/IP —
+// sweeping unique keys grew the Map without bound
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of attempts) {
@@ -69,30 +71,30 @@ const changeInput = z.object({
 });
 
 export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
-  /** Есть ли вообще пользователи — чтобы фронт знал, что показывать. */
+  /** Whether any users exist at all — so the frontend knows what to show. */
   app.get('/api/auth/state', () => {
-    // В демо ответ фиксированный: основная база пуста (жизнь идёт
-    // в песочницах), но экран первичной настройки показывать нельзя,
-    // а вход один — кнопка «Попробовать демо».
+    // In demo the answer is fixed: the main database is empty (life
+    // happens in sandboxes), but the initial setup screen must not be
+    // shown, and there is one way in — the "Try the demo" button.
     if (env.demoMode) return { initialized: true, google: false, demo: true };
     const n = (db.prepare('SELECT count(*) AS n FROM users').get() as { n: number }).n;
     return {
       initialized: n > 0,
-      // Есть ли смысл показывать кнопку «Войти через Google»
+      // Whether showing the "Sign in with Google" button makes sense
       google: Boolean(env.googleClientId && env.googleClientSecret && env.publicUrl),
       demo: false,
     };
   });
 
-  // Жёсткий лимит частоты именно на входе, поверх общего: скрипту,
-  // подбирающему пароль, не даём даже стучаться быстро
+  // A strict rate limit specifically on login, on top of the general one:
+  // a password-guessing script doesn't even get to knock fast
   const loginRateLimit = {
     config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
   };
 
   app.post('/api/auth/login', loginRateLimit, async (req, reply) => {
-    // В демо входят только через песочницу: у посетителей нет паролей,
-    // а перебор по чужим учёткам публичному стенду ни к чему
+    // Demo is entered only through a sandbox: visitors have no passwords,
+    // and a public stand has no use for guessing at other people's accounts
     if (env.demoMode) {
       return reply.code(403).send({ error: 'Отключено в демо-режиме' });
     }
@@ -103,7 +105,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     const email = parsed.data.email.trim().toLowerCase();
 
     if (throttled(email, MAX_ATTEMPTS_LOGIN) || throttled(`ip:${req.ip}`, MAX_ATTEMPTS_IP)) {
-      log.warn(`вход заблокирован тормозом: ${email} с ${req.ip}`);
+      log.warn(`login blocked by the brake: ${email} from ${req.ip}`);
       return reply
         .code(429)
         .send({ error: 'Слишком много попыток. Попробуйте через 15 минут' });
@@ -115,30 +117,31 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       | { id: string; password_hash: string; password_login_disabled: number }
       | undefined;
 
-    // Сравнение выполняем даже когда пользователя нет: иначе по времени ответа
-    // видно, какие логины существуют.
+    // The comparison runs even when the user doesn't exist: otherwise
+    // response timing reveals which logins do.
     const hash = user?.password_hash ?? 'scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAA';
     const ok = await verifyPassword(parsed.data.password, hash);
 
-    // Отключённый парольный вход отвечает так же, как неверный пароль:
-    // снаружи не видно, у кого какой режим. Проверка после verifyPassword —
-    // чтобы и по времени ответа режим был неразличим.
+    // Disabled password login answers exactly like a wrong password:
+    // from outside nobody can tell who has which mode. The check comes
+    // after verifyPassword so the mode is indistinguishable by timing too.
     if (user && ok && user.password_login_disabled) {
-      log.warn(`вход по паролю при отключённом пароле: ${email} с ${req.ip}`);
+      log.warn(`password login attempt while password is disabled: ${email} from ${req.ip}`);
       return reply.code(401).send({ error: 'Неверный логин или пароль' });
     }
 
     if (!user || !ok) {
       registerFailure(email);
       registerFailure(`ip:${req.ip}`);
-      log.warn(`неверный вход: ${email} с ${req.ip}`);
+      log.warn(`failed login: ${email} from ${req.ip}`);
       return reply.code(401).send({ error: 'Неверный логин или пароль' });
     }
 
     attempts.delete(email);
-    // След входа с адресом: если появится что расследовать — будет от чего
-    // оттолкнуться. На уровне warn и выше не шумит, виден начиная с info.
-    log.info(`вход: ${email} с ${req.ip}`);
+    // A login trace with the address: if something ever needs
+    // investigating, there is a starting point. Silent at warn and above,
+    // visible from info onward.
+    log.info(`login: ${email} from ${req.ip}`);
     db.prepare('UPDATE users SET last_login_at = ? WHERE id = ?').run(now(), user.id);
 
     setSessionCookie(reply, createSession(user.id, req.headers['user-agent']));
@@ -153,8 +156,8 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/api/auth/logout', async (req, reply) => {
-    // В демо выход хоронит и песочницу: возвращаться в неё некому,
-    // а свежий заход по кнопке получит чистую копию шаблона
+    // In demo, logout buries the sandbox too: nobody is coming back to it,
+    // and a fresh visit via the button gets a clean copy of the template
     if (env.demoMode) {
       const { SANDBOX_COOKIE, destroySandbox } = await import('../lib/sandbox.js');
       const sandboxId = req.cookies[SANDBOX_COOKIE];
@@ -170,10 +173,11 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /*
-    Вход в демо. Создаёт посетителю личную песочницу (копию шаблонной базы)
-    и сессию администратора в ней — без логина и пароля: спрашивать пароль
-    у одноразовой песочницы не у кого и незачем. Лимит частоты жёсткий:
-    каждая песочница — файл на диске, и щедрость здесь была бы дырой.
+    Demo login. Creates the visitor a personal sandbox (a copy of the
+    template database) and an admin session inside it — no login or
+    password: a throwaway sandbox has nobody to ask a password of and no
+    reason to. The rate limit is strict: every sandbox is a file on disk,
+    and generosity here would be a hole.
   */
   if (env.demoMode) {
     const { SANDBOX_COOKIE, createSandbox } = await import('../lib/sandbox.js');
@@ -195,10 +199,10 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
             sameSite: 'lax',
             secure: env.secureCookies,
             path: '/',
-            // Дольше TTL песочницы: срок жизни определяет сервер, не кука
+            // Longer than the sandbox TTL: the server decides the lifetime, not the cookie
             maxAge: 24 * 60 * 60,
           });
-          log.info(`демо: вход в песочницу с ${req.ip}`);
+          log.info(`demo: sandbox login from ${req.ip}`);
 
           return db
             .prepare(
@@ -212,18 +216,19 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     );
   }
 
-  // Токен уже проверен в authenticate, пользователь лежит в запросе.
+  // The token was already checked in authenticate; the user sits on the request.
   app.get('/api/auth/me', (req) => req.user);
 
   /*
-    Переключатель парольного входа. Два инварианта, оба серверные:
+    The password-login switch. Two invariants, both server-side:
 
-    — отключить пароль можно только при привязанном Google, иначе учётка
-      замуровывается;
-    — администратору отключать пароль нельзя никогда. Его пароль — аварийный
-      вход: если Google недоступен, привязка сломалась или протух секрет,
-      админ входит по паролю и чинит. SSO-only без запасного выхода —
-      классический способ потерять доступ ко всему разом.
+    — the password can be disabled only with Google linked, otherwise the
+      account bricks itself;
+    — the admin may never disable the password. Their password is the
+      emergency entrance: if Google is down, the link broke or the secret
+      expired, the admin logs in by password and fixes things. SSO-only
+      with no back door is the classic way to lose access to everything
+      at once.
   */
   app.post('/api/auth/password-login', (req, reply) => {
     const parsed = z.object({ enabled: z.boolean() }).safeParse(req.body);
@@ -245,12 +250,12 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       parsed.data.enabled ? 0 : 1,
       user.id,
     );
-    log.info(`вход по паролю ${parsed.data.enabled ? 'включён' : 'отключён'}: ${user.email}`);
+    log.info(`password login ${parsed.data.enabled ? 'enabled' : 'disabled'}: ${user.email}`);
     return { ok: true };
   });
 
-  // Отвязка Google. Зеркальный инвариант: нельзя отвязать единственный
-  // оставшийся способ входа.
+  // Google unlink. The mirror invariant: the last remaining way in
+  // cannot be unlinked.
   app.post('/api/auth/google/unlink', (req, reply) => {
     const user = req.user!;
     if (user.password_login_disabled) {
@@ -259,7 +264,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         .send({ error: 'Сначала включите вход по паролю — иначе входить будет нечем' });
     }
     db.prepare('UPDATE users SET google_sub = NULL WHERE id = ?').run(user.id);
-    log.info(`google отвязан: ${user.email}`);
+    log.info(`google unlinked: ${user.email}`);
     return { ok: true };
   });
 
@@ -294,7 +299,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         WHERE id = ?`,
     ).run(await hashPassword(parsed.data.new_password), now(), session.id);
 
-    // Смена пароля разлогинивает все устройства, включая текущее
+    // A password change signs out every device, the current one included
     destroyAllSessions(session.id);
     clearSessionCookie(reply);
 

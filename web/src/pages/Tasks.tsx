@@ -69,8 +69,8 @@ export function Tasks() {
     void loadTasks();
   }, [loadTasks]);
 
-  // В архиве «все проекты» бессмысленны: без выбора проекта выдача
-  // задач не отфильтрована и показывает дела из активных проектов.
+  // In the archive "all projects" is meaningless: with no project chosen
+  // the task list is unfiltered and shows items from active projects.
   useEffect(() => {
     if (!showArchived) return;
     if (projectId && projects.some((p) => p.id === projectId)) return;
@@ -95,7 +95,7 @@ export function Tasks() {
     [projects],
   );
 
-  // Переход из общего поиска: /tasks?open=<id> либо /tasks?project=<id>
+  // Arriving from global search: /tasks?open=<id> or /tasks?project=<id>
   useEffect(() => {
     const project = params.get('project');
     const target = params.get('open');
@@ -131,7 +131,7 @@ export function Tasks() {
     <Page
       title={t('Задачи')}
       eyebrow={t('Проекты и дела')}
-      // Доске колонки нужнее, чем поля по краям
+      // The board needs its columns more than it needs side margins
       width={view === 'board' ? 'full' : 'default'}
       action={
         <div className="flex gap-1 rounded-lg border border-line p-0.5">
@@ -150,7 +150,7 @@ export function Tasks() {
         </div>
       }
     >
-      {/* Проекты */}
+      {/* Projects */}
       <div className="mb-5 flex flex-wrap items-center gap-2">
         {!showArchived && (
           <button
@@ -163,7 +163,7 @@ export function Tasks() {
             }`}
           >
             {t('Все проекты')}
-            {/* Тот же счётчик открытых задач, что у каждого проекта */}
+            {/* The same open-task counter every project has */}
             {totalOpen > 0 && <span className="font-mono text-xs">{totalOpen}</span>}
           </button>
         )}
@@ -190,8 +190,8 @@ export function Tasks() {
               {p.open_tasks > 0 && <span className="font-mono text-xs">{p.open_tasks}</span>}
             </button>
 
-            {/* Настройка проекта доступна только у выбранного: иначе строка
-                чипов превращается в частокол шестерёнок */}
+            {/* Project settings only on the selected one: otherwise the
+                chip row turns into a picket fence of gears */}
             {projectId === p.id && p.id !== INBOX_ID && (
               <button
                 type="button"
@@ -232,7 +232,7 @@ export function Tasks() {
         </button>
       </div>
 
-      {/* Фильтры */}
+      {/* Filters */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={control}>
           <option value="">{t('Все исполнители')}</option>
@@ -362,8 +362,8 @@ export function Tasks() {
           }}
           onArchive={async () => {
             await api.post(`/projects/${editingProject.id}/archive`, {});
-            // Проект уехал в другой список — уходим туда же, иначе экран
-            // показывает выбранным то, чего в нём больше нет
+            // The project moved to the other list — follow it, or the
+            // screen keeps showing a selection that is no longer there
             setShowArchived(!editingProject.archived_at);
             setProjectId('');
             await loadProjects();

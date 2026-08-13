@@ -31,7 +31,7 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
 
-// ── Типы, разделяемые с сервером ──────────────────────────────────────────
+// ── Types shared with the server ──────────────────────────────────────────
 
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'done' | 'cancelled';
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
@@ -75,7 +75,7 @@ export interface HouseholdMember {
   color: string;
 }
 
-/** Ответ на изменение задачи: сама задача и порождённый повтор, если он был. */
+/** Response to a task mutation: the task itself plus the spawned recurrence, if any. */
 export interface TaskMutation {
   task: Task;
   spawned: Task | null;
