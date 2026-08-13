@@ -119,7 +119,7 @@ function AddInDay({ date, onPickDay }: { date: string; onPickDay: (d: string) =>
         e.stopPropagation();
         onPickDay(date);
       }}
-      aria-label={t('Добавить событие на {date}', { date })}
+      aria-label={t('Add an event on {date}', { date })}
       className="rounded text-muted opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
     >
       +
@@ -134,7 +134,7 @@ function TaskChip({ task, compact }: { task: Task; compact?: boolean }) {
       className={`flex w-full items-center gap-1.5 rounded border border-dashed border-line ${
         compact ? 'px-1.5 py-0.5 text-[0.6875rem]' : 'px-2 py-1 text-xs'
       }`}
-      title={t('Задача: {project}', { project: task.project_title ?? '' })}
+      title={t('Task: {project}', { project: task.project_title ?? '' })}
     >
       <span
         className="size-1.5 shrink-0 rounded-full"
@@ -268,7 +268,7 @@ export function MonthView({ from, to, today, occurrences, tasks, onPickDay, onOp
                 ))}
                 {items.length > 3 && (
                   <span className="block px-1 text-[0.6875rem] text-muted">
-                    {t('ещё')} {items.length - 3}
+                    {t('more')} {items.length - 3}
                   </span>
                 )}
                 {entry?.tasks.slice(0, 2).map((t) => (
@@ -296,9 +296,9 @@ export function AgendaView({ from, to, today, occurrences, tasks, onPickDay, onO
   if (days.length === 0) {
     return (
       <div className="rounded-card border border-dashed border-line px-6 py-10 text-center text-sm text-muted">
-        {t('В этом промежутке ничего не запланировано.')}
+        {t('Nothing is planned for this period.')}
         <br />
-        {t('Нажмите на любой день в сетке, чтобы добавить событие.')}
+        {t('Click any day in the grid to add an event.')}
       </div>
     );
   }

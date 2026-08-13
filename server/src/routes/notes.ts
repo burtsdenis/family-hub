@@ -61,7 +61,7 @@ function guard(
 ): NoteRow | null {
   const note = loadVisible(noteId, req.user?.id ?? '');
   if (!note) {
-    reply.code(404).send({ error: 'Заметка не найдена' });
+    reply.code(404).send({ error: 'Note not found' });
     return null;
   }
   return note;
@@ -183,7 +183,7 @@ const createInput = z.object({
 });
 
 const patchInput = z.object({
-  title: z.string().min(1, 'У заметки должен быть заголовок').max(200).optional(),
+  title: z.string().min(1, 'The note needs a title').max(200).optional(),
   body_md: z.string().max(500_000).optional(),
   folder_id: z.string().uuid().nullable().optional(),
   visibility: z.enum(['shared', 'private']).optional(),
@@ -201,12 +201,12 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/folders', (req, reply) => {
     const parsed = z
       .object({
-        name: z.string().min(1, 'Укажите название папки').max(100),
+        name: z.string().min(1, 'Enter a folder name').max(100),
         parent_id: z.string().uuid().nullable().optional(),
       })
       .safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const folderId = id();
     db.prepare(
@@ -219,12 +219,12 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
   app.patch('/api/folders/:id', (req, reply) => {
     const { id: folderId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const parsed = z.object({ name: z.string().min(1).max(100) }).safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Укажите название папки' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Enter a folder name' });
 
     const result = db
       .prepare('UPDATE folders SET name = ? WHERE id = ?')
       .run(parsed.data.name.trim(), folderId);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Папка не найдена' });
+    if (result.changes === 0) return reply.code(404).send({ error: 'Folder not found' });
     return db.prepare('SELECT * FROM folders WHERE id = ?').get(folderId);
   });
 
@@ -240,9 +240,8 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
         .code(409)
         .send({
           error:
-            `В папке ${count} ` +
-            (count % 10 === 1 && count % 100 !== 11 ? 'заметка' : 'заметок') +
-            '. Сначала перенесите содержимое в другое место',
+            `The folder has ${count} ${count === 1 ? 'note' : 'notes'}. ` +
+            'Move its contents elsewhere first',
         });
     }
     db.prepare('DELETE FROM folders WHERE id = ?').run(folderId);
@@ -340,7 +339,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/notes', (req, reply) => {
     const parsed = createInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const d = parsed.data;
     const userId = req.user?.id ?? null;
@@ -365,7 +364,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
               AND (visibility = 'shared' OR owner_id = ?)`,
         )
         .get(d.template_id, userId ?? '') as { title: string; body_md: string } | undefined;
-      if (!template) return reply.code(400).send({ error: 'Шаблон не найден' });
+      if (!template) return reply.code(400).send({ error: 'Template not found' });
       body = applyPlaceholders(template.body_md, authorName);
       titleFromTemplate = applyPlaceholders(template.title, authorName);
     }
@@ -381,7 +380,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
         if (existing.visibility === 'private' && existing.owner_id !== userId) {
           return reply
             .code(409)
-            .send({ error: 'Заметка на эту дату уже есть, и она приватная' });
+            .send({ error: 'A note for this date already exists, and it is private' });
         }
         return reply.code(200).send(existing);
       }
@@ -389,7 +388,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
 
     const noteId = id();
     const title =
-      d.title?.trim() || titleFromTemplate || d.daily_date || 'Без названия';
+      d.title?.trim() || titleFromTemplate || d.daily_date || 'Untitled';
 
     db.prepare(
       `INSERT INTO notes (id, title, body_md, folder_id, visibility, owner_id, daily_date,
@@ -423,14 +422,14 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
 
     const parsed = patchInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const d = parsed.data;
     const userId = req.user?.id ?? '';
 
     // Only the person who would become its owner may make a note private
     if (d.visibility === 'private' && note.owner_id && note.owner_id !== userId) {
-      return reply.code(403).send({ error: 'Приватной заметку делает её владелец' });
+      return reply.code(403).send({ error: 'Only the owner can make a note private' });
     }
 
     const contentChanged =
@@ -516,7 +515,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
     const version = db
       .prepare('SELECT * FROM note_versions WHERE id = ? AND note_id = ?')
       .get(versionId, noteId);
-    if (!version) return reply.code(404).send({ error: 'Версия не найдена' });
+    if (!version) return reply.code(404).send({ error: 'Version not found' });
     return version;
   });
 
@@ -530,7 +529,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
     const version = db
       .prepare('SELECT title, body_md FROM note_versions WHERE id = ? AND note_id = ?')
       .get(versionId, noteId) as { title: string; body_md: string } | undefined;
-    if (!version) return reply.code(404).send({ error: 'Версия не найдена' });
+    if (!version) return reply.code(404).send({ error: 'Version not found' });
 
     const userId = req.user?.id ?? '';
     const run = db.transaction(() => {
@@ -565,10 +564,10 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
       | undefined;
     if (existing) {
       if (existing.visibility === 'private' && existing.owner_id !== req.user?.id) {
-        return reply.code(404).send({ error: 'Заметка не найдена' });
+        return reply.code(404).send({ error: 'Note not found' });
       }
       return existing;
     }
-    return reply.code(404).send({ error: 'На эту дату заметки ещё нет' });
+    return reply.code(404).send({ error: 'There is no note for this date yet' });
   });
 }

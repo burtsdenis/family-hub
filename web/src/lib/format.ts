@@ -45,12 +45,12 @@ export function formatDate(iso: string): string {
 }
 
 /**
- * Pluralization. Forms are given as the Russian triple (день/дня/дней) —
- * for English the same triple serves as the key into the pair dictionary
- * (see i18n.en.ts).
+ * Pluralization. Forms are given as the English pair (day/days) —
+ * the singular doubles as the key into a language's plural table
+ * (see ruPlurals in i18n.ru.ts).
  */
-export function plural(n: number, one: string, few: string, many: string): string {
-  return tPlural(n, [one, few, many]);
+export function plural(n: number, one: string, many: string): string {
+  return tPlural(n, [one, many]);
 }
 
 export function daysUntil(targetDate: string): number | null {

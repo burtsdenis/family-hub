@@ -97,30 +97,6 @@ function addMonths(date: Date, months: number, day: number): void {
   date.setUTCDate(Math.min(day, lastDay));
 }
 
-export function describeRecurrence(rule: string | null): string | null {
-  const rec = parseRecurrence(rule);
-  if (!rec) return null;
-  const { freq, interval } = rec;
-
-  if (interval === 1) {
-    return { DAILY: 'Каждый день', WEEKLY: 'Каждую неделю', MONTHLY: 'Каждый месяц', YEARLY: 'Каждый год' }[
-      freq
-    ];
-  }
-  const unit = {
-    DAILY: ['день', 'дня', 'дней'],
-    WEEKLY: ['неделю', 'недели', 'недель'],
-    MONTHLY: ['месяц', 'месяца', 'месяцев'],
-    YEARLY: ['год', 'года', 'лет'],
-  }[freq];
-
-  const abs = interval % 100;
-  const last = abs % 10;
-  const word =
-    abs > 10 && abs < 20 ? unit[2] : last > 1 && last < 5 ? unit[1] : last === 1 ? unit[0] : unit[2];
-  return `Каждые ${interval} ${word}`;
-}
-
 /**
  * All occurrences of a series that fall within a date range.
  *

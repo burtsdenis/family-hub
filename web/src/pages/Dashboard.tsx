@@ -8,10 +8,10 @@ import { MoveBoard } from '../components/MoveBoard';
 import { Page } from '../components/Page';
 
 const PRIORITY_LABEL: Record<Task['priority'], string> = {
-  low: t('Низкий'),
-  normal: t('Обычный'),
-  high: t('Высокий'),
-  urgent: t('Срочно'),
+  low: t('Low'),
+  normal: t('Normal'),
+  high: t('High'),
+  urgent: t('Urgent'),
 };
 
 /*
@@ -79,7 +79,7 @@ function EventRow({ occurrence }: { occurrence: Occurrence }) {
       {occurrence.location && (
         <span className="hidden truncate text-xs text-muted sm:inline">{occurrence.location}</span>
       )}
-        <span className="font-mono text-xs text-muted">{time || t('весь день')}</span>
+        <span className="font-mono text-xs text-muted">{time || t('all day')}</span>
       </Link>
     </li>
   );
@@ -114,7 +114,7 @@ function QuickActions() {
           <path d="M4 7h10M4 12h10M4 17h6" />
           <path d="M18 14v6M15 17h6" />
         </svg>
-        {t('Задача')}
+        {t('Task')}
       </button>
       <button type="button" onClick={() => navigate('/money?add=1')} className={action}>
         <svg viewBox="0 0 24 24" className="size-6 text-accent" {...iconProps}>
@@ -122,14 +122,14 @@ function QuickActions() {
           <circle cx="10" cy="12" r="2.2" />
           <path d="M19 12v6M16 15h6" />
         </svg>
-        {t('Трата')}
+        {t('Expense')}
       </button>
       <button type="button" onClick={() => navigate('/notes?new=1')} className={action}>
         <svg viewBox="0 0 24 24" className="size-6 text-accent" {...iconProps}>
           <path d="M6 3.5h9l4 4V20a.5.5 0 0 1-.5.5h-12A.5.5 0 0 1 6 20V4a.5.5 0 0 1 .5-.5Z" />
           <path d="M9 12h6M12 9v6" />
         </svg>
-        {t('Заметка')}
+        {t('Note')}
       </button>
     </div>
   );
@@ -180,9 +180,9 @@ export function Dashboard() {
 
   if (error) {
     return (
-      <Page title={t('Сегодня')}>
+      <Page title={t('Today')}>
         <div className="rounded-card border border-urgent/40 bg-urgent/10 px-4 py-3 text-sm text-ink">
-          {error}. {t('Проверьте, что сервер хаба запущен, и обновите страницу.')}
+          {error}. {t('Check that the hub server is running, then reload the page.')}
         </div>
       </Page>
     );
@@ -190,7 +190,7 @@ export function Dashboard() {
 
   if (!data) {
     return (
-      <Page title={t('Сегодня')}>
+      <Page title={t('Today')}>
         <div className="h-28 animate-pulse rounded-card bg-surface-3" />
       </Page>
     );
@@ -199,7 +199,7 @@ export function Dashboard() {
   const nothingToday = data.dueToday.length === 0 && data.overdue.length === 0;
 
   return (
-    <Page title={t('Сегодня')} eyebrow={formatDate(data.today)}>
+    <Page title={t('Today')} eyebrow={formatDate(data.today)}>
       <div className="space-y-5">
         <QuickActions />
 
@@ -214,7 +214,7 @@ export function Dashboard() {
           className={`grid gap-5 ${data.overdue.length > 0 ? '2xl:grid-cols-2' : ''}`}
         >
         {data.overdue.length > 0 && (
-          <Panel title={t('Просрочено')} count={data.overdue.length}>
+          <Panel title={t('Overdue')} count={data.overdue.length}>
             <ul>
               {data.overdue.map((t) => (
                 <TaskRow key={t.id} task={t} overdue />
@@ -223,9 +223,9 @@ export function Dashboard() {
           </Panel>
         )}
 
-        <Panel title={t('События дня')} count={data.todayEvents.length}>
+        <Panel title={t('Events of the day')} count={data.todayEvents.length}>
           {data.todayEvents.length === 0 ? (
-            <p className="px-4 pb-4 text-sm text-muted">{t('На сегодня событий нет.')}</p>
+            <p className="px-4 pb-4 text-sm text-muted">{t('No events today.')}</p>
           ) : (
             <ul>
               {data.todayEvents.map((o) => (
@@ -235,10 +235,10 @@ export function Dashboard() {
           )}
         </Panel>
 
-        <Panel title={t('На сегодня')} count={data.dueToday.length}>
+        <Panel title={t('For today')} count={data.dueToday.length}>
           {data.dueToday.length === 0 ? (
             <p className="px-4 pb-4 text-sm text-muted">
-              {nothingToday ? t('На сегодня ничего не запланировано.') : t('Всё на сегодня закрыто.')}
+              {nothingToday ? t('Nothing planned for today.') : t('Everything for today is done.')}
             </p>
           ) : (
             <ul>
@@ -251,7 +251,7 @@ export function Dashboard() {
         </div>
 
         {data.reminders.length > 0 && (
-          <Panel title={t('Скоро')} count={data.reminders.length}>
+          <Panel title={t('Soon')} count={data.reminders.length}>
             <ul>
               {data.reminders.map((o) => (
                 <li key={o.id} className="border-b border-line last:border-0">
@@ -274,9 +274,9 @@ export function Dashboard() {
         )}
 
         <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
-          <Panel title={t('Ближайшая неделя')} count={data.upcoming.length}>
+          <Panel title={t('Next 7 days')} count={data.upcoming.length}>
             {data.upcoming.length === 0 ? (
-              <p className="px-4 pb-4 text-sm text-muted">{t('Дедлайнов на неделю вперёд нет.')}</p>
+              <p className="px-4 pb-4 text-sm text-muted">{t('No deadlines in the next 7 days.')}</p>
             ) : (
               <ul>
                 {data.upcoming.map((t) => (
@@ -286,9 +286,9 @@ export function Dashboard() {
             )}
           </Panel>
 
-          <Panel title={t('Последние заметки')}>
+          <Panel title={t('Recent notes')}>
             {data.recentNotes.length === 0 ? (
-              <p className="px-4 pb-4 text-sm text-muted">{t('Заметок пока нет.')}</p>
+              <p className="px-4 pb-4 text-sm text-muted">{t('No notes yet.')}</p>
             ) : (
               <ul>
                 {data.recentNotes.map((n) => (

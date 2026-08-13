@@ -20,9 +20,9 @@ import { log } from '../lib/log.js';
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60_000;
 
-const nameField = z.string().trim().min(1, 'Имя не может быть пустым').max(80);
-const emailField = z.string().trim().toLowerCase().email('Некорректный логин-адрес').max(120);
-const passwordField = z.string().min(10, 'Пароль — от 10 символов').max(200);
+const nameField = z.string().trim().min(1, 'The name cannot be empty').max(80);
+const emailField = z.string().trim().toLowerCase().email('Invalid login address').max(120);
+const passwordField = z.string().min(10, 'Password must be at least 10 characters').max(200);
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -59,7 +59,7 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
       .object({ name: nameField, email: emailField, password: passwordField })
       .safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
 
     const passwordHash = await hashPassword(parsed.data.password);
@@ -76,7 +76,7 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
     })();
 
     if (!created) {
-      return reply.code(403).send({ error: 'Хаб уже настроен' });
+      return reply.code(403).send({ error: 'The hub is already set up' });
     }
 
     log.info(`initial setup: admin ${parsed.data.email} created from ${req.ip}`);
@@ -88,12 +88,12 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/api/invites', (req, reply) => {
     if (req.user?.role !== 'admin') {
-      return reply.code(403).send({ error: 'Только администратор' });
+      return reply.code(403).send({ error: 'Administrators only' });
     }
     const parsed = z
       .object({ role: z.enum(['member', 'kid']).default('member') })
       .safeParse(req.body ?? {});
-    if (!parsed.success) return reply.code(400).send({ error: 'Некорректный запрос' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid request' });
 
     const token = randomBytes(24).toString('base64url');
     const inviteId = id();
@@ -115,7 +115,7 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/api/invites', (req, reply) => {
     if (req.user?.role !== 'admin') {
-      return reply.code(403).send({ error: 'Только администратор' });
+      return reply.code(403).send({ error: 'Administrators only' });
     }
     return db
       .prepare(
@@ -132,7 +132,7 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete('/api/invites/:id', (req, reply) => {
     if (req.user?.role !== 'admin') {
-      return reply.code(403).send({ error: 'Только администратор' });
+      return reply.code(403).send({ error: 'Administrators only' });
     }
     const { id: inviteId } = z.object({ id: z.string().uuid() }).parse(req.params);
     // Used ones stay untouched — that's history now, not an invite
@@ -147,7 +147,7 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
     const { token } = z.object({ token: z.string().min(1) }).parse(req.query);
     const invite = liveInvite(token);
     if (!invite) {
-      return reply.code(404).send({ error: 'Ссылка не действует: истекла или уже использована' });
+      return reply.code(404).send({ error: 'The link is invalid: expired or already used' });
     }
     return { valid: true };
   });
@@ -162,19 +162,19 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
       })
       .safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
 
     const invite = liveInvite(parsed.data.token);
     if (!invite) {
-      return reply.code(404).send({ error: 'Ссылка не действует: истекла или уже использована' });
+      return reply.code(404).send({ error: 'The link is invalid: expired or already used' });
     }
 
     const exists = db
       .prepare('SELECT id FROM users WHERE lower(email) = ?')
       .get(parsed.data.email);
     if (exists) {
-      return reply.code(409).send({ error: 'Пользователь с таким адресом уже есть' });
+      return reply.code(409).send({ error: 'A user with this address already exists' });
     }
 
     const passwordHash = await hashPassword(parsed.data.password);
@@ -200,7 +200,7 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
     })();
 
     if (!joined) {
-      return reply.code(404).send({ error: 'Ссылка не действует: истекла или уже использована' });
+      return reply.code(404).send({ error: 'The link is invalid: expired or already used' });
     }
 
     log.info(`invite join: ${parsed.data.email} (${invite.role}) from ${req.ip}`);

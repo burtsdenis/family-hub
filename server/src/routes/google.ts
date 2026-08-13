@@ -137,7 +137,7 @@ export async function registerGoogleRoutes(app: FastifyInstance): Promise<void> 
   // Login start. A public route: there is no session yet.
   app.get('/api/auth/google/start', (req, reply) => {
     if (!configured()) {
-      return reply.code(501).send({ error: 'Вход через Google не настроен' });
+      return reply.code(501).send({ error: 'Google sign-in is not configured' });
     }
     return startFlow(reply, 'login');
   });
@@ -145,7 +145,7 @@ export async function registerGoogleRoutes(app: FastifyInstance): Promise<void> 
   // Linking start. Closed by the general authentication: no session, no entry.
   app.get('/api/auth/google/link', (req, reply) => {
     if (!configured()) {
-      return reply.code(501).send({ error: 'Вход через Google не настроен' });
+      return reply.code(501).send({ error: 'Google sign-in is not configured' });
     }
     return startFlow(reply, 'link', req.user?.id);
   });

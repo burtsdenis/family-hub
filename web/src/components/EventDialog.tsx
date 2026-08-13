@@ -103,7 +103,7 @@ export function EventDialog({
 
   async function save() {
     if (!draft.title.trim()) {
-      setError(t('Укажите название события'));
+      setError(t('Enter an event name'));
       return;
     }
     setBusy(true);
@@ -114,7 +114,7 @@ export function EventDialog({
       onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось сохранить'));
+      setError(err instanceof Error ? err.message : t('Could not save'));
     } finally {
       setBusy(false);
     }
@@ -131,11 +131,11 @@ export function EventDialog({
   async function removeAll() {
     if (!occurrence) return;
     const ok = await dialogs.confirm({
-      title: occurrence.is_recurring ? t('Удалить серию') : t('Удалить событие'),
+      title: occurrence.is_recurring ? t('Delete series') : t('Delete event'),
       message: occurrence.is_recurring
-        ? t('«{title}» исчезнет из всех дат, включая прошедшие.', { title: occurrence.title })
-        : t('«{title}» будет удалено.', { title: occurrence.title }),
-      confirmLabel: t('Удалить'),
+        ? t('“{title}” will disappear from all dates, including past ones.', { title: occurrence.title })
+        : t('“{title}” will be deleted.', { title: occurrence.title }),
+      confirmLabel: t('Delete'),
       danger: true,
     });
     if (!ok) return;
@@ -148,17 +148,17 @@ export function EventDialog({
     <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto px-5 py-12">
       <button
         type="button"
-        aria-label={t('Закрыть')}
+        aria-label={t('Close')}
         onClick={onClose}
         className="fixed inset-0 bg-black/40"
       />
 
       <div className="relative w-full max-w-lg rounded-card border border-line bg-surface p-5 shadow-xl">
-        <h2 className="eyebrow mb-4">{editing ? t('Событие') : t('Новое событие')}</h2>
+        <h2 className="eyebrow mb-4">{editing ? t('Event') : t('New event')}</h2>
 
         <div className="space-y-4">
           <label className="block">
-            <span className={label}>{t('Название')}</span>
+            <span className={label}>{t('Title')}</span>
             <input
               autoFocus
               value={draft.title}
@@ -170,7 +170,7 @@ export function EventDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className={label}>{t('Календарь')}</span>
+              <span className={label}>{t('Calendar')}</span>
               <select
                 value={draft.calendar_id}
                 onChange={(e) => setDraft({ ...draft, calendar_id: e.target.value })}
@@ -179,14 +179,14 @@ export function EventDialog({
                 {calendars.map((c) => (
                   <option key={c.id} value={c.id}>
                     {calendarName(c.id, c.name)}
-                    {c.shared ? '' : t(' (личный)')}
+                    {c.shared ? '' : t(' (personal)')}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="block">
-              <span className={label}>{t('Место')}</span>
+              <span className={label}>{t('Place')}</span>
               <input
                 value={draft.location}
                 onChange={(e) => setDraft({ ...draft, location: e.target.value })}
@@ -202,12 +202,12 @@ export function EventDialog({
               onChange={(e) => setDraft({ ...draft, all_day: e.target.checked })}
               className="size-4 accent-[var(--c-accent)]"
             />
-            {t('Весь день')}
+            {t('All day')}
           </label>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className={label}>{t('Начало')}</span>
+              <span className={label}>{t('Start')}</span>
               <input
                 type="date"
                 value={draft.start_date}
@@ -224,7 +224,7 @@ export function EventDialog({
             </label>
 
             <label className="block">
-              <span className={label}>{t('Конец')}</span>
+              <span className={label}>{t('End')}</span>
               <input
                 type="date"
                 value={draft.end_date}
@@ -236,7 +236,7 @@ export function EventDialog({
             {!draft.all_day && (
               <>
                 <label className="block">
-                  <span className={label}>{t('Время начала')}</span>
+                  <span className={label}>{t('Start time')}</span>
                   <input
                     type="time"
                     value={draft.start_time}
@@ -245,7 +245,7 @@ export function EventDialog({
                   />
                 </label>
                 <label className="block">
-                  <span className={label}>{t('Время конца')}</span>
+                  <span className={label}>{t('End time')}</span>
                   <input
                     type="time"
                     value={draft.end_time}
@@ -259,7 +259,7 @@ export function EventDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className={label}>{t('Повторение')}</span>
+              <span className={label}>{t('Recurrence')}</span>
               <select
                 value={draft.recurrence_rule}
                 onChange={(e) => setDraft({ ...draft, recurrence_rule: e.target.value })}
@@ -274,7 +274,7 @@ export function EventDialog({
             </label>
 
             <label className="block">
-              <span className={label}>{t('Предупредить')}</span>
+              <span className={label}>{t('Remind')}</span>
               <select
                 value={draft.remind_days_before}
                 onChange={(e) => setDraft({ ...draft, remind_days_before: e.target.value })}
@@ -291,10 +291,10 @@ export function EventDialog({
 
           {draft.recurrence_rule === 'FREQ=YEARLY' && (
             <label className="block">
-              <span className={label}>{t('Год рождения')}</span>
+              <span className={label}>{t('Year of birth')}</span>
               <input
                 type="number"
-                placeholder={t('Необязательно — покажет возраст')}
+                placeholder={t('Optional — shows the age')}
                 value={draft.birth_year}
                 onChange={(e) => setDraft({ ...draft, birth_year: e.target.value })}
                 className={field}
@@ -303,13 +303,13 @@ export function EventDialog({
           )}
 
           <label className="block">
-            <span className={label}>{t('Проект')}</span>
+            <span className={label}>{t('Project')}</span>
             <select
               value={draft.project_id}
               onChange={(e) => setDraft({ ...draft, project_id: e.target.value })}
               className={field}
             >
-              <option value="">{t('Без проекта')}</option>
+              <option value="">{t('No project')}</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.title}
@@ -319,10 +319,10 @@ export function EventDialog({
           </label>
 
           <div>
-            <span className={label}>{t('Кто идёт')}</span>
+            <span className={label}>{t('Who is going')}</span>
             {members.length < 2 && (
               <p className="mb-2 text-xs text-muted">
-                {t('Выбирать пока не из кого: в доме одна учётная запись. Заведите личные учётки в разделе «Пользователи» — тогда здесь появятся все домочадцы.')}
+                {t('Nobody to pick yet: the hub has a single account. Create personal accounts in People — everyone will show up here.')}
               </p>
             )}
               <div className="flex flex-wrap gap-2">
@@ -352,7 +352,7 @@ export function EventDialog({
           </div>
 
           <label className="block">
-            <span className={label}>{t('Описание')}</span>
+            <span className={label}>{t('Description')}</span>
             <textarea
               rows={3}
               value={draft.description}
@@ -371,7 +371,7 @@ export function EventDialog({
               onClick={() => void removeOne()}
               className="text-sm text-muted underline underline-offset-2 hover:text-ink"
             >
-              {t('Отменить этот раз')}
+              {t('Skip this occurrence')}
             </button>
           )}
           {editing && (
@@ -380,7 +380,7 @@ export function EventDialog({
               onClick={() => void removeAll()}
               className="text-sm text-muted underline underline-offset-2 hover:text-urgent"
             >
-              {occurrence.is_recurring ? t('Удалить серию') : t('Удалить')}
+              {occurrence.is_recurring ? t('Delete series') : t('Delete')}
             </button>
           )}
 
@@ -390,7 +390,7 @@ export function EventDialog({
             disabled={busy}
             className="ml-auto rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? t('Сохраняю') : t('Сохранить')}
+            {busy ? t('Saving') : t('Save')}
           </button>
         </div>
       </div>

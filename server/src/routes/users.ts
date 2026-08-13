@@ -22,8 +22,8 @@ function nextColor(): string {
 }
 
 const createInput = z.object({
-  email: z.string().email('Укажите адрес вида имя@hub.local').max(200),
-  name: z.string().min(1, 'Укажите имя').max(100),
+  email: z.string().email('Enter an address like name@hub.local').max(200),
+  name: z.string().min(1, 'Enter a name').max(100),
   role: z.enum(['admin', 'member', 'kid']),
   color: z
     .string()
@@ -48,12 +48,12 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
 
     const parsed = createInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const email = parsed.data.email.trim().toLowerCase();
 
     const exists = db.prepare('SELECT 1 FROM users WHERE lower(email) = ?').get(email);
-    if (exists) return reply.code(409).send({ error: 'Пользователь с таким адресом уже есть' });
+    if (exists) return reply.code(409).send({ error: 'A member with this address already exists' });
 
     const password = generatePassword();
     const userId = id();
@@ -88,17 +88,17 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
         color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
       })
       .safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Проверьте поля' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Check the fields' });
 
     const fields: [string, string][] = [];
     if (parsed.data.name !== undefined) fields.push(['name', parsed.data.name.trim()]);
     if (parsed.data.color !== undefined) fields.push(['color', parsed.data.color]);
-    if (fields.length === 0) return reply.code(400).send({ error: 'Нечего менять' });
+    if (fields.length === 0) return reply.code(400).send({ error: 'Nothing to change' });
 
     const result = db
       .prepare(`UPDATE users SET ${fields.map(([k]) => `${k} = ?`).join(', ')} WHERE id = ?`)
       .run(...fields.map(([, v]) => v), userId);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Пользователь не найден' });
+    if (result.changes === 0) return reply.code(404).send({ error: 'Member not found' });
 
     return db
       .prepare('SELECT id, email, name, role, color FROM users WHERE id = ?')
@@ -110,7 +110,7 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
     const { id: userId } = z.object({ id: z.string().uuid() }).parse(req.params);
 
     const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
-    if (!user) return reply.code(404).send({ error: 'Пользователь не найден' });
+    if (!user) return reply.code(404).send({ error: 'Member not found' });
 
     const password = generatePassword();
     // A reset is also the recovery path for a dead Google account,
@@ -130,13 +130,13 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
     const { id: userId } = z.object({ id: z.string().uuid() }).parse(req.params);
 
     if (userId === req.user?.id) {
-      return reply.code(400).send({ error: 'Нельзя отключить самого себя' });
+      return reply.code(400).send({ error: 'You cannot disable yourself' });
     }
 
     const user = db.prepare('SELECT disabled_at FROM users WHERE id = ?').get(userId) as
       | { disabled_at: string | null }
       | undefined;
-    if (!user) return reply.code(404).send({ error: 'Пользователь не найден' });
+    if (!user) return reply.code(404).send({ error: 'Member not found' });
 
     const disabled = user.disabled_at ? null : now();
     db.prepare('UPDATE users SET disabled_at = ? WHERE id = ?').run(disabled, userId);

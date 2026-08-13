@@ -18,26 +18,26 @@ interface ManagedUser {
 }
 
 const ROLE_LABEL: Record<ManagedUser['role'], string> = {
-  admin: t('Администратор'),
-  member: t('Житель дома'),
-  kid: t('Ребёнок'),
+  admin: t('Administrator'),
+  member: t('Family member'),
+  kid: t('Kid'),
 };
 
 /** The password is shown exactly once — after that only the owner knows it. */
 function PasswordOnce({ password, onClose }: { password: string; onClose: () => void }) {
   return (
     <div className="mb-5 rounded-card border border-accent bg-accent-soft p-4">
-      <p className="text-sm font-medium text-ink">{t('Пароль создан. Он показывается один раз.')}</p>
+      <p className="text-sm font-medium text-ink">{t('Password created. It is shown only once.')}</p>
       <p className="my-3 font-mono text-lg tracking-wide text-ink select-all">{password}</p>
       <p className="text-xs text-muted">
-        {t('Передайте его владельцу учётки. При первом входе система попросит задать свой пароль.')}
+        {t('Hand it to the account owner. On first sign-in they will be asked to set their own password.')}
       </p>
       <button
         type="button"
         onClick={onClose}
         className="mt-3 text-sm font-medium text-accent underline underline-offset-2"
       >
-        {t('Записал, скрыть')}
+        {t('Recorded, hide')}
       </button>
     </div>
   );
@@ -96,7 +96,7 @@ function InvitesBlock() {
 
   return (
     <div className="mb-6 rounded-card border border-line bg-surface p-5">
-      <h2 className="eyebrow mb-4">{t('Пригласить по ссылке')}</h2>
+      <h2 className="eyebrow mb-4">{t('Invite with a link')}</h2>
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -104,10 +104,10 @@ function InvitesBlock() {
           disabled={busy}
           className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
-          {t('Создать ссылку')}
+          {t('Create link')}
         </button>
         <p className="text-xs text-muted">
-          {t('Одноразовая, действует неделю. Отправьте её домочадцу — остальное он заполнит сам.')}
+          {t('Single-use, valid for a week. Send it to a family member — they fill in the rest themselves.')}
         </p>
       </div>
 
@@ -119,7 +119,7 @@ function InvitesBlock() {
             onClick={() => void copy(freshLink)}
             className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-xs text-ink hover:bg-surface-3"
           >
-            {copied ? t('Скопировано') : t('Копировать')}
+            {copied ? t('Copied') : t('Copy')}
           </button>
         </div>
       )}
@@ -129,14 +129,14 @@ function InvitesBlock() {
           {pending.map((i) => (
             <li key={i.id} className="flex items-center justify-between text-sm">
               <span className="text-muted">
-                {t('Ссылка от {from} · действует до {to}', { from: i.created_at.slice(0, 10), to: i.expires_at.slice(0, 10) })}
+                {t('Link from {from} · valid until {to}', { from: i.created_at.slice(0, 10), to: i.expires_at.slice(0, 10) })}
               </span>
               <button
                 type="button"
                 onClick={() => void api.delete(`/invites/${i.id}`).then(load)}
                 className="text-xs text-muted underline decoration-line hover:text-urgent"
               >
-                {t('Отозвать')}
+                {t('Revoke')}
               </button>
             </li>
           ))}
@@ -175,7 +175,7 @@ export function PeopleSection() {
       setForm({ name: '', email: '', role: 'member' });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось создать пользователя'));
+      setError(err instanceof Error ? err.message : t('Could not create the member'));
     } finally {
       setBusy(false);
     }
@@ -183,9 +183,9 @@ export function PeopleSection() {
 
   async function reset(user: ManagedUser) {
     const ok = await dialogs.confirm({
-      title: t('Сбросить пароль'),
-      message: t('{name} будет разлогинен на всех устройствах и получит новый пароль.', { name: user.name }),
-      confirmLabel: t('Сбросить'),
+      title: t('Reset password'),
+      message: t('{name} will be signed out on all devices and given a new password.', { name: user.name }),
+      confirmLabel: t('Reset'),
     });
     if (!ok) return;
     const res = await api.post<{ password: string }>(`/users/${user.id}/reset-password`, {});
@@ -200,23 +200,23 @@ export function PeopleSection() {
 
   return (
     <section>
-      <h2 className="eyebrow mb-4">{t('Пользователи')}</h2>
+      <h2 className="eyebrow mb-4">{t('People')}</h2>
       <InvitesBlock />
 
       {password && <PasswordOnce password={password} onClose={() => setPassword(null)} />}
 
       <div className="mb-6 rounded-card border border-line bg-surface p-5">
-        <h2 className="eyebrow mb-4">{t('Создать вручную (с одноразовым паролем)')}</h2>
+        <h2 className="eyebrow mb-4">{t('Create manually (with a one-time password)')}</h2>
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <input
-            placeholder={t('Имя')}
+            placeholder={t('Name')}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             onKeyDown={onEnter(() => void create())}
             className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
           />
           <input
-            placeholder={t('имя@hub.local')}
+            placeholder={t('name@hub.local')}
             autoCapitalize="none"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -229,7 +229,7 @@ export function PeopleSection() {
             disabled={busy}
             className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
-            {t('Создать')}
+            {t('Create')}
           </button>
         </div>
         {error && <p className="mt-3 text-sm text-urgent">{error}</p>}
@@ -238,7 +238,7 @@ export function PeopleSection() {
       {users === null ? (
         <div className="h-32 animate-pulse rounded-card bg-surface-3" />
       ) : users.length === 0 ? (
-        <Empty>{t('Пользователей нет.')}</Empty>
+        <Empty>{t('No members yet.')}</Empty>
       ) : (
         <ul className="overflow-hidden rounded-card border border-line bg-surface">
           {users.map((u) => (
@@ -254,7 +254,7 @@ export function PeopleSection() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-ink">
                   {u.name}
-                  {u.disabled_at && <span className="ml-2 text-xs text-muted">{t('отключён')}</span>}
+                  {u.disabled_at && <span className="ml-2 text-xs text-muted">{t('disabled')}</span>}
                 </p>
                 <p className="truncate font-mono text-xs text-muted">{u.email}</p>
               </div>
@@ -264,21 +264,21 @@ export function PeopleSection() {
                 onClick={() => setEditing(u)}
                 className="text-xs text-accent underline underline-offset-2"
               >
-                {t('Изменить')}
+                {t('Edit')}
               </button>
               <button
                 type="button"
                 onClick={() => void reset(u)}
                 className="text-xs text-accent underline underline-offset-2"
               >
-                {t('Сбросить пароль')}
+                {t('Reset password')}
               </button>
               <button
                 type="button"
                 onClick={() => void toggle(u)}
                 className="text-xs text-muted underline underline-offset-2 hover:text-ink"
               >
-                {u.disabled_at ? t('Включить') : t('Отключить')}
+                {u.disabled_at ? t('Enable') : t('Disable')}
               </button>
             </li>
           ))}
@@ -287,7 +287,7 @@ export function PeopleSection() {
 
       {editing && (
         <EntityDialog
-          title={t('Пользователь')}
+          title={t('Member')}
           initial={{ name: editing.name, color: editing.color }}
           onSave={async (draft) => {
             await api.patch(`/users/${editing.id}`, { name: draft.name, color: draft.color });
@@ -298,7 +298,7 @@ export function PeopleSection() {
       )}
 
       <p className="mt-5 text-sm text-muted">
-        {t('Администратор управляет учётками и настройками, но не видит чужие приватные заметки — выборки фильтруются по владельцу без исключений для роли.')}
+        {t('The administrator manages accounts and settings but cannot see anyone’s private notes — queries filter by owner with no exception for the role.')}
       </p>
     </section>
   );

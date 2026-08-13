@@ -15,7 +15,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new ApiError(t(body?.error ?? 'Сервер недоступен'), res.status);
+    throw new ApiError(t(body?.error ?? 'The server is unreachable'), res.status);
   }
   return (await res.json()) as T;
 }

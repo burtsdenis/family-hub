@@ -44,7 +44,7 @@ export function Modal({
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-5 py-20">
       <button
         type="button"
-        aria-label={t('Закрыть')}
+        aria-label={t('Close')}
         onClick={onClose}
         className="fixed inset-0 bg-black/40"
       />
@@ -144,14 +144,14 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           footer={
             <>
               <button type="button" onClick={() => close(null)} className={dialogGhost}>
-                {t('Отмена')}
+                {t('Cancel')}
               </button>
               <button
                 type="button"
                 onClick={() => close(value.trim() || null)}
                 className={dialogPrimary}
               >
-                {pending.options.confirmLabel ?? t('Готово')}
+                {pending.options.confirmLabel ?? t('Done')}
               </button>
             </>
           }
@@ -179,7 +179,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           footer={
             <>
               <button type="button" onClick={() => close(false)} className={dialogGhost}>
-                {t('Отмена')}
+                {t('Cancel')}
               </button>
               <button
                 type="button"
@@ -187,7 +187,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                 onClick={() => close(true)}
                 className={pending.options.danger ? dialogDanger : dialogPrimary}
               >
-                {pending.options.confirmLabel ?? t('Подтвердить')}
+                {pending.options.confirmLabel ?? t('Confirm')}
               </button>
             </>
           }
@@ -203,6 +203,6 @@ export function DialogProvider({ children }: { children: ReactNode }) {
 
 export function useDialogs(): DialogApi {
   const ctx = useContext(DialogContext);
-  if (!ctx) throw new Error(t('useDialogs вызван вне DialogProvider'));
+  if (!ctx) throw new Error(t('useDialogs called outside DialogProvider'));
   return ctx;
 }

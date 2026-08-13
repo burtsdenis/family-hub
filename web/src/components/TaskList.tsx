@@ -13,7 +13,7 @@ interface Props {
 
 export function TaskList({ nodes, onChanged, onOpen }: Props) {
   if (nodes.length === 0) {
-    return <Empty>{t('Задач нет. Добавьте первую — строка ввода прямо над списком.')}</Empty>;
+    return <Empty>{t('No tasks. Add the first one — the input line is right above the list.')}</Empty>;
   }
   return (
     <ul className="overflow-hidden rounded-card border border-line bg-surface">
@@ -77,7 +77,7 @@ function TaskItem({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            aria-label={expanded ? t('Свернуть') : t('Развернуть')}
+            aria-label={expanded ? t('Collapse') : t('Expand')}
             className="-ml-4 w-4 text-muted transition-transform hover:text-ink"
             style={{ transform: expanded ? 'rotate(90deg)' : 'none' }}
           >
@@ -91,7 +91,7 @@ function TaskItem({
           type="checkbox"
           checked={closed}
           onChange={() => void toggle()}
-          aria-label={closed ? t('Вернуть в работу') : t('Отметить выполненной')}
+          aria-label={closed ? t('Reopen') : t('Mark as done')}
           className="size-4 shrink-0 accent-[var(--c-done)]"
         />
 
@@ -109,7 +109,7 @@ function TaskItem({
         </button>
 
         {node.recurrence_rule && (
-          <span className="font-mono text-xs text-muted" title={t('Повторяется')}>
+          <span className="font-mono text-xs text-muted" title={t('Repeats')}>
             ↻
           </span>
         )}
@@ -160,8 +160,8 @@ function TaskItem({
           <button
             type="button"
             onClick={() => setAdding((v) => !v)}
-            title={node.level === 0 ? t('Добавить задачу') : t('Добавить подзадачу')}
-            aria-label={node.level === 0 ? t('Добавить задачу') : t('Добавить подзадачу')}
+            title={node.level === 0 ? t('Add task') : t('Add subtask')}
+            aria-label={node.level === 0 ? t('Add task') : t('Add subtask')}
             className="grid size-6 shrink-0 place-items-center rounded-md border border-line text-muted transition-colors hover:border-accent hover:text-accent"
           >
             +
@@ -174,7 +174,7 @@ function TaskItem({
           <input
             autoFocus
             value={childTitle}
-            placeholder={t('Название вложенной задачи')}
+            placeholder={t('Nested task name')}
             onChange={(e) => setChildTitle(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') void addChild();

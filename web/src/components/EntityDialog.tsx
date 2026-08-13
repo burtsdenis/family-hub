@@ -94,7 +94,7 @@ export function EntityDialog({
       await action();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не получилось'));
+      setError(err instanceof Error ? err.message : t('Something went wrong'));
       setBusy(false);
     }
   }
@@ -116,11 +116,11 @@ export function EntityDialog({
               onClick={() => void run(onDelete)}
               className={`${dialogDanger} mr-auto`}
             >
-              {t('Удалить')}
+              {t('Delete')}
             </button>
           )}
           <button type="button" onClick={onClose} className={dialogGhost}>
-            {t('Отмена')}
+            {t('Cancel')}
           </button>
           <button
             type="button"
@@ -128,14 +128,14 @@ export function EntityDialog({
             onClick={() => void run(() => onSave({ ...draft, name: draft.name.trim() }))}
             className={dialogPrimary}
           >
-            {t('Сохранить')}
+            {t('Save')}
           </button>
         </>
       }
     >
       <div className="space-y-4">
         <label className="block">
-          <span className={dialogLabel}>{t('Название')}</span>
+          <span className={dialogLabel}>{t('Title')}</span>
           <input
             autoFocus
             value={draft.name}
@@ -147,13 +147,13 @@ export function EntityDialog({
 
         {draft.color !== undefined && (
           <div>
-            <span className={dialogLabel}>{t('Цвет')}</span>
+            <span className={dialogLabel}>{t('Colour')}</span>
             <div className="flex flex-wrap items-center gap-2">
               {[...PALETTE, ...custom].map((color) => (
                 <button
                   key={color}
                   type="button"
-                  aria-label={t('Цвет {color}', { color })}
+                  aria-label={t('Colour {color}', { color })}
                   onClick={() => setDraft({ ...draft, color })}
                   style={{ backgroundColor: color }}
                   className={`size-7 rounded-full transition-transform ${
@@ -168,7 +168,7 @@ export function EntityDialog({
                   accumulate; pruning lives in Settings. */}
               <label
                 className="grid size-7 cursor-pointer place-items-center rounded-full border border-dashed border-line text-sm text-muted transition-colors hover:border-accent hover:text-accent"
-                title={t('Свой цвет')}
+                title={t('Custom color')}
               >
                 +
                 <input
@@ -176,7 +176,7 @@ export function EntityDialog({
                   value={draft.color ?? PALETTE[0]}
                   onChange={(e) => pickCustom(e.target.value)}
                   className="sr-only"
-                  aria-label={t('Свой цвет')}
+                  aria-label={t('Custom color')}
                 />
               </label>
             </div>

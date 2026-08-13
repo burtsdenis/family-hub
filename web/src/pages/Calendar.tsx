@@ -89,7 +89,7 @@ export function Calendar() {
       setError(null);
     } catch (err) {
       if (!fresh()) return;
-      setError(err instanceof Error ? err.message : t('Не удалось загрузить календарь'));
+      setError(err instanceof Error ? err.message : t('Could not load the calendar'));
     }
   }, [from, to, showTasks, isLatest]);
 
@@ -127,7 +127,7 @@ export function Calendar() {
   }
 
   const title =
-    view === 'month' ? monthTitle(anchor) : view === 'week' ? rangeTitle(from, to) : t('Ближайшее');
+    view === 'month' ? monthTitle(anchor) : view === 'week' ? rangeTitle(from, to) : t('Coming up');
 
   const viewProps = {
     from,
@@ -141,8 +141,8 @@ export function Calendar() {
 
   return (
     <Page
-      title={t('Календарь')}
-      eyebrow={t('Что и когда')}
+      title={t('Calendar')}
+      eyebrow={t('What and when')}
       action={
         <div className="flex gap-1 rounded-lg border border-line p-0.5">
           {(Object.keys(VIEW_LABEL) as CalendarView[]).map((v) => (
@@ -166,7 +166,7 @@ export function Calendar() {
           <button
             type="button"
             onClick={() => step(-1)}
-            aria-label={t('Назад')}
+            aria-label={t('Back')}
             className="grid size-8 place-items-center rounded-lg border border-line text-muted hover:text-ink"
           >
             ‹
@@ -176,12 +176,12 @@ export function Calendar() {
             onClick={() => setAnchor(today)}
             className="rounded-lg border border-line px-3 py-1.5 text-sm text-muted hover:text-ink"
           >
-            {t('Сегодня')}
+            {t('Today')}
           </button>
           <button
             type="button"
             onClick={() => step(1)}
-            aria-label={t('Вперёд')}
+            aria-label={t('Forward')}
             className="grid size-8 place-items-center rounded-lg border border-line text-muted hover:text-ink"
           >
             ›
@@ -195,7 +195,7 @@ export function Calendar() {
           onClick={() => setCreatingOn(today)}
           className="ml-auto rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
         >
-          {t('Новое событие')}
+          {t('New event')}
         </button>
       </div>
 
@@ -213,7 +213,7 @@ export function Calendar() {
                 onClick={() =>
                   setHidden(on ? [...hidden, c.id] : hidden.filter((id) => id !== c.id))
                 }
-                aria-label={on ? t('Скрыть календарь {name}', { name: calendarName(c.id, c.name) }) : t('Показать календарь {name}', { name: calendarName(c.id, c.name) })}
+                aria-label={on ? t('Hide calendar {name}', { name: calendarName(c.id, c.name) }) : t('Show calendar {name}', { name: calendarName(c.id, c.name) })}
                 className="flex items-center gap-2 hover:text-ink"
               >
                 <span
@@ -225,13 +225,13 @@ export function Calendar() {
                   aria-hidden
                 />
                 {calendarName(c.id, c.name)}
-                {!c.shared && <span className="text-xs opacity-60">{t('личный')}</span>}
+                {!c.shared && <span className="text-xs opacity-60">{t('personal')}</span>}
               </button>
 
               <button
                 type="button"
                 onClick={() => setEditingCalendar(c)}
-                aria-label={t('Настроить календарь {name}', { name: calendarName(c.id, c.name) })}
+                aria-label={t('Configure calendar {name}', { name: calendarName(c.id, c.name) })}
                 className="opacity-60 hover:opacity-100"
               >
                 <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -248,7 +248,7 @@ export function Calendar() {
           onClick={() => setShowTasks(!showTasks)}
           className={`${chip} ${showTasks ? chipOn : chipOff}`}
         >
-          {t('Задачи со сроком')}
+          {t('Tasks with a due date')}
         </button>
 
         <button
@@ -256,7 +256,7 @@ export function Calendar() {
           onClick={() => setCreatingCalendar(true)}
           className={`${chip} border-dashed border-line text-muted hover:text-ink`}
         >
-          {t('+ календарь')}
+          {t('+ calendar')}
         </button>
       </div>
 
@@ -278,10 +278,10 @@ export function Calendar() {
 
       {creatingCalendar && (
         <EntityDialog
-          title={t('Новый календарь')}
+          title={t('New calendar')}
           initial={{ name: '', color: PALETTE[1], flag: false }}
-          flagLabel={t('Личный')}
-          flagHint={t('Его события видите только вы — даже администратор не увидит')}
+          flagLabel={t('Personal')}
+          flagHint={t('Only you can see its events — not even the administrator')}
           onSave={async (draft) => {
             await api.post('/calendars', {
               name: draft.name,
@@ -296,18 +296,18 @@ export function Calendar() {
 
       {editingCalendar && (
         <EntityDialog
-          title={t('Календарь')}
+          title={t('Calendar')}
           initial={{
             name: editingCalendar.name,
             color: editingCalendar.color,
             flag: editingCalendar.shared === 0,
           }}
-          flagLabel={t('Личный')}
-          flagHint={t('Его события видите только вы — даже администратор не увидит')}
+          flagLabel={t('Personal')}
+          flagHint={t('Only you can see its events — not even the administrator')}
           deletable={editingCalendar.event_count === 0}
-          deleteHint={t('В календаре {n} {unit}. Удаление календаря удалит и события.', {
+          deleteHint={t('The calendar has {n} {unit}. Deleting the calendar deletes its events too.', {
             n: editingCalendar.event_count,
-            unit: plural(editingCalendar.event_count, 'событие', 'события', 'событий'),
+            unit: plural(editingCalendar.event_count, 'event', 'events'),
           })}
           onSave={async (draft) => {
             await api.patch(`/calendars/${editingCalendar.id}`, {

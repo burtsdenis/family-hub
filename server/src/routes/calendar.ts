@@ -20,7 +20,7 @@ const DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
  */
 const eventBase = z.object({
   calendar_id: z.string().uuid(),
-  title: z.string().min(1, 'У события должно быть название').max(300),
+  title: z.string().min(1, 'The event needs a title').max(300),
   description: z.string().max(10_000).nullable().optional(),
   location: z.string().max(300).nullable().optional(),
   starts_at: z.string().regex(new RegExp(`${DATE.source.slice(0, -1)}(T\\d{2}:\\d{2})?$`)),
@@ -37,14 +37,14 @@ const endsAfterStart = (v: { starts_at?: string; ends_at?: string }) =>
   v.starts_at === undefined || v.ends_at === undefined || v.ends_at >= v.starts_at;
 
 const eventInput = eventBase.refine(endsAfterStart, {
-  message: 'Конец события раньше начала',
+  message: 'The event ends before it starts',
   path: ['ends_at'],
 });
 
 // A partial edit checks the same invariant, but only when both bounds
 // arrived in the request
 const eventPatch = eventBase.partial().refine(endsAfterStart, {
-  message: 'Конец события раньше начала',
+  message: 'The event ends before it starts',
   path: ['ends_at'],
 });
 
@@ -207,13 +207,13 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
   app.post('/api/calendars', (req, reply) => {
     const parsed = z
       .object({
-        name: z.string().min(1, 'Укажите название календаря').max(100),
+        name: z.string().min(1, 'Enter a calendar name').max(100),
         color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
         shared: z.boolean().optional(),
       })
       .safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
 
     const calendarId = id();
@@ -239,23 +239,23 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
         shared: z.boolean().optional(),
       })
       .safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Проверьте поля' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Check the fields' });
 
     const calendar = db
       .prepare(`SELECT c.* FROM calendars c WHERE c.id = ? AND ${CALENDAR_VISIBLE}`)
       .get(calendarId, req.user?.id ?? '') as { owner_id: string | null } | undefined;
-    if (!calendar) return reply.code(404).send({ error: 'Календарь не найден' });
+    if (!calendar) return reply.code(404).send({ error: 'Calendar not found' });
 
     // A personal calendar is managed by its owner alone
     if (calendar.owner_id && calendar.owner_id !== req.user?.id) {
-      return reply.code(403).send({ error: 'Этот календарь принадлежит другому человеку' });
+      return reply.code(403).send({ error: 'This calendar belongs to someone else' });
     }
 
     const fields: [string, unknown][] = [];
     if (parsed.data.name !== undefined) fields.push(['name', parsed.data.name.trim()]);
     if (parsed.data.color !== undefined) fields.push(['color', parsed.data.color]);
     if (parsed.data.shared !== undefined) fields.push(['shared', parsed.data.shared ? 1 : 0]);
-    if (fields.length === 0) return reply.code(400).send({ error: 'Нечего менять' });
+    if (fields.length === 0) return reply.code(400).send({ error: 'Nothing to change' });
 
     db.prepare(`UPDATE calendars SET ${fields.map(([k]) => `${k} = ?`).join(', ')} WHERE id = ?`).run(
       ...fields.map(([, v]) => v as string | number),
@@ -275,11 +275,11 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
     if (count > 0) {
       return reply
         .code(409)
-        .send({ error: `В календаре ${count} событий. Удаление календаря удалит и события` });
+        .send({ error: `The calendar has ${count} ${count === 1 ? 'event' : 'events'}. Deleting the calendar deletes them too` });
     }
 
     const result = db.prepare('DELETE FROM calendars WHERE id = ?').run(calendarId);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Календарь не найден' });
+    if (result.changes === 0) return reply.code(404).send({ error: 'Calendar not found' });
     return { ok: true };
   });
 
@@ -290,10 +290,10 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
       .object({ from: z.string().regex(DATE), to: z.string().regex(DATE) })
       .safeParse(req.query);
     if (!parsed.success) {
-      return reply.code(400).send({ error: 'Нужны границы диапазона from и to' });
+      return reply.code(400).send({ error: 'Range boundaries from and to are required' });
     }
     if (daysBetween(parsed.data.from, parsed.data.to) > 400) {
-      return reply.code(400).send({ error: 'Диапазон больше года запрашивать незачем' });
+      return reply.code(400).send({ error: 'There is no reason to request more than a year' });
     }
     return listOccurrences(req.user?.id ?? '', parsed.data.from, parsed.data.to);
   });
@@ -307,7 +307,7 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
           WHERE e.id = ? AND ${CALENDAR_VISIBLE}`,
       )
       .get(eventId, req.user?.id ?? '');
-    if (!event) return reply.code(404).send({ error: 'Событие не найдено' });
+    if (!event) return reply.code(404).send({ error: 'Event not found' });
 
     const participants = db
       .prepare(
@@ -322,21 +322,21 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
   app.post('/api/events', (req, reply) => {
     const parsed = eventInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const d = parsed.data;
 
     const calendar = db
       .prepare(`SELECT c.id FROM calendars c WHERE c.id = ? AND ${CALENDAR_VISIBLE}`)
       .get(d.calendar_id, req.user?.id ?? '');
-    if (!calendar) return reply.code(400).send({ error: 'Календарь не найден' });
+    if (!calendar) return reply.code(400).send({ error: 'Calendar not found' });
 
     if (d.recurrence_rule && !isValidRecurrence(d.recurrence_rule)) {
-      return reply.code(400).send({ error: 'Правило повтора не разобрать' });
+      return reply.code(400).send({ error: 'Could not parse the recurrence rule' });
     }
     const allDay = d.all_day ?? !DATETIME.test(d.starts_at);
     if (!allDay && (!DATETIME.test(d.starts_at) || !DATETIME.test(d.ends_at))) {
-      return reply.code(400).send({ error: 'У события со временем нужны часы и минуты' });
+      return reply.code(400).send({ error: 'A timed event needs hours and minutes' });
     }
 
     const eventId = id();
@@ -378,7 +378,7 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
     const { id: eventId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const parsed = eventPatch.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
 
     const event = db
@@ -387,11 +387,11 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
           WHERE e.id = ? AND ${CALENDAR_VISIBLE}`,
       )
       .get(eventId, req.user?.id ?? '') as EventRow | undefined;
-    if (!event) return reply.code(404).send({ error: 'Событие не найдено' });
+    if (!event) return reply.code(404).send({ error: 'Event not found' });
 
     const d = parsed.data;
     if (d.recurrence_rule && !isValidRecurrence(d.recurrence_rule)) {
-      return reply.code(400).send({ error: 'Правило повтора не разобрать' });
+      return reply.code(400).send({ error: 'Could not parse the recurrence rule' });
     }
 
     const run = db.transaction(() => {
@@ -444,7 +444,7 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
           WHERE e.id = ? AND ${CALENDAR_VISIBLE}`,
       )
       .get(eventId, req.user?.id ?? '');
-    if (!event) return reply.code(404).send({ error: 'Событие не найдено' });
+    if (!event) return reply.code(404).send({ error: 'Event not found' });
 
     db.prepare('DELETE FROM events WHERE id = ?').run(eventId);
     return { ok: true };
@@ -462,12 +462,12 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
           WHERE e.id = ? AND ${CALENDAR_VISIBLE}`,
       )
       .get(eventId, req.user?.id ?? '') as { recurrence_rule: string | null } | undefined;
-    if (!event) return reply.code(404).send({ error: 'Событие не найдено' });
+    if (!event) return reply.code(404).send({ error: 'Event not found' });
 
     if (!event.recurrence_rule) {
       return reply
         .code(400)
-        .send({ error: 'Событие не повторяется — удалите его целиком' });
+        .send({ error: 'The event does not repeat — delete it entirely' });
     }
 
     db.prepare(

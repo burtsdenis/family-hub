@@ -5,15 +5,6 @@ import { resolve } from 'node:path';
 import { db, id, now } from '../db/index.js';
 import { paths } from '../env.js';
 
-function plural(n: number, one: string, few: string, many: string): string {
-  const abs = Math.abs(n) % 100;
-  const last = abs % 10;
-  if (abs > 10 && abs < 20) return many;
-  if (last > 1 && last < 5) return few;
-  if (last === 1) return one;
-  return many;
-}
-
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
@@ -24,10 +15,10 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ACCOUNT_VISIBLE = '(a.shared = 1 OR a.owner_id = ?)';
 
 const accountInput = z.object({
-  name: z.string().min(1, 'Укажите название счёта').max(100),
+  name: z.string().min(1, 'Enter an account name').max(100),
   currency: z
     .string()
-    .regex(/^[A-Z]{3}$/, 'Код валюты — три заглавные буквы, например RSD или EUR'),
+    .regex(/^[A-Z]{3}$/, 'The currency code is three capital letters, e.g. RSD or EUR'),
   kind: z.enum(['cash', 'card', 'savings']).optional(),
   opening_balance: z.number().int().optional(),
   shared: z.boolean().optional(),
@@ -35,7 +26,7 @@ const accountInput = z.object({
 });
 
 const categoryInput = z.object({
-  name: z.string().min(1, 'Укажите название категории').max(100),
+  name: z.string().min(1, 'Enter a category name').max(100),
   kind: z.enum(['expense', 'income']),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   parent_id: z.string().uuid().nullable().optional(),
@@ -50,17 +41,17 @@ function parentProblem(parentId: string, kind: string): string | null {
   const parent = db
     .prepare('SELECT kind, parent_id, archived_at FROM categories WHERE id = ?')
     .get(parentId) as { kind: string; parent_id: string | null; archived_at: string | null } | undefined;
-  if (!parent || parent.archived_at) return 'Родительская категория не найдена';
-  if (parent.kind !== kind) return 'Родитель должен быть категорией того же вида';
-  if (parent.parent_id) return 'Подкатегория не может быть родителем';
+  if (!parent || parent.archived_at) return 'Parent category not found';
+  if (parent.kind !== kind) return 'Parent must be a category of the same kind';
+  if (parent.parent_id) return 'A subcategory cannot be a parent';
   return null;
 }
 
 const txBase = z.object({
   kind: z.enum(['expense', 'income', 'transfer']),
-  occurred_on: z.string().regex(DATE, 'Дата в формате ГГГГ-ММ-ДД'),
+  occurred_on: z.string().regex(DATE, 'Date must be YYYY-MM-DD'),
   account_id: z.string().uuid(),
-  amount: z.number().int().positive('Сумма должна быть больше нуля'),
+  amount: z.number().int().positive('Amount must be greater than zero'),
   to_account_id: z.string().uuid().nullable().optional(),
   to_amount: z.number().int().positive().nullable().optional(),
   category_id: z.string().uuid().nullable().optional(),
@@ -81,20 +72,20 @@ const notSameAccount = (v: TxDraft) =>
 
 const txInput = txBase
   .refine(transferHasSecondSide, {
-    message: 'У перевода нужны счёт получателя и полученная сумма',
+    message: 'A transfer needs a destination account and a received amount',
     path: ['to_account_id'],
   })
   .refine(secondSideOnlyForTransfer, {
-    message: 'Вторая сторона бывает только у перевода',
+    message: 'Only a transfer has a second side',
     path: ['to_account_id'],
   })
   .refine(notSameAccount, {
-    message: 'Перевод на тот же счёт лишён смысла',
+    message: 'A transfer to the same account makes no sense',
     path: ['to_account_id'],
   });
 
 const txPatch = txBase.partial().refine(notSameAccount, {
-  message: 'Перевод на тот же счёт лишён смысла',
+  message: 'A transfer to the same account makes no sense',
   path: ['to_account_id'],
 });
 
@@ -206,7 +197,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/accounts', (req, reply) => {
     const parsed = accountInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const d = parsed.data;
     const personal = d.shared === false;
@@ -235,15 +226,15 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     const { id: accountId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const parsed = accountInput.partial().safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
 
     const account = db
       .prepare(`SELECT a.* FROM accounts a WHERE a.id = ? AND ${ACCOUNT_VISIBLE}`)
       .get(accountId, req.user?.id ?? '') as AccountRow | undefined;
-    if (!account) return reply.code(404).send({ error: 'Счёт не найден' });
+    if (!account) return reply.code(404).send({ error: 'Account not found' });
     if (account.owner_id && account.owner_id !== req.user?.id) {
-      return reply.code(403).send({ error: 'Этот счёт принадлежит другому человеку' });
+      return reply.code(403).send({ error: 'This account belongs to someone else' });
     }
 
     const d = parsed.data;
@@ -259,7 +250,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
       if (used > 0) {
         return reply
           .code(409)
-          .send({ error: 'У счёта есть операции — валюту менять нельзя, создайте новый счёт' });
+          .send({ error: 'The account has transactions — the currency cannot change, create a new account' });
       }
     }
 
@@ -273,7 +264,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
       fields.push(['shared', d.shared ? 1 : 0]);
       fields.push(['owner_id', d.shared ? null : (req.user?.id ?? null)]);
     }
-    if (fields.length === 0) return reply.code(400).send({ error: 'Нечего менять' });
+    if (fields.length === 0) return reply.code(400).send({ error: 'Nothing to change' });
 
     db.prepare(
       `UPDATE accounts SET ${fields.map(([k]) => `${k} = ?`).join(', ')}, updated_at = ?
@@ -288,7 +279,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     const account = db
       .prepare(`SELECT a.archived_at FROM accounts a WHERE a.id = ? AND ${ACCOUNT_VISIBLE}`)
       .get(accountId, req.user?.id ?? '') as { archived_at: string | null } | undefined;
-    if (!account) return reply.code(404).send({ error: 'Счёт не найден' });
+    if (!account) return reply.code(404).send({ error: 'Account not found' });
 
     const archived = account.archived_at ? null : now();
     db.prepare('UPDATE accounts SET archived_at = ?, updated_at = ? WHERE id = ?').run(
@@ -309,12 +300,12 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     if (count > 0) {
       return reply.code(409).send({
         error:
-          `По счёту ${count} ${plural(count, 'операция', 'операции', 'операций')}. ` +
-          'Удаление сотрёт и их — лучше убрать счёт в архив',
+          `The account has ${count} ${count === 1 ? 'transaction' : 'transactions'}. ` +
+          'Deleting the account erases them too — archive it instead',
       });
     }
     const result = db.prepare('DELETE FROM accounts WHERE id = ?').run(accountId);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Счёт не найден' });
+    if (result.changes === 0) return reply.code(404).send({ error: 'Account not found' });
     return { ok: true };
   });
 
@@ -328,12 +319,12 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
         note: z.string().max(300).nullable().optional(),
       })
       .safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Укажите дату и фактический остаток' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Enter the date and the actual balance' });
 
     const visible = db
       .prepare(`SELECT a.id FROM accounts a WHERE a.id = ? AND ${ACCOUNT_VISIBLE}`)
       .get(accountId, req.user?.id ?? '');
-    if (!visible) return reply.code(404).send({ error: 'Счёт не найден' });
+    if (!visible) return reply.code(404).send({ error: 'Account not found' });
 
     // A repeat reconciliation on the same day updates the previous one
     // instead of spawning twins: what matters is the actual balance on
@@ -376,7 +367,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/categories', (req, reply) => {
     const parsed = categoryInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     if (parsed.data.parent_id) {
       const problem = parentProblem(parsed.data.parent_id, parsed.data.kind);
@@ -399,7 +390,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
   app.patch('/api/categories/:id', (req, reply) => {
     const { id: categoryId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const parsed = categoryInput.partial().omit({ kind: true }).safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Проверьте поля' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Check the fields' });
 
     const fields: [string, unknown][] = [];
     if (parsed.data.name !== undefined) fields.push(['name', parsed.data.name.trim()]);
@@ -407,12 +398,12 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     if (parsed.data.parent_id !== undefined) {
       if (parsed.data.parent_id) {
         if (parsed.data.parent_id === categoryId) {
-          return reply.code(400).send({ error: 'Категория не может быть родителем самой себя' });
+          return reply.code(400).send({ error: 'A category cannot be its own parent' });
         }
         const current = db
           .prepare('SELECT kind FROM categories WHERE id = ?')
           .get(categoryId) as { kind: string } | undefined;
-        if (!current) return reply.code(404).send({ error: 'Категория не найдена' });
+        if (!current) return reply.code(404).send({ error: 'Category not found' });
         const problem = parentProblem(parsed.data.parent_id, current.kind);
         if (problem) return reply.code(400).send({ error: problem });
         const children = (
@@ -423,17 +414,17 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
         if (children > 0) {
           return reply
             .code(400)
-            .send({ error: 'У категории есть подкатегории — сначала отвяжите их' });
+            .send({ error: 'This category has subcategories — detach them first' });
         }
       }
       fields.push(['parent_id', parsed.data.parent_id]);
     }
-    if (fields.length === 0) return reply.code(400).send({ error: 'Нечего менять' });
+    if (fields.length === 0) return reply.code(400).send({ error: 'Nothing to change' });
 
     const result = db
       .prepare(`UPDATE categories SET ${fields.map(([k]) => `${k} = ?`).join(', ')} WHERE id = ?`)
       .run(...fields.map(([, v]) => v as string | null), categoryId);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Категория не найдена' });
+    if (result.changes === 0) return reply.code(404).send({ error: 'Category not found' });
     return db.prepare('SELECT * FROM categories WHERE id = ?').get(categoryId);
   });
 
@@ -530,10 +521,10 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     return rows.map((row) => {
       const masked = { ...row };
       if (row['to_account_id'] && !visible.has(row['to_account_id'] as string)) {
-        masked['to_account_name'] = 'Личный счёт';
+        masked['to_account_name'] = 'Personal account';
       }
       if (!visible.has(row['account_id'] as string)) {
-        masked['account_name'] = 'Личный счёт';
+        masked['account_name'] = 'Personal account';
         masked['note'] = null;
         masked['place'] = null;
         masked['category_name'] = null;
@@ -545,28 +536,28 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/transactions', (req, reply) => {
     const parsed = txInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const d = parsed.data;
     const visible = visibleAccountIds(req.user?.id ?? '');
 
-    if (!visible.has(d.account_id)) return reply.code(400).send({ error: 'Счёт не найден' });
+    if (!visible.has(d.account_id)) return reply.code(400).send({ error: 'Account not found' });
     if (d.to_account_id && !visible.has(d.to_account_id)) {
-      return reply.code(400).send({ error: 'Счёт получателя не найден' });
+      return reply.code(400).send({ error: 'Destination account not found' });
     }
 
     if (d.category_id) {
       const category = db
         .prepare('SELECT kind FROM categories WHERE id = ?')
         .get(d.category_id) as { kind: string } | undefined;
-      if (!category) return reply.code(400).send({ error: 'Категория не найдена' });
+      if (!category) return reply.code(400).send({ error: 'Category not found' });
       if (d.kind === 'transfer') {
-        return reply.code(400).send({ error: 'У перевода категории нет' });
+        return reply.code(400).send({ error: 'A transfer has no category' });
       }
       if (category.kind !== d.kind) {
         return reply
           .code(400)
-          .send({ error: 'Категория не того вида: у трат и доходов они разные' });
+          .send({ error: 'Wrong category kind: expenses and income use different ones' });
       }
     }
 
@@ -595,7 +586,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     const { id: txId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const parsed = txPatch.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
 
     const visible = visibleAccountIds(req.user?.id ?? '');
@@ -603,7 +594,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
       | { account_id: string; kind: string }
       | undefined;
     if (!tx || !visible.has(tx.account_id)) {
-      return reply.code(404).send({ error: 'Операция не найдена' });
+      return reply.code(404).send({ error: 'Transaction not found' });
     }
 
     const d = parsed.data;
@@ -616,31 +607,31 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     if (d.category_id !== undefined) {
       if (d.category_id) {
         if (tx.kind === 'transfer') {
-          return reply.code(400).send({ error: 'У перевода категории нет' });
+          return reply.code(400).send({ error: 'A transfer has no category' });
         }
         const category = db
           .prepare('SELECT kind FROM categories WHERE id = ?')
           .get(d.category_id) as { kind: string } | undefined;
-        if (!category) return reply.code(400).send({ error: 'Категория не найдена' });
+        if (!category) return reply.code(400).send({ error: 'Category not found' });
         if (category.kind !== tx.kind) {
           return reply
             .code(400)
-            .send({ error: 'Категория не того вида: у трат и доходов они разные' });
+            .send({ error: 'Wrong category kind: expenses and income use different ones' });
         }
       }
       fields.push(['category_id', d.category_id]);
     }
     if (d.account_id !== undefined) {
-      if (!visible.has(d.account_id)) return reply.code(400).send({ error: 'Счёт не найден' });
+      if (!visible.has(d.account_id)) return reply.code(400).send({ error: 'Account not found' });
       fields.push(['account_id', d.account_id]);
     }
     if (d.to_account_id !== undefined) {
       if (d.to_account_id && !visible.has(d.to_account_id)) {
-        return reply.code(400).send({ error: 'Счёт получателя не найден' });
+        return reply.code(400).send({ error: 'Destination account not found' });
       }
       fields.push(['to_account_id', d.to_account_id]);
     }
-    if (fields.length === 0) return reply.code(400).send({ error: 'Нечего менять' });
+    if (fields.length === 0) return reply.code(400).send({ error: 'Nothing to change' });
 
     db.prepare(
       `UPDATE transactions SET ${fields.map(([k]) => `${k} = ?`).join(', ')}, updated_at = ?
@@ -657,7 +648,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
       | { account_id: string }
       | undefined;
     if (!tx || !visible.has(tx.account_id)) {
-      return reply.code(404).send({ error: 'Операция не найдена' });
+      return reply.code(404).send({ error: 'Transaction not found' });
     }
 
     // Rows go away via cascade; receipt files must be removed by hand
@@ -681,7 +672,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
         | { account_id: string }
         | undefined)?.account_id ?? '',
     )) {
-      return reply.code(404).send({ error: 'Операция не найдена' });
+      return reply.code(404).send({ error: 'Transaction not found' });
     }
     return db
       .prepare(
@@ -699,7 +690,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     const parsed = z
       .object({ from: z.string().regex(DATE), to: z.string().regex(DATE) })
       .safeParse(req.query);
-    if (!parsed.success) return reply.code(400).send({ error: 'Нужны границы периода' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Period boundaries are required' });
 
     const userId = req.user?.id ?? '';
     const { from, to } = parsed.data;

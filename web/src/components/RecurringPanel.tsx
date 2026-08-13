@@ -88,7 +88,7 @@ export function DuePanel({
 
   return (
     <section className="rounded-card border border-accent bg-accent-soft/40 p-4">
-      <h2 className="eyebrow mb-3">{t('Подтвердить')}</h2>
+      <h2 className="eyebrow mb-3">{t('Confirm')}</h2>
       <ul className="space-y-2">
         {due.map((item) => {
           const key = `${item.recurring_id}#${item.occurred_on}`;
@@ -110,7 +110,7 @@ export function DuePanel({
                 value={amounts[key] ?? formatAmountInput(item.amount)}
                 onChange={(e) => setAmounts({ ...amounts, [key]: e.target.value })}
                 onKeyDown={onEnter(() => void confirm(item))}
-                aria-label={t('Фактическая сумма')}
+                aria-label={t('Actual amount')}
                 className="w-28 rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-right font-mono text-sm text-ink outline-none focus:border-accent"
               />
               <span className="text-xs text-muted">{item.currency}</span>
@@ -120,21 +120,21 @@ export function DuePanel({
                 onClick={() => void confirm(item)}
                 className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
               >
-                {t('Провести')}
+                {t('Post')}
               </button>
               <button
                 type="button"
                 onClick={() => void skip(item)}
                 className="text-sm text-muted underline underline-offset-2 hover:text-ink"
               >
-                {t('Не было')}
+                {t('Did not happen')}
               </button>
             </li>
           );
         })}
       </ul>
       <p className="mt-3 text-xs text-muted">
-        {t('Сумму можно поправить перед проведением: зарплата с премией или счёт за воду редко совпадают с плановыми.')}
+        {t('You can adjust the amount before posting: a salary with a bonus or a water bill rarely matches the plan.')}
       </p>
     </section>
   );
@@ -175,7 +175,7 @@ export function RecurringPanel({
         <div className="h-40 animate-pulse rounded-card bg-surface-3" />
       ) : rules.length === 0 ? (
         <Empty>
-          {t('Регулярных операций нет. Сюда просятся аренда, подписки, зарплата — всё, что повторяется.')}
+          {t('No recurring transactions. Rent, subscriptions, salary — anything that repeats belongs here.')}
         </Empty>
       ) : (
         <ul className="overflow-hidden rounded-card border border-line bg-surface">
@@ -196,7 +196,7 @@ export function RecurringPanel({
                 <span className="block truncate text-xs text-muted">
                   {describeRule(r.recurrence_rule)} · {r.account_name}
                   {r.category_name ? ` · ${r.category_name}` : ''} ·{' '}
-                  {r.auto_create ? t('создаётся сама') : t('с подтверждением')}
+                  {r.auto_create ? t('created automatically') : t('with confirmation')}
                 </span>
               </span>
 
@@ -209,14 +209,14 @@ export function RecurringPanel({
                 onClick={() => void toggle(r)}
                 className="shrink-0 text-xs text-muted underline underline-offset-2 hover:text-ink"
               >
-                {r.active ? t('Выключить') : t('Включить')}
+                {r.active ? t('Turn off') : t('Enable')}
               </button>
               <button
                 type="button"
                 onClick={() => setEditing(r)}
                 className="shrink-0 text-xs text-accent underline underline-offset-2"
               >
-                {t('Изменить')}
+                {t('Edit')}
               </button>
             </li>
           ))}
@@ -228,7 +228,7 @@ export function RecurringPanel({
         onClick={() => setCreating(true)}
         className="rounded-lg border border-dashed border-line px-4 py-2 text-sm text-muted hover:border-accent hover:text-ink"
       >
-        {t('+ регулярная операция')}
+        {t('+ recurring transaction')}
       </button>
 
       {(creating || editing) && accounts.length > 0 && (
@@ -292,15 +292,15 @@ function RuleDialog({
   async function save() {
     const amount = parseAmount(draft.amount);
     if (!draft.title.trim()) {
-      setError(t('Укажите название'));
+      setError(t('Enter a name'));
       return;
     }
     if (amount === null || amount === 0) {
-      setError(t('Укажите сумму больше нуля'));
+      setError(t('Enter an amount above zero'));
       return;
     }
     if (draft.kind === 'transfer' && !draft.to_account_id) {
-      setError(t('Выберите счёт получателя'));
+      setError(t('Choose a destination account'));
       return;
     }
 
@@ -330,7 +330,7 @@ function RuleDialog({
       await onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось сохранить'));
+      setError(err instanceof Error ? err.message : t('Could not save'));
       setBusy(false);
     }
   }
@@ -344,7 +344,7 @@ function RuleDialog({
 
   return (
     <Modal
-      title={rule ? t('Регулярная операция') : t('Новая регулярная операция')}
+      title={rule ? t('Recurring transaction') : t('New recurring transaction')}
       width="max-w-md"
       onClose={onClose}
       onSubmit={() => {
@@ -354,25 +354,25 @@ function RuleDialog({
         <>
           {rule && (
             <button type="button" onClick={() => void remove()} className={`${dialogDanger} mr-auto`}>
-              {t('Удалить правило')}
+              {t('Delete rule')}
             </button>
           )}
           <button type="button" onClick={onClose} className={dialogGhost}>
-            {t('Отмена')}
+            {t('Cancel')}
           </button>
           <button type="button" disabled={busy} onClick={() => void save()} className={dialogPrimary}>
-            {t('Сохранить')}
+            {t('Save')}
           </button>
         </>
       }
     >
       <div className="space-y-4">
         <label className="block">
-          <span className={dialogLabel}>{t('Название')}</span>
+          <span className={dialogLabel}>{t('Title')}</span>
           <input
             autoFocus
             value={draft.title}
-            placeholder={t('Аренда, подписка, зарплата')}
+            placeholder={t('Rent, subscription, salary')}
             onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             onKeyDown={onEnter(() => void save())}
             className={dialogField}
@@ -396,7 +396,7 @@ function RuleDialog({
 
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className={dialogLabel}>{t('Сумма')}</span>
+            <span className={dialogLabel}>{t('Amount')}</span>
             <input
               inputMode="decimal"
               value={draft.amount}
@@ -406,7 +406,7 @@ function RuleDialog({
             />
           </label>
           <label className="block">
-            <span className={dialogLabel}>{t('Первый раз')}</span>
+            <span className={dialogLabel}>{t('First occurrence')}</span>
             <input
               type="date"
               value={draft.start_on}
@@ -417,7 +417,7 @@ function RuleDialog({
         </div>
 
         <label className="block">
-          <span className={dialogLabel}>{t('Повтор')}</span>
+          <span className={dialogLabel}>{t('Repeat')}</span>
           <select
             value={draft.recurrence_rule}
             onChange={(e) => setDraft({ ...draft, recurrence_rule: e.target.value })}
@@ -432,7 +432,7 @@ function RuleDialog({
         </label>
 
         <label className="block">
-          <span className={dialogLabel}>{draft.kind === 'transfer' ? t('Со счёта') : t('Счёт')}</span>
+          <span className={dialogLabel}>{draft.kind === 'transfer' ? t('From account') : t('Account')}</span>
           <select
             value={draft.account_id}
             onChange={(e) => setDraft({ ...draft, account_id: e.target.value })}
@@ -449,13 +449,13 @@ function RuleDialog({
         {draft.kind === 'transfer' && (
           <>
             <label className="block">
-              <span className={dialogLabel}>{t('На счёт')}</span>
+              <span className={dialogLabel}>{t('To account')}</span>
               <select
                 value={draft.to_account_id}
                 onChange={(e) => setDraft({ ...draft, to_account_id: e.target.value })}
                 className={dialogField}
               >
-                <option value="">{t('Выберите счёт')}</option>
+                <option value="">{t('Choose an account')}</option>
                 {accounts
                   .filter((a) => a.id !== draft.account_id)
                   .map((a) => (
@@ -467,7 +467,7 @@ function RuleDialog({
             </label>
             {needsSecondAmount && (
               <label className="block">
-                <span className={dialogLabel}>{t('Зачислить')}, {toAccount.currency}</span>
+                <span className={dialogLabel}>{t('Credit')}, {toAccount.currency}</span>
                 <input
                   inputMode="decimal"
                   value={draft.to_amount}
@@ -481,13 +481,13 @@ function RuleDialog({
 
         {draft.kind !== 'transfer' && (
           <label className="block">
-            <span className={dialogLabel}>{t('Категория')}</span>
+            <span className={dialogLabel}>{t('Category')}</span>
             <select
               value={draft.category_id}
               onChange={(e) => setDraft({ ...draft, category_id: e.target.value })}
               className={dialogField}
             >
-              <option value="">{t('Без категории')}</option>
+              <option value="">{t('No category')}</option>
               {orderCategories(categories, draft.kind).map(
                 ({ category: c, depth }) => (
                   <option key={c.id} value={c.id}>
@@ -507,9 +507,9 @@ function RuleDialog({
             className="mt-0.5 size-4 accent-[var(--c-accent)]"
           />
           <span>
-            <span className="block text-sm text-ink">{t('Создавать самостоятельно')}</span>
+            <span className="block text-sm text-ink">{t('Create automatically')}</span>
             <span className="block text-xs text-muted">
-              {t('Годится для аренды, которую списывают в срок. Зарплату лучше подтверждать: она приходит с задержкой, и запись вперёд времени испортит остаток')}
+              {t('Good for rent that is charged on time. Salary is better confirmed: it arrives late, and recording it ahead of time would skew the balance')}
             </span>
           </span>
         </label>

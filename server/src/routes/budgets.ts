@@ -188,12 +188,12 @@ export function runAutoCreate(): number {
 // ── Schemas ───────────────────────────────────────────────────────────────
 
 const recurringInput = z.object({
-  title: z.string().min(1, 'Укажите название').max(200),
+  title: z.string().min(1, 'Enter a title').max(200),
   kind: z.enum(['expense', 'income', 'transfer']),
-  start_on: z.string().regex(DATE, 'Дата в формате ГГГГ-ММ-ДД'),
+  start_on: z.string().regex(DATE, 'Date must be YYYY-MM-DD'),
   recurrence_rule: z.string().min(1).max(100),
   account_id: z.string().uuid(),
-  amount: z.number().int().positive('Сумма должна быть больше нуля'),
+  amount: z.number().int().positive('Amount must be greater than zero'),
   to_account_id: z.string().uuid().nullable().optional(),
   to_amount: z.number().int().positive().nullable().optional(),
   category_id: z.string().uuid().nullable().optional(),
@@ -213,7 +213,7 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
    */
   app.get('/api/budgets', (req, reply) => {
     const parsed = z.object({ month: z.string().regex(MONTH) }).safeParse(req.query);
-    if (!parsed.success) return reply.code(400).send({ error: 'Нужен месяц в формате ГГГГ-ММ' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Month must be YYYY-MM' });
 
     const { month } = parsed.data;
     const userId = req.user?.id ?? '';
@@ -266,20 +266,20 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
         category_id: z.string().uuid(),
         currency: z.string().regex(/^[A-Z]{3}$/),
         month: z.string().regex(MONTH).nullable().optional(),
-        amount: z.number().int().positive('Лимит должен быть больше нуля'),
+        amount: z.number().int().positive('Limit must be greater than zero'),
       })
       .safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const d = parsed.data;
 
     const category = db
       .prepare("SELECT kind FROM categories WHERE id = ?")
       .get(d.category_id) as { kind: string } | undefined;
-    if (!category) return reply.code(400).send({ error: 'Категория не найдена' });
+    if (!category) return reply.code(400).send({ error: 'Category not found' });
     if (category.kind !== 'expense') {
-      return reply.code(400).send({ error: 'Лимит имеет смысл только для категории трат' });
+      return reply.code(400).send({ error: 'Budgets only make sense for expense categories' });
     }
 
     db.prepare(
@@ -295,7 +295,7 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
   app.delete('/api/budgets/:id', (req, reply) => {
     const { id: budgetId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const result = db.prepare('DELETE FROM budgets WHERE id = ?').run(budgetId);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Лимит не найден' });
+    if (result.changes === 0) return reply.code(404).send({ error: 'Budget not found' });
     return { ok: true };
   });
 
@@ -318,20 +318,20 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
   app.post('/api/recurring', (req, reply) => {
     const parsed = recurringInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const d = parsed.data;
 
     if (!isValidRecurrence(d.recurrence_rule)) {
-      return reply.code(400).send({ error: 'Правило повтора не разобрать' });
+      return reply.code(400).send({ error: 'Could not parse the recurrence rule' });
     }
     const visible = visibleAccountIds(req.user?.id ?? '');
-    if (!visible.has(d.account_id)) return reply.code(400).send({ error: 'Счёт не найден' });
+    if (!visible.has(d.account_id)) return reply.code(400).send({ error: 'Account not found' });
     if (d.kind === 'transfer' && !(d.to_account_id && d.to_amount)) {
-      return reply.code(400).send({ error: 'У перевода нужны счёт получателя и сумма зачисления' });
+      return reply.code(400).send({ error: 'A transfer needs a destination account and the amount received' });
     }
     if (d.to_account_id && !visible.has(d.to_account_id)) {
-      return reply.code(400).send({ error: 'Счёт получателя не найден' });
+      return reply.code(400).send({ error: 'Destination account not found' });
     }
 
     const ruleId = id();
@@ -367,19 +367,19 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
     const { id: ruleId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const parsed = recurringInput.partial().safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const rule = db.prepare('SELECT * FROM recurring_transactions WHERE id = ?').get(ruleId) as
       | RecurringRow
       | undefined;
-    if (!rule) return reply.code(404).send({ error: 'Правило не найдено' });
+    if (!rule) return reply.code(404).send({ error: 'Rule not found' });
 
     const visible = visibleAccountIds(req.user?.id ?? '');
-    if (!visible.has(rule.account_id)) return reply.code(404).send({ error: 'Правило не найдено' });
+    if (!visible.has(rule.account_id)) return reply.code(404).send({ error: 'Rule not found' });
 
     const d = parsed.data;
     if (d.recurrence_rule && !isValidRecurrence(d.recurrence_rule)) {
-      return reply.code(400).send({ error: 'Правило повтора не разобрать' });
+      return reply.code(400).send({ error: 'Could not parse the recurrence rule' });
     }
 
     const fields: [string, unknown][] = [];
@@ -400,7 +400,7 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
     }
     if (d.auto_create !== undefined) fields.push(['auto_create', d.auto_create ? 1 : 0]);
     if (d.active !== undefined) fields.push(['active', d.active ? 1 : 0]);
-    if (fields.length === 0) return reply.code(400).send({ error: 'Нечего менять' });
+    if (fields.length === 0) return reply.code(400).send({ error: 'Nothing to change' });
 
     db.prepare(
       `UPDATE recurring_transactions SET ${fields.map(([k]) => `${k} = ?`).join(', ')},
@@ -414,7 +414,7 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
     const { id: ruleId } = z.object({ id: z.string().uuid() }).parse(req.params);
     // Created transactions stay in history: they already happened
     const result = db.prepare('DELETE FROM recurring_transactions WHERE id = ?').run(ruleId);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Правило не найдено' });
+    if (result.changes === 0) return reply.code(404).send({ error: 'Rule not found' });
     return { ok: true };
   });
 
@@ -434,18 +434,18 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
         amount: z.number().int().positive().optional(),
       })
       .safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Нужна дата экземпляра' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Occurrence date is required' });
 
     const rule = db.prepare('SELECT * FROM recurring_transactions WHERE id = ?').get(ruleId) as
       | RecurringRow
       | undefined;
-    if (!rule) return reply.code(404).send({ error: 'Правило не найдено' });
+    if (!rule) return reply.code(404).send({ error: 'Rule not found' });
     if (!visibleAccountIds(req.user?.id ?? '').has(rule.account_id)) {
-      return reply.code(404).send({ error: 'Правило не найдено' });
+      return reply.code(404).send({ error: 'Rule not found' });
     }
 
     const txId = materialize(ruleId, parsed.data.occurred_on, req.user?.id ?? null);
-    if (!txId) return reply.code(400).send({ error: 'Не удалось создать операцию' });
+    if (!txId) return reply.code(400).send({ error: 'Could not create the transaction' });
 
     if (parsed.data.amount) {
       db.prepare('UPDATE transactions SET amount = ?, updated_at = ? WHERE id = ?').run(
@@ -460,13 +460,13 @@ export async function registerBudgetRoutes(app: FastifyInstance): Promise<void> 
   app.post('/api/recurring/:id/skip', (req, reply) => {
     const { id: ruleId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const parsed = z.object({ occurred_on: z.string().regex(DATE) }).safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Нужна дата экземпляра' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Occurrence date is required' });
 
     const rule = db
       .prepare('SELECT account_id FROM recurring_transactions WHERE id = ?')
       .get(ruleId) as { account_id: string } | undefined;
     if (!rule || !visibleAccountIds(req.user?.id ?? '').has(rule.account_id)) {
-      return reply.code(404).send({ error: 'Правило не найдено' });
+      return reply.code(404).send({ error: 'Rule not found' });
     }
 
     db.prepare(

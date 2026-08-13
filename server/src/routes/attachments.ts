@@ -117,7 +117,7 @@ async function receiveFiles(
     .prepare('SELECT coalesce(sum(size_bytes), 0) AS used FROM attachments')
     .get() as { used: number };
   if (used >= BUDGET_BYTES) {
-    await reply.code(413).send({ error: 'Хранилище вложений заполнено' });
+    await reply.code(413).send({ error: 'Attachment storage is full' });
     return null;
   }
 
@@ -137,7 +137,7 @@ async function receiveFiles(
       await rollback();
       await reply
         .code(413)
-        .send({ error: `Файл больше ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} МБ` });
+        .send({ error: `The file exceeds ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB` });
       return null;
     }
 
@@ -172,7 +172,7 @@ async function receiveFiles(
   }
 
   if (uploaded.length === 0) {
-    await reply.code(400).send({ error: 'Файл не пришёл' });
+    await reply.code(400).send({ error: 'No file received' });
     return null;
   }
   return uploaded;
@@ -201,7 +201,7 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
           WHERE id = ? AND (visibility = 'shared' OR owner_id = ?)`,
       )
       .get(noteId, userId);
-    if (!note) return reply.code(404).send({ error: 'Заметка не найдена' });
+    if (!note) return reply.code(404).send({ error: 'Note not found' });
 
     const uploaded = await receiveFiles(req, reply, { note_id: noteId, transaction_id: null });
     if (!uploaded) return;
@@ -218,7 +218,7 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
           WHERE t.id = ? AND (a.shared = 1 OR a.owner_id = ?)`,
       )
       .get(txId, userId);
-    if (!tx) return reply.code(404).send({ error: 'Операция не найдена' });
+    if (!tx) return reply.code(404).send({ error: 'Transaction not found' });
 
     const uploaded = await receiveFiles(req, reply, { note_id: null, transaction_id: txId });
     if (!uploaded) return;
@@ -230,18 +230,18 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
     const { download } = z.object({ download: z.string().optional() }).parse(req.query);
 
     const attachment = loadVisible(attachmentId, req.user?.id ?? '');
-    if (!attachment) return reply.code(404).send({ error: 'Файл не найден' });
+    if (!attachment) return reply.code(404).send({ error: 'File not found' });
 
     const fullPath = resolve(paths.attachments, attachment.storage_path);
     // Insurance against escaping the attachments directory
     if (!fullPath.startsWith(resolve(paths.attachments))) {
-      return reply.code(400).send({ error: 'Некорректный путь' });
+      return reply.code(400).send({ error: 'Invalid path' });
     }
 
     try {
       await stat(fullPath);
     } catch {
-      return reply.code(404).send({ error: 'Файл потерян на диске' });
+      return reply.code(404).send({ error: 'The file is missing on disk' });
     }
 
     const inline = download !== 'true' && INLINE_MIME.test(attachment.mime);
@@ -257,7 +257,7 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
     const { id: attachmentId } = z.object({ id: z.string().uuid() }).parse(req.params);
 
     const attachment = loadVisible(attachmentId, req.user?.id ?? '');
-    if (!attachment) return reply.code(404).send({ error: 'Файл не найден' });
+    if (!attachment) return reply.code(404).send({ error: 'File not found' });
 
     db.prepare('DELETE FROM attachments WHERE id = ?').run(attachmentId);
     // The record is deleted either way; a file missing from disk is no reason to crash

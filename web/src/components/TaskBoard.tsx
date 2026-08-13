@@ -154,7 +154,7 @@ function Column({
             <SortableCard key={task.id} task={task} onOpen={onOpen} />
           ))}
           {tasks.length === 0 && (
-            <p className="px-1 py-3 text-xs text-muted">{t('Перетащите задачу сюда')}</p>
+            <p className="px-1 py-3 text-xs text-muted">{t('Drop a task here')}</p>
           )}
         </div>
       </SortableContext>
@@ -195,7 +195,7 @@ function Card({ task, overlay }: { task: Task; overlay?: boolean }) {
     >
       <p className="text-sm text-ink">
         {task.level > 0 && (
-          <span className="mr-1 text-muted" title={t('Вложенная задача')}>
+          <span className="mr-1 text-muted" title={t('Nested task')}>
             ↳
           </span>
         )}

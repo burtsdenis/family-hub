@@ -27,7 +27,7 @@ export function MoveBoard({ settings, onChange }: Props) {
   async function save() {
     const parsed = Number(draft.replace(/\s/g, '').replace(',', '.'));
     if (!Number.isFinite(parsed) || parsed < 0) {
-      setError(t('Введите сумму в евро, например 4500'));
+      setError(t('Enter an amount in euros, e.g. 4500'));
       return;
     }
     setSaving(true);
@@ -38,7 +38,7 @@ export function MoveBoard({ settings, onChange }: Props) {
       onChange(patch);
       setEditing(false);
     } catch {
-      setError(t('Не удалось сохранить. Проверьте, что сервер запущен'));
+      setError(t('Could not save. Check that the server is running'));
     } finally {
       setSaving(false);
     }
@@ -49,10 +49,10 @@ export function MoveBoard({ settings, onChange }: Props) {
       <div className="grid divide-y divide-white/10 sm:grid-cols-[1.1fr_1fr] sm:divide-x sm:divide-y-0">
         {/* Countdown */}
         <div className="px-6 py-5">
-          <p className="eyebrow text-white/45!">{settings['move.label'] ?? t('Переезд')}</p>
+          <p className="eyebrow text-white/45!">{settings['move.label'] ?? t('The move')}</p>
           {days === null ? (
             <p className="mt-3 text-sm text-white/60">
-              {t('Дата переезда не задана. Укажите её в настройках, и здесь появится отсчёт.')}
+              {t('The moving date is not set. Add it in Settings and a countdown will appear here.')}
             </p>
           ) : (
             <>
@@ -62,8 +62,8 @@ export function MoveBoard({ settings, onChange }: Props) {
                 </span>
                 <span className="font-mono text-sm text-white/55">
                   {days >= 0
-                    ? plural(days, 'день', 'дня', 'дней')
-                    : t('{unit} назад', { unit: plural(Math.abs(days), 'день', 'дня', 'дней') })}
+                    ? plural(days, 'day', 'days')
+                    : t('{unit} ago', { unit: plural(Math.abs(days), 'day', 'days') })}
                 </span>
               </p>
               <p className="mt-2 font-mono text-xs text-white/40">{formatDate(targetDate)}</p>
@@ -73,7 +73,7 @@ export function MoveBoard({ settings, onChange }: Props) {
 
         {/* Savings */}
         <div className="px-6 py-5">
-          <p className="eyebrow text-white/45!">{settings['savings.label'] ?? t('Накоплено')}</p>
+          <p className="eyebrow text-white/45!">{settings['savings.label'] ?? t('Saved so far')}</p>
 
           {editing ? (
             <div className="mt-2.5">
@@ -91,7 +91,7 @@ export function MoveBoard({ settings, onChange }: Props) {
                     if (e.key === 'Escape') setEditing(false);
                   }}
                   className="w-36 rounded-md border border-white/25 bg-white/5 px-2.5 py-1.5 font-mono text-lg tabular-nums outline-none focus:border-white/60"
-                  aria-label={t('Сумма в евро')}
+                  aria-label={t('Amount in euros')}
                 />
                 <button
                   type="button"
@@ -99,7 +99,7 @@ export function MoveBoard({ settings, onChange }: Props) {
                   disabled={saving}
                   className="rounded-md bg-white/15 px-3 py-1.5 text-sm hover:bg-white/25 disabled:opacity-50"
                 >
-                  {saving ? t('Сохраняю') : t('Сохранить')}
+                  {saving ? t('Saving') : t('Save')}
                 </button>
               </div>
               {error && <p className="mt-2 text-xs text-[#d9a04f]">{error}</p>}
@@ -112,13 +112,13 @@ export function MoveBoard({ settings, onChange }: Props) {
                 setEditing(true);
               }}
               className="mt-2 block text-left"
-              aria-label={t('Изменить накопленную сумму')}
+              aria-label={t('Edit the saved amount')}
             >
               <span className="font-display text-[2.5rem] leading-none font-bold tabular-nums">
                 {formatEur(saved)}
               </span>
               {goal > 0 && (
-                <span className="ml-2 font-mono text-xs text-white/40">{t('из')} {formatEur(goal)}</span>
+                <span className="ml-2 font-mono text-xs text-white/40">{t('of')} {formatEur(goal)}</span>
               )}
             </button>
           )}

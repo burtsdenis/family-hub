@@ -2,24 +2,14 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db, id, now } from '../db/index.js';
 
-/** Russian declension: 1 задача, 2 задачи, 5 задач. */
-function plural(n: number, one: string, few: string, many: string): string {
-  const abs = Math.abs(n) % 100;
-  const last = abs % 10;
-  if (abs > 10 && abs < 20) return many;
-  if (last > 1 && last < 5) return few;
-  if (last === 1) return one;
-  return many;
-}
-
 export const INBOX_ID = '00000000-0000-4000-8000-000000000001';
 
 const projectInput = z.object({
-  title: z.string().min(1, 'Укажите название проекта').max(200),
+  title: z.string().min(1, 'Enter a project name').max(200),
   description: z.string().max(2000).nullable().optional(),
   color: z
     .string()
-    .regex(/^#[0-9a-fA-F]{6}$/, 'Цвет задаётся в формате #1F6E8C')
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Color must look like #1F6E8C')
     .optional(),
   icon: z.string().max(16).nullable().optional(),
 });
@@ -47,7 +37,7 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
   app.post('/api/projects', (req, reply) => {
     const parsed = projectInput.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
     const projectId = id();
     db.prepare(
@@ -68,31 +58,31 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
     const { id: projectId } = z.object({ id: z.string().uuid() }).parse(req.params);
     const parsed = projectInput.partial().safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Проверьте поля' });
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
 
     const fields = Object.entries(parsed.data).filter(([, v]) => v !== undefined);
-    if (fields.length === 0) return reply.code(400).send({ error: 'Нечего менять' });
+    if (fields.length === 0) return reply.code(400).send({ error: 'Nothing to change' });
 
     const set = fields.map(([k]) => `${k} = ?`).join(', ');
     const result = db
       .prepare(`UPDATE projects SET ${set}, updated_at = ? WHERE id = ?`)
       .run(...fields.map(([, v]) => v as string | null), now(), projectId);
 
-    if (result.changes === 0) return reply.code(404).send({ error: 'Проект не найден' });
+    if (result.changes === 0) return reply.code(404).send({ error: 'Project not found' });
     return db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
   });
 
   app.post('/api/projects/:id/archive', (req, reply) => {
     const { id: projectId } = z.object({ id: z.string().uuid() }).parse(req.params);
     if (projectId === INBOX_ID) {
-      return reply.code(400).send({ error: 'Входящие нельзя архивировать' });
+      return reply.code(400).send({ error: 'Inbox cannot be archived' });
     }
 
     const project = db.prepare('SELECT archived_at FROM projects WHERE id = ?').get(projectId) as
       | { archived_at: string | null }
       | undefined;
-    if (!project) return reply.code(404).send({ error: 'Проект не найден' });
+    if (!project) return reply.code(404).send({ error: 'Project not found' });
 
     const archived = project.archived_at ? null : now();
     db.prepare('UPDATE projects SET archived_at = ?, updated_at = ? WHERE id = ?').run(
@@ -106,7 +96,7 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
   app.delete('/api/projects/:id', (req, reply) => {
     const { id: projectId } = z.object({ id: z.string().uuid() }).parse(req.params);
     if (projectId === INBOX_ID) {
-      return reply.code(400).send({ error: 'Входящие удалить нельзя' });
+      return reply.code(400).send({ error: 'Inbox cannot be deleted' });
     }
 
     const open = (
@@ -117,13 +107,13 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
     if (open > 0) {
       return reply.code(409).send({
         error:
-          `В проекте ${open} ${plural(open, 'задача', 'задачи', 'задач')}. ` +
-          'Удаление проекта удалит и задачи — сначала уберите проект в архив или перенесите их',
+          `The project has ${open} ${open === 1 ? 'task' : 'tasks'}. ` +
+          'Deleting the project deletes them too — archive the project or move the tasks first',
       });
     }
 
     const result = db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Проект не найден' });
+    if (result.changes === 0) return reply.code(404).send({ error: 'Project not found' });
     return { ok: true };
   });
 

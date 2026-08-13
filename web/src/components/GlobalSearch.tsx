@@ -19,19 +19,19 @@ interface Result {
 }
 
 const KIND_LABEL: Record<Result['kind'], string> = {
-  task: t('Задача'),
-  note: t('Заметка'),
-  event: t('Событие'),
-  project: t('Проект'),
-  attachment: t('Файл'),
+  task: t('Task'),
+  note: t('Note'),
+  event: t('Event'),
+  project: t('Project'),
+  attachment: t('File'),
 };
 
 /*
-  Subtitles come from the server in Russian. User-given names (project,
+  Subtitles come from the server in English. User-given names (project,
   folder) must not be translated, while built-in constants must be. We only
   translate a known finite list; task project names are handled by projectTitle by id.
 */
-const SERVER_SUBTITLES = new Set(['Приватная', 'Без папки', 'Проект']);
+const SERVER_SUBTITLES = new Set(['Private', 'No folder', 'Project']);
 
 function subtitleOf(r: Result): string {
   if (r.kind === 'task') return projectTitle(r.project_id, r.subtitle);
@@ -87,7 +87,7 @@ export function GlobalSearch({
     const trimmed = query.trim();
     if (trimmed.length < 3) {
       setResults(null);
-      setHint(trimmed.length === 0 ? null : t('Нужно минимум три символа'));
+      setHint(trimmed.length === 0 ? null : t('At least three characters are needed'));
       return;
     }
     const timer = setTimeout(() => {
@@ -96,7 +96,7 @@ export function GlobalSearch({
         .then((res) => {
           setResults(res.results);
           setCursor(0);
-          setHint(res.results.length === 0 ? t('Ничего не нашлось') : null);
+          setHint(res.results.length === 0 ? t('Nothing found') : null);
         })
         .catch((err: Error) => setHint(err.message));
     }, 250);
@@ -121,14 +121,14 @@ export function GlobalSearch({
           <circle cx="11" cy="11" r="6.5" />
           <path d="m16 16 4 4" strokeLinecap="round" />
         </svg>
-        {t('Поиск')}
+        {t('Search')}
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center px-5 pt-20">
           <button
             type="button"
-            aria-label={t('Закрыть')}
+            aria-label={t('Close')}
             onClick={() => setOpen(false)}
             className="absolute inset-0 bg-black/40"
           />
@@ -137,7 +137,7 @@ export function GlobalSearch({
             <input
               ref={inputRef}
               value={query}
-              placeholder={t('Искать по задачам, заметкам, событиям и файлам')}
+              placeholder={t('Search tasks, notes, events and files')}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (!results?.length) return;
@@ -200,7 +200,7 @@ export function GlobalSearch({
             )}
 
             <p className="border-t border-line px-5 py-2.5 font-mono text-xs text-muted">
-              {t('Cmd + Shift + F · стрелки и Enter')}
+              {t('Cmd + Shift + F · arrows and Enter')}
             </p>
           </div>
         </div>

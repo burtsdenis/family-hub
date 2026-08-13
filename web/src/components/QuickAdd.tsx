@@ -66,7 +66,7 @@ export function QuickAdd({ onAdded }: { onAdded: () => void }) {
       onAdded();
       setCreated(task);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось добавить'));
+      setError(err instanceof Error ? err.message : t('Could not add'));
     } finally {
       setBusy(false);
     }
@@ -78,7 +78,7 @@ export function QuickAdd({ onAdded }: { onAdded: () => void }) {
         type="button"
         onClick={() => setOpen(true)}
         className="fixed right-5 bottom-24 z-20 grid size-13 place-items-center rounded-full bg-accent text-2xl text-white shadow-lg md:right-8 md:bottom-8"
-        aria-label={t('Добавить задачу')}
+        aria-label={t('Add task')}
       >
         +
       </button>
@@ -87,17 +87,17 @@ export function QuickAdd({ onAdded }: { onAdded: () => void }) {
         <div className="fixed inset-0 z-40 flex items-start justify-center px-5 pt-24">
           <button
             type="button"
-            aria-label={t('Закрыть')}
+            aria-label={t('Close')}
             onClick={() => setOpen(false)}
             className="absolute inset-0 bg-black/40"
           />
           <div className="relative w-full max-w-lg rounded-card border border-line bg-surface p-5 shadow-xl">
-            <h2 className="eyebrow mb-4">{t('Новая задача')}</h2>
+            <h2 className="eyebrow mb-4">{t('New task')}</h2>
 
             <input
               ref={inputRef}
               value={title}
-              placeholder={t('Что нужно сделать')}
+              placeholder={t('Things to do')}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={onEnter(() => void submit())}
               className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
@@ -136,7 +136,7 @@ export function QuickAdd({ onAdded }: { onAdded: () => void }) {
                 disabled={busy}
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
-                {t('Добавить')}
+                {t('Add')}
               </button>
             </div>
           </div>

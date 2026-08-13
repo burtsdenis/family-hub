@@ -49,7 +49,7 @@ export function BudgetsPanel({ month, monthLabel, accounts, categories }: Props)
       setBudgets(await api.get<Budget[]>(`/budgets?month=${month}`));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось загрузить лимиты'));
+      setError(err instanceof Error ? err.message : t('Could not load budgets'));
     }
   }, [month]);
 
@@ -72,7 +72,7 @@ export function BudgetsPanel({ month, monthLabel, accounts, categories }: Props)
         <div className="h-40 animate-pulse rounded-card bg-surface-3" />
       ) : budgets.length === 0 ? (
         <Empty>
-          {t('Лимитов нет. Поставьте лимит на категорию — и станет видно, сколько от него осталось.')}
+          {t('No budgets. Set one on a category and you will see how much of it is left.')}
         </Empty>
       ) : (
         <ul className="space-y-3">
@@ -95,12 +95,12 @@ export function BudgetsPanel({ month, monthLabel, accounts, categories }: Props)
                     />
                     <span className="truncate text-sm font-medium text-ink">{b.category_name}</span>
                     {b.limit_month && (
-                      <span className="shrink-0 text-xs text-muted">{t('только этот месяц')}</span>
+                      <span className="shrink-0 text-xs text-muted">{t('this month only')}</span>
                     )}
                   </button>
 
                   <span className={`shrink-0 font-mono text-sm ${over ? 'text-urgent' : 'text-ink'}`}>
-                    {over ? t('перерасход ') : t('осталось ')}
+                    {over ? t('over by ') : t('left ')}
                     {formatMoney(Math.abs(left), b.currency)}
                   </span>
                 </div>
@@ -113,7 +113,7 @@ export function BudgetsPanel({ month, monthLabel, accounts, categories }: Props)
                 </div>
 
                 <p className="mt-2 font-mono text-xs text-muted">
-                  {formatMoney(b.spent, b.currency)} {t('из')} {formatMoney(b.limit_amount, b.currency)}
+                  {formatMoney(b.spent, b.currency)} {t('of')} {formatMoney(b.limit_amount, b.currency)}
                 </p>
               </li>
             );
@@ -126,7 +126,7 @@ export function BudgetsPanel({ month, monthLabel, accounts, categories }: Props)
         onClick={() => setCreating(true)}
         className="rounded-lg border border-dashed border-line px-4 py-2 text-sm text-muted hover:border-accent hover:text-ink"
       >
-        {t('+ лимит')}
+        {t('+ budget')}
       </button>
 
       {(creating || editing) && (
@@ -174,11 +174,11 @@ function BudgetDialog({
   async function save() {
     const value = parseAmount(amount);
     if (value === null || value === 0) {
-      setError(t('Укажите сумму лимита'));
+      setError(t('Enter the budget amount'));
       return;
     }
     if (!categoryId) {
-      setError(t('Сначала заведите категорию трат'));
+      setError(t('Create an expense category first'));
       return;
     }
     setBusy(true);
@@ -193,7 +193,7 @@ function BudgetDialog({
       onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Не удалось сохранить'));
+      setError(err instanceof Error ? err.message : t('Could not save'));
       setBusy(false);
     }
   }
@@ -207,7 +207,7 @@ function BudgetDialog({
 
   return (
     <Modal
-      title={budget ? t('Лимит') : t('Новый лимит')}
+      title={budget ? t('Budget') : t('New budget')}
       onClose={onClose}
       onSubmit={() => {
         if (!busy) void save();
@@ -216,21 +216,21 @@ function BudgetDialog({
         <>
           {budget && (
             <button type="button" onClick={() => void remove()} className={`${dialogDanger} mr-auto`}>
-              {t('Убрать')}
+              {t('Remove')}
             </button>
           )}
           <button type="button" onClick={onClose} className={dialogGhost}>
-            {t('Отмена')}
+            {t('Cancel')}
           </button>
           <button type="button" disabled={busy} onClick={() => void save()} className={dialogPrimary}>
-            {t('Сохранить')}
+            {t('Save')}
           </button>
         </>
       }
     >
       <div className="space-y-4">
         <label className="block">
-          <span className={dialogLabel}>{t('Категория')}</span>
+          <span className={dialogLabel}>{t('Category')}</span>
           <select
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
@@ -244,13 +244,13 @@ function BudgetDialog({
             ))}
           </select>
           <span className="mt-1 block text-xs text-muted">
-            {t('Лимит на родительскую категорию учитывает и траты её подкатегорий')}
+            {t('A limit on a parent category also counts its subcategories')}
           </span>
         </label>
 
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className={dialogLabel}>{t('Лимит на месяц')}</span>
+            <span className={dialogLabel}>{t('Monthly budget')}</span>
             <input
               autoFocus
               inputMode="decimal"
@@ -263,7 +263,7 @@ function BudgetDialog({
           </label>
 
           <label className="block">
-            <span className={dialogLabel}>{t('Валюта')}</span>
+            <span className={dialogLabel}>{t('Currency')}</span>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
@@ -287,9 +287,9 @@ function BudgetDialog({
             className="mt-0.5 size-4 accent-[var(--c-accent)]"
           />
           <span>
-            <span className="block text-sm text-ink">{t('Только на')} {monthLabel.toLowerCase()}</span>
+            <span className="block text-sm text-ink">{t('Only for')} {monthLabel.toLowerCase()}</span>
             <span className="block text-xs text-muted">
-              {t('Разовое исключение. В остальных месяцах останется постоянный лимит')}
+              {t('A one-off exception. Other months keep the standing budget')}
             </span>
           </span>
         </label>

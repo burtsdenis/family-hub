@@ -70,7 +70,7 @@ app.setErrorHandler((err: FastifyError, req, reply) => {
   // This used to blow up as a 500 and land in the log as a server error.
   if (err instanceof ZodError) {
     log.warn(`400 ${req.method} ${redactUrl(req.url)}`, err.issues[0]?.message ?? '');
-    return reply.code(400).send({ error: 'Некорректные параметры запроса' });
+    return reply.code(400).send({ error: 'Invalid request parameters' });
   }
 
   const status = err.statusCode ?? 500;
@@ -78,7 +78,7 @@ app.setErrorHandler((err: FastifyError, req, reply) => {
   else log.warn(`${status} ${req.method} ${redactUrl(req.url)}`, err.message);
 
   return reply.code(status).send({
-    error: status < 500 ? err.message : 'Внутренняя ошибка сервера',
+    error: status < 500 ? err.message : 'Internal server error',
   });
 });
 
@@ -174,7 +174,7 @@ await app.register(fastifyRateLimit, {
   errorResponseBuilder: (_req, context) => ({
     statusCode: 429,
     error: 'Too Many Requests',
-    message: `Слишком много запросов. Подождите ${Math.ceil(context.ttl / 1000)} с.`,
+    message: `Too many requests. Wait ${Math.ceil(context.ttl / 1000)} s.`,
   }),
 });
 
@@ -186,7 +186,7 @@ app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body,
   try {
     done(null, JSON.parse(raw));
   } catch {
-    done(Object.assign(new Error('Тело запроса не разобрать как JSON'), { statusCode: 400 }), undefined);
+    done(Object.assign(new Error('The request body is not valid JSON'), { statusCode: 400 }), undefined);
   }
 });
 
@@ -212,10 +212,10 @@ if (env.isProd) {
     try {
       originHost = new URL(origin).host;
     } catch {
-      return reply.code(403).send({ error: 'Запрос с чужого сайта отклонён' });
+      return reply.code(403).send({ error: 'Cross-site request rejected' });
     }
     if (originHost !== req.headers.host) {
-      return reply.code(403).send({ error: 'Запрос с чужого сайта отклонён' });
+      return reply.code(403).send({ error: 'Cross-site request rejected' });
     }
     done();
   });
@@ -246,7 +246,7 @@ if (!env.isProd) {
   app.get('/', (_req, reply) =>
     reply
       .type('text/plain; charset=utf-8')
-      .send('API работает. Интерфейс в режиме разработки: http://localhost:5173'),
+      .send('The API is up. The UI runs in dev mode at http://localhost:5173'),
   );
 }
 
@@ -256,7 +256,7 @@ if (env.isProd && existsSync(env.webDist)) {
   await app.register(fastifyStatic, { root: env.webDist });
   app.setNotFoundHandler((req, reply) => {
     if (req.url.startsWith('/api')) {
-      return reply.code(404).send({ error: 'Такого метода нет' });
+      return reply.code(404).send({ error: 'No such endpoint' });
     }
     return reply.sendFile('index.html');
   });

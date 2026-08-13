@@ -104,15 +104,15 @@ export interface Summary {
 }
 
 export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = {
-  cash: t('Наличные'),
-  card: t('Карта'),
-  savings: t('Копилка'),
+  cash: t('Cash'),
+  card: t('Card'),
+  savings: t('Piggy bank'),
 };
 
 export const TX_KIND_LABEL: Record<TxKind, string> = {
-  expense: t('Трата'),
-  income: t('Доход'),
-  transfer: t('Перевод'),
+  expense: t('Expense'),
+  income: t('Income'),
+  transfer: t('Transfer'),
 };
 
 /**
@@ -221,19 +221,19 @@ export function groupByCurrency(accounts: Account[]): { currency: string; total:
 }
 
 const RULE_LABEL: Record<string, string> = {
-  'FREQ=DAILY': t('Каждый день'),
-  'FREQ=WEEKLY': t('Каждую неделю'),
-  'FREQ=WEEKLY;INTERVAL=2': t('Раз в две недели'),
-  'FREQ=MONTHLY': t('Каждый месяц'),
-  'FREQ=MONTHLY;INTERVAL=3': t('Раз в квартал'),
-  'FREQ=YEARLY': t('Каждый год'),
+  'FREQ=DAILY': t('Every day'),
+  'FREQ=WEEKLY': t('Every week'),
+  'FREQ=WEEKLY;INTERVAL=2': t('Every two weeks'),
+  'FREQ=MONTHLY': t('Every month'),
+  'FREQ=MONTHLY;INTERVAL=3': t('Every quarter'),
+  'FREQ=YEARLY': t('Every year'),
 };
 
-const RULE_UNITS: Record<string, [string, string, string]> = {
-  DAILY: ['день', 'дня', 'дней'],
-  WEEKLY: ['неделю', 'недели', 'недель'],
-  MONTHLY: ['месяц', 'месяца', 'месяцев'],
-  YEARLY: ['год', 'года', 'лет'],
+const RULE_UNITS: Record<string, [string, string]> = {
+  DAILY: ['day', 'days'],
+  WEEKLY: ['week', 'weeks'],
+  MONTHLY: ['month', 'months'],
+  YEARLY: ['year', 'years'],
 };
 
 /**
@@ -263,5 +263,5 @@ export function describeRule(rule: string): string {
   const units = m ? RULE_UNITS[m[1]!] : undefined;
   if (!m || !units) return rule;
   const n = Number(m[2]);
-  return `${t('Каждые')} ${n} ${plural(n, ...units)}`;
+  return `${t('Every')} ${n} ${plural(n, ...units)}`;
 }
