@@ -114,24 +114,40 @@ function TaskItem({
           </span>
         )}
 
+        {/* Приоритет — пилюлей, а не голым словом: без рамки и заливки
+            «HIGH» читался как случайная пометка, а не как приоритет */}
         {node.priority !== 'normal' && !closed && (
           <span
-            className={`hidden font-mono text-[0.625rem] tracking-wide uppercase sm:inline ${
-              node.priority === 'urgent' || node.priority === 'high' ? 'text-urgent' : 'text-muted'
+            className={`hidden shrink-0 items-center rounded-full border px-2 py-0.5 font-mono text-[0.625rem] tracking-wide uppercase sm:inline-flex ${
+              node.priority === 'urgent' || node.priority === 'high'
+                ? 'border-urgent/40 bg-urgent/10 text-urgent'
+                : 'border-line bg-surface-2 text-muted'
             }`}
           >
             {PRIORITY_LABEL[node.priority]}
           </span>
         )}
 
+        {/* Исполнитель: на широком экране — имя целиком (буква «М» не
+            различает Марка и Марию, а место есть), на планшете — аватар */}
         {node.assignee_name && (
-          <span
-            className="hidden size-5 shrink-0 place-items-center rounded-full text-[0.625rem] font-medium text-white sm:grid"
-            style={{ backgroundColor: node.assignee_color ?? 'var(--c-accent)' }}
-            title={node.assignee_name}
-          >
-            {node.assignee_name.slice(0, 1)}
-          </span>
+          <>
+            <span
+              className="hidden size-5 shrink-0 place-items-center rounded-full text-[0.625rem] font-medium text-white sm:grid lg:hidden"
+              style={{ backgroundColor: node.assignee_color ?? 'var(--c-accent)' }}
+              title={node.assignee_name}
+            >
+              {node.assignee_name.slice(0, 1)}
+            </span>
+            <span className="hidden max-w-40 shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface-2 py-0.5 pr-2.5 pl-2 text-xs text-muted lg:inline-flex">
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={{ backgroundColor: node.assignee_color ?? 'var(--c-accent)' }}
+                aria-hidden
+              />
+              <span className="truncate">{node.assignee_name}</span>
+            </span>
+          </>
         )}
 
         {node.due_date && (
