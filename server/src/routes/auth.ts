@@ -161,7 +161,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     if (env.demoMode) {
       const { SANDBOX_COOKIE, destroySandbox } = await import('../lib/sandbox.js');
       const sandboxId = req.cookies[SANDBOX_COOKIE];
-      if (sandboxId) destroySandbox(sandboxId);
+      if (sandboxId) destroySandbox(sandboxId, 'logout');
       reply.clearCookie(SANDBOX_COOKIE, { path: '/' });
       clearSessionCookie(reply);
       return { ok: true };
@@ -187,7 +187,16 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       '/api/auth/demo',
       { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
       (req, reply) => {
-        const sandbox = createSandbox();
+        // The client sends document.referrer along — the only place the
+        // "how did they find the demo" answer exists. Anything unparseable
+        // is simply an absent referrer, never an error.
+        const parsed = z
+          .object({ referrer: z.string().max(500).nullish() })
+          .safeParse(req.body);
+        const sandbox = createSandbox({
+          referrer: parsed.success ? (parsed.data.referrer ?? null) : null,
+          userAgent: req.headers['user-agent'] ?? null,
+        });
         return runWithDb(sandbox.db, () => {
           const admin = db
             .prepare(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`)
@@ -202,8 +211,6 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
             // Longer than the sandbox TTL: the server decides the lifetime, not the cookie
             maxAge: 24 * 60 * 60,
           });
-          log.info(`demo: sandbox login from ${req.ip}`);
-
           return db
             .prepare(
               `SELECT id, email, name, role, color, must_change_password,

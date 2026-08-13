@@ -49,7 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loginDemo = useCallback(async () => {
-    const me = await api.post<User>('/auth/demo', {});
+    // document.referrer is the only trace of how the visitor found the
+    // demo — the server keeps it in anonymous usage stats (demo mode only)
+    const me = await api.post<User>('/auth/demo', { referrer: document.referrer || null });
     setUser(me);
   }, []);
 
