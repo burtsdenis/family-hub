@@ -19,6 +19,35 @@ The core is complete and battle-tested by daily family use: accounts and sign-in
   </tr>
 </table>
 
+## Why not Notion / Google / Nextcloud?
+
+The most common question in the feedback, in its three variants — answered honestly.
+
+**Why not Notion or Obsidian?** Those are builders: a blank canvas and
+blocks, and the family system is yours to design, maintain — and teach
+to a spouse who never asked for a database course. Family Hub is the
+opposite trade: an opinionated finished product. Tasks, notes, calendar
+and money work a particular way out of the box, with the decisions
+already made. If you enjoy building your own system, a builder will
+genuinely serve you better; this is for families who want the thing,
+not the constructor kit.
+
+**Why not Google Keep + Calendar?** For lists and dates it is honestly
+fine. The reason this project exists is money: shared accounts, budgets
+with limits, recurring payments and bank reconciliation are the core
+here, and no combination of Keep, Calendar and a spreadsheet does that
+as one coherent thing. There is also a quieter argument: the family
+archive — finances, receipts, private notes — lives in a SQLite file on
+your own machine, not in an advertising company's cloud.
+
+**Why not Nextcloud?** Closest in spirit — self-hosted, your data. But
+Nextcloud is a platform: an app store, plugins with separate authors and
+separate bugs, and real administration overhead. Family Hub is one small
+app: one container, one database file, updates that take a minute.
+Privacy is structural, not a setting — "private" is enforced
+server-side per owner, and there is deliberately no admin backdoor to
+read someone else's notes (see [architecture.md](docs/architecture.md)).
+
 ## Quick start
 
 At home, with Docker:
