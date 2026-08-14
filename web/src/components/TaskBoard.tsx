@@ -17,7 +17,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { api, type Task } from '../lib/api';
 import { formatDate } from '../lib/format';
-import { BOARD_COLUMNS, PRIORITY_LABEL, STATUS_LABEL, isOverdue, today, type Status } from '../lib/tasks';
+import { BOARD_COLUMNS, PRIORITY_LABEL, STATUS_LABEL, effectiveDate, isOverdue, today, type Status } from '../lib/tasks';
 
 interface Props {
   tasks: Task[];
@@ -222,9 +222,10 @@ function Card({ task, overlay }: { task: Task; overlay?: boolean }) {
             {PRIORITY_LABEL[task.priority]}
           </span>
         )}
-        {task.due_date && (
+        {effectiveDate(task) && (
           <span className={`font-mono text-xs ${overdue ? 'text-urgent' : 'text-muted'}`}>
-            {formatDate(task.due_date)}
+            {task.expected_date ? '→ ' : ''}
+            {formatDate(effectiveDate(task)!)}
           </span>
         )}
         {task.assignee_name && (

@@ -46,6 +46,7 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   due_date: string | null;
+  expected_date: string | null;
   assignee_id: string | null;
   recurrence_rule: string | null;
   position: number;

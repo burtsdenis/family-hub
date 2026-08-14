@@ -31,6 +31,7 @@ const createInput = z.object({
   status: z.enum(STATUSES).optional(),
   priority: z.enum(PRIORITIES).optional(),
   due_date: z.string().regex(DATE, 'Date must be YYYY-MM-DD').nullable().optional(),
+  expected_date: z.string().regex(DATE, 'Date must be YYYY-MM-DD').nullable().optional(),
   assignee_id: z.string().uuid().nullable().optional(),
   recurrence_rule: z.string().max(100).nullable().optional(),
 });
@@ -117,12 +118,14 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
       where.push('t.priority = ?');
       args.push(q.priority);
     }
+    // Date windows (the calendar fetch) go by the effective date: when an
+    // expected completion is set, that is the day the task actually lives on
     if (q.due_before) {
-      where.push('t.due_date IS NOT NULL AND t.due_date <= ?');
+      where.push('coalesce(t.expected_date, t.due_date) <= ?');
       args.push(q.due_before);
     }
     if (q.due_after) {
-      where.push('t.due_date IS NOT NULL AND t.due_date >= ?');
+      where.push('coalesce(t.expected_date, t.due_date) >= ?');
       args.push(q.due_after);
     }
     if (q.search) {
@@ -181,8 +184,8 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
     const taskId = id();
     db.prepare(
       `INSERT INTO tasks (id, project_id, parent_id, level, title, description, status, priority,
-                          due_date, assignee_id, recurrence_rule, position, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                          due_date, expected_date, assignee_id, recurrence_rule, position, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                (SELECT coalesce(max(position), 0) + 1 FROM tasks WHERE project_id = ?), ?)`,
     ).run(
       taskId,
@@ -194,6 +197,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
       d.status ?? 'todo',
       d.priority ?? 'normal',
       d.due_date ?? null,
+      d.expected_date ?? null,
       d.assignee_id ?? null,
       d.recurrence_rule ?? null,
       d.project_id,
@@ -275,6 +279,8 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
       const next = occurrenceAfter(anchor, task.due_date, task.recurrence_rule);
       if (next) {
         const nextId = id();
+        // expected_date is deliberately not copied: it describes how one
+        // specific occurrence is going in reality, not the series pattern
         db.prepare(
           `INSERT INTO tasks (id, project_id, parent_id, level, title, description, status,
                               priority, due_date, assignee_id, recurrence_rule,

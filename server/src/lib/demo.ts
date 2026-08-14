@@ -92,6 +92,13 @@ export async function seedDemo(): Promise<void> {
       id(), trip, day(12), sam, sam,
       id(), trip, alex,
     );
+    // Showcases the expected-finish date (#7): the due date is past, but
+    // the repair is known to take a week — the task is not overdue
+    db.prepare(
+      `INSERT INTO tasks (id, project_id, level, title, status, priority, due_date, expected_date,
+                          assignee_id, position, created_by)
+       VALUES (?, ?, 0, 'Coffee machine in repair', 'in_progress', 'normal', ?, ?, ?, 7, ?)`,
+    ).run(id(), home, day(-3), day(4), alex, alex);
     // Nesting: "buy paint" goes under the repaint story
     db.prepare(
       `UPDATE tasks SET parent_id = ?, level = 1 WHERE title IN ('Pick the colour together', 'Buy paint and tape')`,

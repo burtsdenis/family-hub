@@ -37,6 +37,8 @@ Setting up Google sign-in on a server: [deploy-vps.md](deploy-vps.md), "Google s
 
 Three nesting levels: story → task → subtask. The server refuses anything deeper, deliberately — otherwise the tree turns into a dump.
 
+A task carries two dates. **Due date** is when it should be done; **expected finish** is when it is realistically going to be done. When the expected finish is set, it takes over everywhere a date matters: overdue is counted from it, and the dashboard and calendar place the task on that day. The scenario it exists for: a coffee machine goes in for a week-long repair — the task is in progress and on plan, not "overdue" for seven days straight. In lists the stand-in date is marked with an arrow (`→ 21 August`). The expected finish belongs to one specific occurrence, so a recurring task's next occurrence never inherits it.
+
 Recurrence uses a subset of RRULE: `FREQ=MONTHLY;INTERVAL=1` and the like. The next date is computed **from the series anchor**, not from the previous occurrence. Otherwise "every 31st" would slip to the 28th forever after February.
 
 Task order is accepted as a full list of IDs (`POST /api/tasks/reorder`) rather than fractional positions between neighbours. At household scale rewriting fifty rows costs nothing, and positions never degrade over time.

@@ -241,11 +241,18 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     // By the local clock: in UTC "today" is still yesterday after midnight
     const today = localToday();
 
+    /*
+      All three buckets go by the effective date: when an expected
+      completion is set (#7), it replaces the due date — work that is in
+      progress with a known finish day is not "overdue", it is simply
+      scheduled for that day.
+    */
     const dueToday = db
       .prepare(
         `SELECT t.*, p.title AS project_title, p.color AS project_color
            FROM tasks t JOIN projects p ON p.id = t.project_id
-          WHERE t.due_date = ? AND t.status NOT IN ('done','cancelled')
+          WHERE coalesce(t.expected_date, t.due_date) = ?
+            AND t.status NOT IN ('done','cancelled')
           ORDER BY t.priority DESC`,
       )
       .all(today);
@@ -254,8 +261,9 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       .prepare(
         `SELECT t.*, p.title AS project_title, p.color AS project_color
            FROM tasks t JOIN projects p ON p.id = t.project_id
-          WHERE t.due_date < ? AND t.status NOT IN ('done','cancelled')
-          ORDER BY t.due_date`,
+          WHERE coalesce(t.expected_date, t.due_date) < ?
+            AND t.status NOT IN ('done','cancelled')
+          ORDER BY coalesce(t.expected_date, t.due_date)`,
       )
       .all(today);
 
@@ -263,9 +271,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       .prepare(
         `SELECT t.*, p.title AS project_title, p.color AS project_color
            FROM tasks t JOIN projects p ON p.id = t.project_id
-          WHERE t.due_date > ? AND t.due_date <= date(?, '+7 days')
+          WHERE coalesce(t.expected_date, t.due_date) > ?
+            AND coalesce(t.expected_date, t.due_date) <= date(?, '+7 days')
             AND t.status NOT IN ('done','cancelled')
-          ORDER BY t.due_date`,
+          ORDER BY coalesce(t.expected_date, t.due_date)`,
       )
       .all(today, today);
 
