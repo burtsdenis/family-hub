@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, type Dashboard as DashboardData, type Task } from '../lib/api';
 import type { Occurrence } from '../lib/calendar';
 import { formatDate, timeOf } from '../lib/format';
+import { effectiveDate } from '../lib/tasks';
 import { MoveBoard } from '../components/MoveBoard';
 import { Page } from '../components/Page';
 
@@ -36,8 +37,8 @@ function TaskRow({ task, overdue }: { task: Task; overdue?: boolean }) {
           {PRIORITY_LABEL.urgent}
         </span>
       )}
-        {overdue && task.due_date && (
-          <span className="font-mono text-xs text-urgent">{formatDate(task.due_date)}</span>
+        {overdue && effectiveDate(task) && (
+          <span className="font-mono text-xs text-urgent">{formatDate(effectiveDate(task)!)}</span>
         )}
       </Link>
     </li>

@@ -2,7 +2,7 @@ import { t } from '../lib/i18n';
 import { useState } from 'react';
 import { api, type Task, type TaskMutation } from '../lib/api';
 import { formatDate } from '../lib/format';
-import { PRIORITY_LABEL, isClosed, isOverdue, today, type TaskNode } from '../lib/tasks';
+import { PRIORITY_LABEL, effectiveDate, isClosed, isOverdue, today, type TaskNode } from '../lib/tasks';
 import { Empty } from './Page';
 
 interface Props {
@@ -150,9 +150,11 @@ function TaskItem({
           </>
         )}
 
-        {node.due_date && (
+        {effectiveDate(node) && (
           <span className={`font-mono text-xs ${overdue ? 'text-urgent' : 'text-muted'}`}>
-            {formatDate(node.due_date)}
+            {/* The arrow marks an expected date standing in for the due date */}
+            {node.expected_date ? '→ ' : ''}
+            {formatDate(effectiveDate(node)!)}
           </span>
         )}
 

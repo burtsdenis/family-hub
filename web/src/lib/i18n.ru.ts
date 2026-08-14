@@ -197,6 +197,8 @@ export const ru: Record<string, string> = {
   'Drag files into the text or paste from the clipboard': 'Файлы можно перетащить в текст или вставить из буфера',
   'Drop a task here': 'Перетащите задачу сюда',
   'Due date': 'Срок',
+  'Expected finish': 'Ожидаемое завершение',
+  'Overdue counts from this date': 'Просрочка считается от этой даты',
   'Edit': 'Изменить',
   'Edit the saved amount': 'Изменить накопленную сумму',
   'Empty': 'Пусто',

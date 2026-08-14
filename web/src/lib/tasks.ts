@@ -73,8 +73,20 @@ export function buildTree(tasks: Task[]): TaskNode[] {
   return roots;
 }
 
+/**
+ * The date a task actually lives on. due_date says when it should be
+ * done; expected_date says when it is realistically going to be done
+ * (a repair known to take a week). When set, the expected date drives
+ * overdue and every date-keyed view — in-progress work with a known
+ * finish day is not "overdue", it is scheduled for that day.
+ */
+export function effectiveDate(task: Task): string | null {
+  return task.expected_date ?? task.due_date;
+}
+
 export function isOverdue(task: Task, today: string): boolean {
-  return Boolean(task.due_date && task.due_date < today && !isClosed(task));
+  const date = effectiveDate(task);
+  return Boolean(date && date < today && !isClosed(task));
 }
 
 export function isClosed(task: Task): boolean {

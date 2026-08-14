@@ -32,6 +32,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
     status: task.status,
     priority: task.priority,
     due_date: task.due_date ?? '',
+    expected_date: task.expected_date ?? '',
     assignee_id: task.assignee_id ?? '',
     recurrence_rule: task.recurrence_rule ?? '',
   });
@@ -59,6 +60,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
         status: draft.status,
         priority: draft.priority,
         due_date: draft.due_date || null,
+        expected_date: draft.expected_date || null,
         assignee_id: draft.assignee_id || null,
         recurrence_rule: draft.recurrence_rule || null,
       });
@@ -182,6 +184,21 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
                 onChange={(e) => setDraft({ ...draft, due_date: e.target.value })}
                 className={field}
               />
+            </label>
+
+            <label className="block">
+              <span className={label}>{t('Expected finish')}</span>
+              <input
+                type="date"
+                value={draft.expected_date}
+                onChange={(e) => setDraft({ ...draft, expected_date: e.target.value })}
+                className={field}
+              />
+              {draft.expected_date && (
+                <span className="mt-1 block text-xs text-muted">
+                  {t('Overdue counts from this date')}
+                </span>
+              )}
             </label>
 
             <label className="block">

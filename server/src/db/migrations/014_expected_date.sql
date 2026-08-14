@@ -1,0 +1,12 @@
+-- Tasks: expected completion date (#7).
+--
+-- due_date answers "when should this be done"; expected_date answers
+-- "when do we actually expect it to finish". A task handed over for a
+-- week-long repair is not overdue while the repair runs to plan — when
+-- expected_date is set, overdue (and the dashboard buckets) count from
+-- COALESCE(expected_date, due_date) instead of due_date alone.
+--
+-- Per-instance by design: a spawned recurring occurrence never inherits
+-- it. No index — dashboard queries filter on the COALESCE expression,
+-- and at family scale a table scan of tasks is free.
+ALTER TABLE tasks ADD COLUMN expected_date TEXT;

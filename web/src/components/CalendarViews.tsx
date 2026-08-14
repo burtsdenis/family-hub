@@ -43,7 +43,10 @@ function groupByDate(occurrences: Occurrence[], tasks: Task[]) {
     }
   }
   for (const t of tasks) {
-    if (t.due_date) bucket(t.due_date).tasks.push(t);
+    // The effective day: an expected completion (when set) is the day
+    // the task is actually going to happen — same rule as the dashboard
+    const day = t.expected_date ?? t.due_date;
+    if (day) bucket(day).tasks.push(t);
   }
   return map;
 }
