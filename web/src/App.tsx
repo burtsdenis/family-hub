@@ -9,6 +9,7 @@ import { Notes } from './pages/Notes';
 import { Calendar } from './pages/Calendar';
 import { Settings } from './pages/Settings';
 import { Money } from './pages/Money';
+import { Mail } from './pages/Mail';
 
 function Gate() {
   const { user, loading, mustChangePassword } = useAuth();
@@ -27,6 +28,7 @@ function Gate() {
         <Route path="calendar" element={<Calendar />} />
         <Route path="notes" element={<Notes />} />
         <Route path="money" element={<Money />} />
+        <Route path="mail" element={<Mail />} />
         <Route path="settings" element={<Settings />} />
         {/* People management moved into Settings; old bookmarks land there */}
         <Route path="users" element={<Navigate to="/settings" replace />} />

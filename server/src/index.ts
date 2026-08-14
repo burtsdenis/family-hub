@@ -18,6 +18,7 @@ import { registerTaskRoutes } from './routes/tasks.js';
 import { registerNoteRoutes } from './routes/notes.js';
 import { MAX_FILE_BYTES, registerAttachmentRoutes } from './routes/attachments.js';
 import { registerCalendarRoutes } from './routes/calendar.js';
+import { registerMailRoutes } from './routes/mail.js';
 import { registerMoneyRoutes } from './routes/money.js';
 import { registerBudgetRoutes, runAutoCreate } from './routes/budgets.js';
 import { authenticate, announceSetupIfEmpty, pruneSessions } from './lib/auth.js';
@@ -235,6 +236,7 @@ await registerTaskRoutes(app);
 await registerNoteRoutes(app);
 await registerAttachmentRoutes(app);
 await registerCalendarRoutes(app);
+await registerMailRoutes(app);
 await registerMoneyRoutes(app);
 await registerBudgetRoutes(app);
 
@@ -271,6 +273,13 @@ try {
 } catch (err) {
   log.error('Failed to bind the port', err);
   process.exit(1);
+}
+
+// Family mail: background IMAP polling. Not in demo — sandboxes have no
+// mailbox, and the sample messages are seeded, not fetched.
+if (!env.demoMode) {
+  const { startMailPoller } = await import('./lib/mail.js');
+  startMailPoller();
 }
 
 // An unhandled crash must be visible at any log level
