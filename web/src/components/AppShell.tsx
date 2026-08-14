@@ -117,6 +117,28 @@ function ThemeIcon({ dark, className }: { dark: boolean; className: string }) {
   );
 }
 
+/**
+ * Sign out is the one destructive-ish action in the shell, so it gets a
+ * clearer affordance than plain text: a door-with-arrow glyph and an
+ * urgent-toned pill on hover (same pill language as the priority badges).
+ */
+function SignOutButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-2 rounded-full border border-transparent px-2.5 py-1.5 text-sm text-muted transition-colors hover:border-urgent/40 hover:bg-urgent/10 hover:text-urgent"
+    >
+      <svg viewBox="0 0 24 24" className="size-4" {...stroke} aria-hidden>
+        <path d="M10 20H5V4h5" />
+        <path d="m14 8 4 4-4 4" />
+        <path d="M18 12H9" />
+      </svg>
+      {t('Sign out')}
+    </button>
+  );
+}
+
 function ThemeToggle() {
   const { dark, toggle } = useTheme();
   return (
@@ -207,13 +229,7 @@ export function AppShell() {
             <span className="min-w-0 flex-1 truncate text-sm text-ink">{user?.name}</span>
           </div>
           <div className="px-2">
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className="rounded-lg px-2.5 py-1.5 text-sm text-muted transition-colors hover:text-ink"
-            >
-              {t('Sign out')}
-            </button>
+            <SignOutButton onClick={() => void logout()} />
           </div>
         </div>
       </aside>
@@ -301,13 +317,7 @@ export function AppShell() {
 
             <div className="flex items-center justify-between px-5 py-3.5">
               <span className="text-sm text-muted">{user?.name}</span>
-              <button
-                type="button"
-                onClick={() => void logout()}
-                className="text-sm text-muted underline underline-offset-2"
-              >
-                {t('Sign out')}
-              </button>
+              <SignOutButton onClick={() => void logout()} />
             </div>
           </div>
         </div>
