@@ -624,6 +624,7 @@ export const ru: Record<string, string> = {
   'Save and check': 'Сохранить и проверить',
   'Saved. Checking the mailbox…': 'Сохранено. Проверяю ящик…',
   'Send reply': 'Отправить ответ',
+  'Show earlier days ({n})': 'Показать более ранние дни ({n})',
   'Synced {when}': 'Синхронизировано {when}',
   'The household paperwork inbox': 'Домашняя канцелярия',
   'The shared address the Mail section reads. A dedicated mailbox works best; a personal Gmail works too — filter letters into a separate label and set it as the folder below.': 'Общий адрес, который читает раздел «Почта». Лучше всего отдельный ящик; личный Gmail тоже подходит — настройте фильтр в отдельный ярлык и укажите его как папку ниже.',

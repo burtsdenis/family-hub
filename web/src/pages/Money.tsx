@@ -11,7 +11,7 @@ import { DonutChart } from '../components/DonutChart';
 import { DuePanel, RecurringPanel, type DueItem } from '../components/RecurringPanel';
 import { onEnter } from '../lib/keys';
 import { useLatest } from '../lib/latest';
-import { addMonths, formatDate, monthTitle, plural } from '../lib/format';
+import { addDays, addMonths, formatDate, monthTitle, plural } from '../lib/format';
 import { today as todayISO } from '../lib/tasks';
 import {
   ACCOUNT_KIND_LABEL,
@@ -66,6 +66,30 @@ export function Money() {
   const [categoryParent, setCategoryParent] = useState('');
   // Expanded parents in the "By category" summary
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+
+  /*
+    The transactions list is a diary, not the destination: the category
+    summary lives below it, and a month of rows on a phone put it a
+    minute of scrolling away. So by default only the last week of days
+    is shown (the rest of the month behind one button), today's day is
+    open and earlier days collapse to a header with a count.
+  */
+  const [showAllDays, setShowAllDays] = useState(false);
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(() => new Set([todayISO()]));
+
+  useEffect(() => {
+    setShowAllDays(false);
+    setExpandedDays(new Set([todayISO()]));
+  }, [anchor]);
+
+  function toggleDay(date: string) {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  }
 
   const { from, to } = useMemo(() => monthBounds(anchor), [anchor]);
 
@@ -162,6 +186,14 @@ export function Money() {
     }
     return [...map.entries()];
   }, [transactions]);
+
+  // The week cutoff applies only while looking at the current month:
+  // a past month is opened deliberately and shows all of its days
+  const viewingCurrentMonth = anchor.slice(0, 7) === today.slice(0, 7);
+  const weekCutoff = addDays(today, -6);
+  const visibleByDate =
+    showAllDays || !viewingCurrentMonth ? byDate : byDate.filter(([date]) => date >= weekCutoff);
+  const hiddenDays = byDate.length - visibleByDate.length;
 
   const expenseTotals = (summary?.byCurrency ?? []).filter((r) => r.kind === 'expense');
   const incomeTotals = (summary?.byCurrency ?? []).filter((r) => r.kind === 'income');
@@ -512,11 +544,29 @@ export function Money() {
                   <Empty>{t('No transactions this month.')}</Empty>
                 ) : (
                   <ul className="space-y-3">
-                    {byDate.map(([date, items]) => (
+                    {visibleByDate.map(([date, items]) => {
+                      const open = expandedDays.has(date);
+                      return (
                       <li key={date} className="overflow-hidden rounded-card border border-line bg-surface">
-                        <p className="border-b border-line px-4 py-2 text-xs text-muted">
-                          {formatDate(date)}
-                        </p>
+                        <button
+                          type="button"
+                          onClick={() => toggleDay(date)}
+                          aria-expanded={open}
+                          className={`flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-xs text-muted transition-colors hover:bg-surface-2 ${
+                            open ? 'border-b border-line' : ''
+                          }`}
+                        >
+                          <span>{formatDate(date)}</span>
+                          <span className="flex items-center gap-2">
+                            {!open && (
+                              <span>
+                                {items.length} {plural(items.length, 'transaction', 'transactions')}
+                              </span>
+                            )}
+                            <span aria-hidden>{open ? '▾' : '▸'}</span>
+                          </span>
+                        </button>
+                        {open && (
                         <ul>
                           {items.map((tx) => (
                             <li key={tx.id}>
@@ -562,8 +612,21 @@ export function Money() {
                             </li>
                           ))}
                         </ul>
+                        )}
                       </li>
-                    ))}
+                      );
+                    })}
+                    {hiddenDays > 0 && (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => setShowAllDays(true)}
+                          className="w-full rounded-card border border-dashed border-line px-4 py-2.5 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+                        >
+                          {t('Show earlier days ({n})', { n: String(hiddenDays) })}
+                        </button>
+                      </li>
+                    )}
                   </ul>
                 )}
               </div>
