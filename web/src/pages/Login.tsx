@@ -43,11 +43,14 @@ const GOOGLE_MESSAGES: Record<string, string> = {
 };
 
 export function Login() {
-  const { login, loginDemo } = useAuth();
+  const { login, loginMfa, loginDemo } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // A ticket means the password passed and a TOTP code is owed
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
   const [googleAvailable, setGoogleAvailable] = useState(false);
   const [demo, setDemo] = useState(false);
   // null — still finding out; false — empty DB, show the first-run setup
@@ -75,9 +78,29 @@ export function Login() {
     setBusy(true);
     setError(null);
     try {
-      await login(email, password);
+      const ticket = await login(email, password);
+      if (ticket) setMfaToken(ticket);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Could not sign in'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitMfa(e?: FormEvent) {
+    e?.preventDefault();
+    if (!mfaToken) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await loginMfa(mfaToken, mfaCode.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Could not sign in'));
+      // An expired ticket sends the person back to the password step
+      if (err instanceof Error && /start over/i.test(err.message)) {
+        setMfaToken(null);
+        setMfaCode('');
+      }
     } finally {
       setBusy(false);
     }
@@ -118,6 +141,43 @@ export function Login() {
   }
 
   return (
+    mfaToken ? (
+    <Frame title={t('Enter the code')} hint={t('Family hub')}>
+      <form onSubmit={submitMfa} className="space-y-4">
+        <p className="text-sm text-muted">
+          {t('The six-digit code from your authenticator app.')}
+        </p>
+        <input
+          autoFocus
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          value={mfaCode}
+          onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+          className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-center font-mono text-2xl tracking-[0.4em] text-ink outline-none focus:border-accent"
+        />
+        {error && <p className="text-sm text-urgent">{error}</p>}
+        <button
+          type="submit"
+          disabled={busy || mfaCode.length !== 6}
+          className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {t('Confirm')}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMfaToken(null);
+            setMfaCode('');
+            setError(null);
+          }}
+          className="w-full text-center text-sm text-muted hover:text-ink"
+        >
+          {t('Back')}
+        </button>
+      </form>
+    </Frame>
+    ) : (
     <Frame title={t('Sign in')} hint={t('Family hub')}>
       <form onSubmit={submit} className="space-y-4">
         <label className="block">
@@ -189,6 +249,7 @@ export function Login() {
         )}
       </form>
     </Frame>
+    )
   );
 }
 

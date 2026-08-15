@@ -11,6 +11,7 @@ import { PALETTE, addToPalette, loadCustomPalette, removeFromPalette } from '../
 import { COMMON_CURRENCIES } from '../lib/money';
 import { PeopleSection } from '../components/PeopleSection';
 import { MailSection } from '../components/MailSection';
+import { TotpSection } from '../components/TotpSection';
 
 /**
  * The hub's custom colors on top of the stock palette. The list also grows
@@ -431,6 +432,10 @@ export function Settings() {
 
       <div className="mb-5 break-inside-avoid">
         <SignInSection />
+      </div>
+
+      <div className="mb-5 break-inside-avoid">
+        <TotpSection />
       </div>
 
       {usage && (

@@ -25,6 +25,9 @@ export function demoBlocked(method: string, path: string): boolean {
   if (path.startsWith('/api/invites')) return true;
   if (path === '/api/auth/change-password') return true;
   if (path === '/api/auth/password-login') return true;
+  // TOTP setup in a throwaway sandbox would only teach visitors to
+  // scan QR codes for accounts that stop existing in two hours
+  if (path.startsWith('/api/auth/totp')) return true;
   if (path.startsWith('/api/auth/google')) return true;
   // All file uploads: note attachments and transaction receipts
   if (method === 'POST' && path.includes('/attachments')) return true;

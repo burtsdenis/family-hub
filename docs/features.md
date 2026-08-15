@@ -31,6 +31,8 @@ Once linked, password sign-in can be disabled per account in Settings: Google wi
 
 One invariant always holds: **the administrator's password sign-in cannot be disabled**. It is the emergency door — if a Google account is hijacked, blocked, or Google itself is down, the administrator signs in with the password and restores access by resetting passwords (a reset also re-enables password sign-in). A hub whose only way in runs through an external service is a hub that will one day refuse to open.
 
+An emergency door deserves a second lock: any account can enable **two-factor authentication** (Settings → Two-factor authentication) — a six-digit TOTP code from an authenticator app, required at password sign-in on top of the password. It matters most for the administrator, whose password entrance can never be turned off; family members usually hide behind Google and its own protections instead. Google sign-in is unaffected by the hub's TOTP. Lost authenticator: `npm run admin:reset` clears the second factor together with the password — the escape hatch stays the server owner's console, never a web page.
+
 Setting up Google sign-in on a server: [deploy-vps.md](deploy-vps.md), "Google sign-in".
 
 ## Tasks
