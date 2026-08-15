@@ -174,7 +174,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     log.info(`login: ${email} from ${req.ip}`);
     db.prepare('UPDATE users SET last_login_at = ? WHERE id = ?').run(now(), user.id);
 
-    setSessionCookie(reply, createSession(user.id, req.headers['user-agent']));
+    setSessionCookie(reply, createSession(user.id, req.headers['user-agent'], req.ip));
 
     return db
       .prepare(
@@ -339,7 +339,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
             .prepare(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`)
             .get() as { id: string };
 
-          setSessionCookie(reply, createSession(admin.id, req.headers['user-agent']));
+          setSessionCookie(reply, createSession(admin.id, req.headers['user-agent'], req.ip));
           reply.setCookie(SANDBOX_COOKIE, sandbox.id, {
             httpOnly: true,
             sameSite: 'lax',
@@ -363,12 +363,45 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   // The token was already checked in authenticate; the user sits on the request.
   app.get('/api/auth/me', (req) => req.user);
 
-  /** How many devices hold a live session — feeds the Settings row. */
+  /**
+   * The Devices list: every live session of the current user, the one
+   * making the request marked. Rows without last_seen_at are typically
+   * orphans — a re-login replaced the cookie and the old row idles
+   * until the pruner retires it; the list makes them visible and
+   * individually revocable instead of silently inflating the count.
+   */
   app.get('/api/auth/sessions', (req) => {
-    const { n } = db
-      .prepare('SELECT count(*) AS n FROM sessions WHERE user_id = ? AND expires_at > ?')
-      .get(req.user!.id, new Date().toISOString()) as { n: number };
-    return { count: n };
+    const currentHash = hashToken(req.cookies[SESSION_COOKIE]!);
+    const sessions = (
+      db
+        .prepare(
+          `SELECT id, token_hash, created_at, last_seen_at, ip, user_agent
+             FROM sessions WHERE user_id = ? AND expires_at > ?
+            ORDER BY coalesce(last_seen_at, replace(created_at, ' ', 'T')) DESC`,
+        )
+        .all(req.user!.id, new Date().toISOString()) as {
+        id: string;
+        token_hash: string;
+        created_at: string;
+        last_seen_at: string | null;
+        ip: string | null;
+        user_agent: string | null;
+      }[]
+    ).map(({ token_hash, ...s }) => ({ ...s, current: token_hash === currentHash }));
+    return { count: sessions.length, sessions };
+  });
+
+  /** Revoke one session from the Devices list — own sessions only. */
+  app.delete('/api/auth/sessions/:id', (req, reply) => {
+    const { id: sessionId } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const currentHash = hashToken(req.cookies[SESSION_COOKIE]!);
+    const result = db
+      .prepare('DELETE FROM sessions WHERE id = ? AND user_id = ? AND token_hash != ?')
+      .run(sessionId, req.user!.id, currentHash);
+    if (result.changes === 0) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+    return { ok: true };
   });
 
   /*

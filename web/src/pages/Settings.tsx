@@ -1,5 +1,5 @@
 import { lang, setLang, t } from '../lib/i18n';
-import { setWeekStart, weekStart } from '../lib/format';
+import { formatStamp, setWeekStart, weekStart } from '../lib/format';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -83,6 +83,49 @@ function PaletteSection() {
   );
 }
 
+interface SessionInfo {
+  id: string;
+  created_at: string;
+  last_seen_at: string | null;
+  ip: string | null;
+  user_agent: string | null;
+  current: boolean;
+}
+
+/**
+ * A recognisable device name out of a user agent — a handful of
+ * substring checks, deliberately not a parsing library: "Chrome ·
+ * iPhone" answers "which device is this" well enough.
+ */
+function deviceLabel(ua: string | null): string {
+  if (!ua) return t('Unknown device');
+  const browser = /Edg\//.test(ua)
+    ? 'Edge'
+    : /OPR\//.test(ua)
+      ? 'Opera'
+      : /Firefox\//.test(ua)
+        ? 'Firefox'
+        : /Chrome\//.test(ua) || /CriOS\//.test(ua)
+          ? 'Chrome'
+          : /Safari\//.test(ua)
+            ? 'Safari'
+            : t('Browser');
+  const os = /iPhone/.test(ua)
+    ? 'iPhone'
+    : /iPad/.test(ua)
+      ? 'iPad'
+      : /Android/.test(ua)
+        ? 'Android'
+        : /Mac OS X/.test(ua)
+          ? 'Mac'
+          : /Windows/.test(ua)
+            ? 'Windows'
+            : /Linux/.test(ua)
+              ? 'Linux'
+              : '';
+  return os ? `${browser} · ${os}` : browser;
+}
+
 /** Messages after returning from Google during linking — the code is in ?google= */
 const LINK_MESSAGES: Record<string, string> = {
   linked: t('Google linked. You can now use the button on the sign-in screen.'),
@@ -100,17 +143,22 @@ function SignInSection() {
   const dialogs = useDialogs();
   const [status, setStatus] = useState<string | null>(null);
   const [googleAvailable, setGoogleAvailable] = useState(false);
-  const [sessionCount, setSessionCount] = useState<number | null>(null);
+  const [sessions, setSessions] = useState<SessionInfo[] | null>(null);
+  const [showSessions, setShowSessions] = useState(false);
+  const sessionCount = sessions?.length ?? null;
+
+  const loadSessions = () =>
+    api
+      .get<{ sessions: SessionInfo[] }>('/auth/sessions')
+      .then((s) => setSessions(s.sessions))
+      .catch(() => {});
 
   useEffect(() => {
     void api
       .get<{ google: boolean }>('/auth/state')
       .then((s) => setGoogleAvailable(s.google))
       .catch(() => {});
-    void api
-      .get<{ count: number }>('/auth/sessions')
-      .then((s) => setSessionCount(s.count))
-      .catch(() => {});
+    void loadSessions();
     const code = new URLSearchParams(window.location.search).get('google');
     if (code && LINK_MESSAGES[code]) {
       setStatus(LINK_MESSAGES[code]);
@@ -210,9 +258,21 @@ function SignInSection() {
         <div>
           <p className="text-sm font-medium text-ink">{t('Devices')}</p>
           <p className="text-xs text-muted">
-            {sessionCount === null
-              ? '…'
-              : `${sessionCount} ${plural(sessionCount, 'active session', 'active sessions')}`}
+            {sessionCount === null ? (
+              '…'
+            ) : (
+              <>
+                {sessionCount} {plural(sessionCount, 'active session', 'active sessions')}
+                {' · '}
+                <button
+                  type="button"
+                  onClick={() => setShowSessions((v) => !v)}
+                  className="underline underline-offset-2 hover:text-ink"
+                >
+                  {showSessions ? t('Hide') : t('Show')}
+                </button>
+              </>
+            )}
           </p>
         </div>
         <button
@@ -233,7 +293,7 @@ function SignInSection() {
               });
               if (!sure) return;
               const res = await api.post<{ removed: number }>('/auth/sessions/revoke-others', {});
-              setSessionCount(1);
+              await loadSessions();
               setStatus(`${t('Done.')} ${res.removed} ${plural(res.removed, 'session closed', 'sessions closed')}`);
             })
           }
@@ -241,6 +301,48 @@ function SignInSection() {
           {t('Sign out everywhere else')}
         </button>
       </div>
+
+      {showSessions && sessions && (
+        <ul className="mt-3 overflow-hidden rounded-lg border border-line">
+          {sessions.map((s) => (
+            <li
+              key={s.id}
+              className="flex items-center justify-between gap-3 border-b border-line px-3 py-2 last:border-0"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm text-ink">
+                  {deviceLabel(s.user_agent)}
+                  {s.current && (
+                    <span className="ml-2 rounded-full border border-accent/40 bg-accent-soft px-1.5 font-mono text-[0.625rem] text-accent uppercase">
+                      {t('this device')}
+                    </span>
+                  )}
+                </p>
+                <p className="truncate font-mono text-xs text-muted">
+                  {s.ip ?? '—'} · {t('signed in {when}', { when: formatStamp(s.created_at) })}
+                  {s.last_seen_at
+                    ? ` · ${t('seen {when}', { when: formatStamp(s.last_seen_at) })}`
+                    : ` · ${t('idle')}`}
+                </p>
+              </div>
+              {!s.current && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void run(async () => {
+                      await api.delete(`/auth/sessions/${s.id}`);
+                      await loadSessions();
+                    })
+                  }
+                  className="shrink-0 text-xs text-muted underline underline-offset-2 hover:text-urgent"
+                >
+                  {t('Revoke')}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {status && <p className="mt-3 text-sm text-muted">{status}</p>}
     </section>
