@@ -73,6 +73,18 @@
 }
 
 /*
+  iOS Safari gives date/time inputs a fixed intrinsic width and refuses
+  to shrink them below it — inside a two-column dialog grid on a phone
+  the Date field punched through the card's edge (Chrome compresses
+  such inputs, so only WebKit shows it). min-width lets them compress
+  to the column; w-full on the field class does the rest.
+*/
+input[type='date'],
+input[type='time'] {
+  min-width: 0;
+}
+
+/*
   Custom select arrow: the native glyph ignores the field's padding and
   sticks to the right edge (and the OS recolors it on the dark theme).
   #848f98 is picked as a middle tone readable on both themes; a CSS

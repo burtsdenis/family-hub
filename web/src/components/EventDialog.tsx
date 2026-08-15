@@ -170,7 +170,7 @@ export function EventDialog({
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 *:min-w-0">
             <label className="block">
               <span className={label}>{t('Calendar')}</span>
               <select
@@ -208,7 +208,7 @@ export function EventDialog({
             {t('All day')}
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 *:min-w-0">
             <label className="block">
               <span className={label}>{t('Start')}</span>
               <input
@@ -260,7 +260,7 @@ export function EventDialog({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 *:min-w-0">
             <label className="block">
               <span className={label}>{t('Recurrence')}</span>
               <select

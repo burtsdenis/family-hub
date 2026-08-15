@@ -212,7 +212,7 @@ export function TransactionDialog({
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 *:min-w-0">
           <label className="block">
             <span className={dialogLabel}>{kind === 'transfer' ? t('Debit') : t('Amount')}</span>
             <input
@@ -329,7 +329,7 @@ export function TransactionDialog({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 *:min-w-0">
           <label className="block">
             <span className={dialogLabel}>{t('Where')}</span>
             <input

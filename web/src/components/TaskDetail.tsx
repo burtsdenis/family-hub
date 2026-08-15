@@ -143,7 +143,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 *:min-w-0">
             <label className="block">
               <span className={label}>{t('Status')}</span>
               <select
