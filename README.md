@@ -113,8 +113,7 @@ The roadmap lives where you can see and influence it:
   prioritized here. Want to contribute? Start with
   [good first issue](https://github.com/burtsdenis/family-hub/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
-Coming up after the current milestone: PWA install with offline reading,
-CSV bank-statement import, shared shopping lists.
+Coming up next: CSV bank-statement import and shared shopping lists.
 
 ## License
 
