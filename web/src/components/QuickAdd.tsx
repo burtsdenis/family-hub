@@ -105,7 +105,7 @@ export function QuickAdd({ onAdded }: { onAdded: () => void }) {
               className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
             />
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="mt-3 grid gap-3 *:min-w-0 sm:grid-cols-2">
               <select
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}

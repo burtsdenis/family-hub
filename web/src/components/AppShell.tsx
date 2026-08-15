@@ -3,7 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../lib/auth';
 import { QuickAdd } from './QuickAdd';
-import { GlobalSearch } from './GlobalSearch';
+import { GlobalSearch, SearchTrigger } from './GlobalSearch';
 
 interface NavItem {
   to: string;
@@ -205,7 +205,7 @@ export function AppShell() {
         </div>
 
         <div className="mb-4">
-          <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+          <SearchTrigger onOpen={() => setSearchOpen(true)} />
         </div>
 
         <nav className="flex flex-1 flex-col gap-1">
@@ -250,6 +250,10 @@ export function AppShell() {
       </main>
 
       <QuickAdd onAdded={() => setRefreshKey((k) => k + 1)} />
+
+      {/* The search modal lives at the shell root: inside the sidebar it
+          inherited the sidebar's display:none on phones and never showed */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
 
       {/* Bottom navigation: phone */}
       <nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-6 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
