@@ -8,6 +8,7 @@ import { plural } from '../lib/format';
 import { Page } from '../components/Page';
 import { onEnter } from '../lib/keys';
 import { PALETTE, addToPalette, loadCustomPalette, removeFromPalette } from '../lib/palette';
+import { COMMON_CURRENCIES } from '../lib/money';
 import { PeopleSection } from '../components/PeopleSection';
 import { MailSection } from '../components/MailSection';
 
@@ -209,13 +210,9 @@ const FIELDS: { key: string; label: string; hint: string; type: string }[] = [
   { key: 'move.target_date', label: t('Moving date'), hint: t('The countdown counts from it'), type: 'date' },
   { key: 'savings.label', label: t('Savings caption'), hint: '', type: 'text' },
   { key: 'savings.goal_eur', label: t('Goal, €'), hint: t('Zero — hide the progress bar'), type: 'number' },
-  {
-    key: 'money.default_currency',
-    label: t('Default currency'),
-    hint: t('Pre-filled for new accounts and budgets. Any ISO 4217 code'),
-    type: 'text',
-  },
 ];
+
+const CURRENCY_KEY = 'money.default_currency';
 
 export function Settings() {
   const { user } = useAuth();
@@ -235,8 +232,14 @@ export function Settings() {
   async function save() {
     if (!values) return;
     setStatus(null);
+    // A hand-typed "eur " must still match account currencies
+    const payload =
+      CURRENCY_KEY in values
+        ? { ...values, [CURRENCY_KEY]: (values[CURRENCY_KEY] ?? '').trim().toUpperCase() }
+        : values;
     try {
-      await api.patch('/settings', values);
+      await api.patch('/settings', payload);
+      setValues(payload);
       setStatus(t('Saved'));
     } catch {
       setStatus(t('Could not save'));
@@ -274,6 +277,51 @@ export function Settings() {
             {f.hint && <span className="mt-1 block text-xs text-muted">{f.hint}</span>}
           </label>
         ))}
+
+        {/* The same chip picker as the account dialog: two different
+            inputs for one concept invited typos ("EUr", a Cyrillic Е) */}
+        <div>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Default currency')}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {COMMON_CURRENCIES.map((code) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setValues({ ...values, [CURRENCY_KEY]: code })}
+                className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                  (values[CURRENCY_KEY] ?? '').trim().toUpperCase() === code
+                    ? 'border-accent bg-accent-soft text-accent'
+                    : 'border-line text-muted hover:text-ink'
+                }`}
+              >
+                {code}
+              </button>
+            ))}
+            <input
+              value={
+                COMMON_CURRENCIES.includes((values[CURRENCY_KEY] ?? '').trim().toUpperCase())
+                  ? ''
+                  : (values[CURRENCY_KEY] ?? '')
+              }
+              placeholder={t('Other')}
+              maxLength={3}
+              onChange={(e) =>
+                setValues({ ...values, [CURRENCY_KEY]: e.target.value.toUpperCase() })
+              }
+              onKeyDown={onEnter(() => void save())}
+              aria-label={t('Default currency')}
+              className={`w-20 rounded-full border bg-surface-2 px-3 py-1.5 text-center font-mono text-sm text-ink uppercase outline-none focus:border-accent ${
+                (values[CURRENCY_KEY] ?? '').trim() !== '' &&
+                !COMMON_CURRENCIES.includes((values[CURRENCY_KEY] ?? '').trim().toUpperCase())
+                  ? 'border-accent'
+                  : 'border-line'
+              }`}
+            />
+          </div>
+          <span className="mt-1 block text-xs text-muted">
+            {t('Pre-filled for new accounts and budgets. Any ISO 4217 code')}
+          </span>
+        </div>
 
         <div className="flex items-center gap-3 pt-1">
           <button

@@ -608,6 +608,7 @@ export const ru: Record<string, string> = {
   'No mail yet. Forward a letter to the family address — it will appear here.': 'Писем пока нет. Перешлите письмо на семейный адрес — оно появится здесь.',
   'One shared address for school letters, bills and bookings — visible to the whole family, one click from a letter to a task.': 'Один общий адрес для писем из школы, счетов и броней — виден всей семье, из письма один клик до задачи.',
   'Open Settings': 'Открыть настройки',
+  'Other': 'Другая',
   'Open task': 'Открыть задачу',
   'Password is required': 'Нужен пароль',
   'Pick a letter on the left': 'Выберите письмо слева',
