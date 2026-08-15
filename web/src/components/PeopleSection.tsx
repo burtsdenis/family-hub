@@ -2,8 +2,6 @@ import { t } from '../lib/i18n';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { Empty } from './Page';
-import { onEnter } from '../lib/keys';
-import { clearBlankOnBlur } from '../lib/forms';
 import { EntityDialog } from './EntityDialog';
 import { useDialogs } from './Dialog';
 
@@ -156,9 +154,6 @@ function InvitesBlock() {
 export function PeopleSection() {
   const [users, setUsers] = useState<ManagedUser[] | null>(null);
   const [password, setPassword] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', email: '', role: 'member' as ManagedUser['role'] });
-  const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<ManagedUser | null>(null);
   const dialogs = useDialogs();
 
@@ -166,21 +161,6 @@ export function PeopleSection() {
   useEffect(() => {
     void load();
   }, []);
-
-  async function create() {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await api.post<{ password: string }>('/users', form);
-      setPassword(res.password);
-      setForm({ name: '', email: '', role: 'member' });
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('Could not create the member'));
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function reset(user: ManagedUser) {
     const ok = await dialogs.confirm({
@@ -205,38 +185,6 @@ export function PeopleSection() {
       <InvitesBlock />
 
       {password && <PasswordOnce password={password} onClose={() => setPassword(null)} />}
-
-      <div className="mb-6 rounded-card border border-line bg-surface p-5">
-        <h2 className="eyebrow mb-4">{t('Create manually (with a one-time password)')}</h2>
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-          <input
-            placeholder={t('Name')}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            onBlur={clearBlankOnBlur(() => setForm({ ...form, name: '' }))}
-            onKeyDown={onEnter(() => void create())}
-            className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-          />
-          <input
-            placeholder={t('name@hub.local')}
-            autoCapitalize="none"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            onBlur={clearBlankOnBlur(() => setForm({ ...form, email: '' }))}
-            onKeyDown={onEnter(() => void create())}
-            className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-          />
-          <button
-            type="button"
-            onClick={() => void create()}
-            disabled={busy}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-          >
-            {t('Create')}
-          </button>
-        </div>
-        {error && <p className="mt-3 text-sm text-urgent">{error}</p>}
-      </div>
 
       {users === null ? (
         <div className="h-32 animate-pulse rounded-card bg-surface-3" />
