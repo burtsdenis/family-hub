@@ -10,13 +10,16 @@ export interface User {
   must_change_password: number;
   google_linked: number;
   password_login_disabled: number;
+  totp_enabled: number;
 }
 
 interface AuthState {
   user: User | null;
   loading: boolean;
   mustChangePassword: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<string | null>;
+  /** Second step of a TOTP-protected sign-in. */
+  loginMfa: (mfaToken: string, code: string) => Promise<void>;
   /** Demo login: the server creates a sandbox and a session, no password involved. */
   loginDemo: () => Promise<void>;
   logout: () => Promise<void>;
@@ -43,8 +46,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const me = await api.post<User>('/auth/login', { email, password });
+  /**
+   * Returns the MFA ticket when the account owes a TOTP code —
+   * the Login page then shows the code step and calls loginMfa.
+   */
+  const login = useCallback(async (email: string, password: string): Promise<string | null> => {
+    const res = await api.post<User | { mfa_required: true; mfa_token: string }>('/auth/login', {
+      email,
+      password,
+    });
+    if ('mfa_required' in res) return res.mfa_token;
+    setUser(res);
+    return null;
+  }, []);
+
+  const loginMfa = useCallback(async (mfaToken: string, code: string) => {
+    const me = await api.post<User>('/auth/mfa', { mfa_token: mfaToken, code });
     setUser(me);
   }, []);
 
@@ -77,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         mustChangePassword: Boolean(user?.must_change_password),
         login,
+        loginMfa,
         loginDemo,
         logout,
         refresh,

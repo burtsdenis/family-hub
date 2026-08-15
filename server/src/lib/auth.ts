@@ -17,6 +17,8 @@ export interface AuthUser {
   /** Whether Google is linked — the fact is enough for the frontend, the sub itself never leaves. */
   google_linked: number;
   password_login_disabled: number;
+  /** Whether TOTP is confirmed — the fact only; the secret never leaves. */
+  totp_enabled: number;
 }
 
 declare module 'fastify' {
@@ -71,7 +73,8 @@ export function userForToken(token: string): AuthUser | null {
   const row = db
     .prepare(
       `SELECT u.id, u.email, u.name, u.role, u.color, u.must_change_password,
-              (u.google_sub IS NOT NULL) AS google_linked, u.password_login_disabled
+              (u.google_sub IS NOT NULL) AS google_linked, u.password_login_disabled,
+              (u.totp_confirmed_at IS NOT NULL) AS totp_enabled
          FROM sessions s
          JOIN users u ON u.id = s.user_id
         WHERE s.token_hash = ?
@@ -101,6 +104,9 @@ export function clearSessionCookie(reply: FastifyReply): void {
 const PUBLIC_PATHS = new Set([
   '/api/health',
   '/api/auth/login',
+  // The TOTP step of sign-in: the session does not exist yet, the
+  // short-lived ticket from /login is the authorization
+  '/api/auth/mfa',
   '/api/auth/state',
   // Demo login: creates the sandbox and the session, so it predates both
   '/api/auth/demo',

@@ -66,6 +66,22 @@ const loginInput = z.object({
   password: z.string().min(1).max(500),
 });
 
+/*
+  Half-open doors: password verified, TOTP code still owed. In memory
+  on purpose — a pending login is 5 minutes of state, and a restart
+  simply means signing in again. The attempt counter caps guessing at
+  5 codes per successful password entry.
+*/
+const pendingMfa = new Map<string, { userId: string; until: number; attempts: number }>();
+const MFA_TTL_MS = 5 * 60_000;
+
+setInterval(() => {
+  const cutoff = Date.now();
+  for (const [key, entry] of pendingMfa) {
+    if (cutoff > entry.until) pendingMfa.delete(key);
+  }
+}, MFA_TTL_MS).unref();
+
 const changeInput = z.object({
   current_password: z.string().min(1).max(500),
   new_password: z.string().min(10, 'Password must be at least 10 characters').max(500),
@@ -139,6 +155,19 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     }
 
     attempts.delete(email);
+
+    // Second factor: the password alone opens nothing when TOTP is
+    // confirmed — the client gets a short-lived ticket and owes a code
+    const mfa = db
+      .prepare('SELECT totp_secret, totp_confirmed_at FROM users WHERE id = ?')
+      .get(user.id) as { totp_secret: string | null; totp_confirmed_at: string | null };
+    if (mfa.totp_confirmed_at && mfa.totp_secret) {
+      const ticket = crypto.randomUUID();
+      pendingMfa.set(ticket, { userId: user.id, until: Date.now() + MFA_TTL_MS, attempts: 0 });
+      log.info(`login: ${email} passed the password, awaiting TOTP`);
+      return { mfa_required: true, mfa_token: ticket };
+    }
+
     // A login trace with the address: if something ever needs
     // investigating, there is a starting point. Silent at warn and above,
     // visible from info onward.
@@ -150,10 +179,117 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     return db
       .prepare(
         `SELECT id, email, name, role, color, must_change_password,
-                (google_sub IS NOT NULL) AS google_linked, password_login_disabled
+                (google_sub IS NOT NULL) AS google_linked, password_login_disabled,
+                (totp_confirmed_at IS NOT NULL) AS totp_enabled
            FROM users WHERE id = ?`,
       )
       .get(user.id);
+  });
+
+  /*
+    Step two of a TOTP-protected sign-in. Public path (there is no
+    session yet); the ticket from step one is the proof the password
+    already passed. Five wrong codes burn the ticket — back to the
+    password screen, which has its own brakes.
+  */
+  app.post('/api/auth/mfa', loginRateLimit, async (req, reply) => {
+    const parsed = z
+      .object({ mfa_token: z.string().uuid(), code: z.string().min(6).max(10) })
+      .safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Enter the code' });
+
+    const pending = pendingMfa.get(parsed.data.mfa_token);
+    if (!pending || Date.now() > pending.until) {
+      pendingMfa.delete(parsed.data.mfa_token);
+      return reply.code(401).send({ error: 'Sign-in expired — start over' });
+    }
+    pending.attempts += 1;
+    if (pending.attempts > 5) {
+      pendingMfa.delete(parsed.data.mfa_token);
+      return reply.code(429).send({ error: 'Too many attempts. Try again in 15 minutes' });
+    }
+
+    const row = db
+      .prepare('SELECT totp_secret FROM users WHERE id = ? AND disabled_at IS NULL')
+      .get(pending.userId) as { totp_secret: string | null } | undefined;
+    const { verifyTotp } = await import('../lib/totp.js');
+    if (!row?.totp_secret || !verifyTotp(row.totp_secret, parsed.data.code)) {
+      log.warn(`mfa: wrong code for user ${pending.userId} from ${req.ip}`);
+      return reply.code(401).send({ error: 'Wrong code' });
+    }
+
+    pendingMfa.delete(parsed.data.mfa_token);
+    log.info(`mfa: completed sign-in for user ${pending.userId} from ${req.ip}`);
+    db.prepare('UPDATE users SET last_login_at = ? WHERE id = ?').run(now(), pending.userId);
+    setSessionCookie(reply, createSession(pending.userId, req.headers['user-agent']));
+
+    return db
+      .prepare(
+        `SELECT id, email, name, role, color, must_change_password,
+                (google_sub IS NOT NULL) AS google_linked, password_login_disabled,
+                (totp_confirmed_at IS NOT NULL) AS totp_enabled
+           FROM users WHERE id = ?`,
+      )
+      .get(pending.userId);
+  });
+
+  // ── TOTP management (a live session required) ───────────────────────────
+
+  /** Step 1 of enabling: mint a secret. Trusted only after /confirm. */
+  app.post('/api/auth/totp/setup', async (req, reply) => {
+    const { generateTotpSecret, otpauthUri } = await import('../lib/totp.js');
+    const row = db
+      .prepare('SELECT totp_confirmed_at FROM users WHERE id = ?')
+      .get(req.user!.id) as { totp_confirmed_at: string | null };
+    if (row.totp_confirmed_at) {
+      return reply.code(409).send({ error: 'Two-factor authentication is already enabled' });
+    }
+    const secret = generateTotpSecret();
+    db.prepare('UPDATE users SET totp_secret = ?, totp_confirmed_at = NULL WHERE id = ?').run(
+      secret,
+      req.user!.id,
+    );
+    return { secret, uri: otpauthUri(req.user!.email, secret) };
+  });
+
+  /** Step 2: a valid code proves the authenticator works — enable. */
+  app.post('/api/auth/totp/confirm', async (req, reply) => {
+    const parsed = z.object({ code: z.string().min(6).max(10) }).safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Enter the code' });
+    const row = db
+      .prepare('SELECT totp_secret, totp_confirmed_at FROM users WHERE id = ?')
+      .get(req.user!.id) as { totp_secret: string | null; totp_confirmed_at: string | null };
+    if (!row.totp_secret || row.totp_confirmed_at) {
+      return reply.code(409).send({ error: 'Start the setup first' });
+    }
+    const { verifyTotp } = await import('../lib/totp.js');
+    if (!verifyTotp(row.totp_secret, parsed.data.code)) {
+      return reply.code(401).send({ error: 'Wrong code' });
+    }
+    db.prepare('UPDATE users SET totp_confirmed_at = ? WHERE id = ?').run(now(), req.user!.id);
+    log.info(`mfa: enabled for ${req.user!.email}`);
+    return { ok: true };
+  });
+
+  /** Disabling asks for a current code — possession of the phone, not just the session. */
+  app.post('/api/auth/totp/disable', async (req, reply) => {
+    const parsed = z.object({ code: z.string().min(6).max(10) }).safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Enter the code' });
+    const row = db
+      .prepare('SELECT totp_secret, totp_confirmed_at FROM users WHERE id = ?')
+      .get(req.user!.id) as { totp_secret: string | null; totp_confirmed_at: string | null };
+    if (!row.totp_secret || !row.totp_confirmed_at) {
+      return reply.code(409).send({ error: 'Two-factor authentication is not enabled' });
+    }
+    const { verifyTotp } = await import('../lib/totp.js');
+    if (!verifyTotp(row.totp_secret, parsed.data.code)) {
+      return reply.code(401).send({ error: 'Wrong code' });
+    }
+    db.prepare('UPDATE users SET totp_secret = NULL, totp_confirmed_at = NULL WHERE id = ?').run(
+      req.user!.id,
+    );
+    log.info(`mfa: disabled for ${req.user!.email}`);
+    return { ok: true };
   });
 
   app.post('/api/auth/logout', async (req, reply) => {
