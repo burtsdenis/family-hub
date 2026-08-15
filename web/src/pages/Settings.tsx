@@ -253,13 +253,14 @@ export function Settings() {
 
   return (
     <Page title={t('Settings')} eyebrow={t('Board and widgets')}>
-      {/* Two columns on wide screens: a single narrow ribbon left the right
-          half empty and forced scrolling. Below lg — one column of the old
-          max-w-md width (without the cap the forms stretched across the
-          whole max-w-4xl on tablets), same section order. mx-auto because
-          a capped block hugs the left edge while every other page centers. */}
-      <div className="mx-auto grid max-w-md items-start gap-5 lg:max-w-4xl lg:grid-cols-2">
-      <div className="space-y-5 rounded-card border border-line bg-surface p-5">
+      {/* CSS columns instead of a grid: the cards vary in height, and a
+          grid left ragged holes per row. The count follows the screen —
+          one on phones, two on laptops, three and four on the monitors
+          the 3xl/4xl breakpoints exist for; cards reflow on their own.
+          Width caps keep each column near the readable max-w-md, and
+          mx-auto centers the capped block like every other page. */}
+      <div className="mx-auto max-w-md columns-1 gap-5 lg:max-w-4xl lg:columns-2 3xl:max-w-[86rem] 3xl:columns-3 4xl:max-w-[114rem] 4xl:columns-4">
+      <div className="mb-5 break-inside-avoid space-y-5 rounded-card border border-line bg-surface p-5">
         {FIELDS.map((f) => (
           <label key={f.key} className="block">
             <span className="mb-1.5 block text-sm font-medium text-ink">{f.label}</span>
@@ -286,8 +287,7 @@ export function Settings() {
         </div>
       </div>
 
-      <div className="space-y-5">
-      <section className="rounded-card border border-line bg-surface p-5">
+      <section className="mb-5 break-inside-avoid rounded-card border border-line bg-surface p-5">
         <h2 className="eyebrow mb-4">{t('Language')} / Language</h2>
         <div className="flex gap-2">
           <button
@@ -336,12 +336,16 @@ export function Settings() {
         </div>
       </section>
 
-      <PaletteSection />
+      <div className="mb-5 break-inside-avoid">
+        <PaletteSection />
+      </div>
 
-      <SignInSection />
+      <div className="mb-5 break-inside-avoid">
+        <SignInSection />
+      </div>
 
       {usage && (
-        <section className="rounded-card border border-line bg-surface p-5">
+        <section className="mb-5 break-inside-avoid rounded-card border border-line bg-surface p-5">
           <h2 className="eyebrow mb-3">{t('Attachments')}</h2>
           <p className="text-sm text-ink">
             {usage.files} {plural(usage.files, 'file', 'files')} ·{' '}
@@ -361,20 +365,15 @@ export function Settings() {
 
       </div>
 
-      {/* People management spans both columns: it is a rare-visit admin
-          block, wide lists inside, and user feedback asked for exactly
-          this instead of a dedicated navigation section */}
+      {/* Admin blocks stay full-width below the columns: wide lists
+          inside, and user feedback asked for them here rather than in
+          a dedicated navigation section */}
       {user?.role === 'admin' && (
-        <div className="lg:col-span-2">
+        <div className="mx-auto max-w-md space-y-5 lg:max-w-4xl 3xl:max-w-[86rem] 4xl:max-w-[114rem]">
           <MailSection />
-        </div>
-      )}
-      {user?.role === 'admin' && (
-        <div className="lg:col-span-2">
           <PeopleSection />
         </div>
       )}
-      </div>
     </Page>
   );
 }
