@@ -206,7 +206,7 @@ export async function registerGoogleRoutes(app: FastifyInstance): Promise<void> 
       return reply.redirect('/?google=not_linked');
     }
 
-    setSessionCookie(reply, createSession(user.id, req.headers['user-agent']));
+    setSessionCookie(reply, createSession(user.id, req.headers['user-agent'], req.ip));
     log.info(`google login: ${user.email} from ${req.ip}`);
     return reply.redirect('/');
   });

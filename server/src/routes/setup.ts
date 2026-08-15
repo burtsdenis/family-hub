@@ -98,7 +98,7 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
     }
 
     log.info(`initial setup: admin ${parsed.data.email} created from ${req.ip}`);
-    setSessionCookie(reply, createSession(userId, req.headers['user-agent']));
+    setSessionCookie(reply, createSession(userId, req.headers['user-agent'], req.ip));
     return reply.code(201).send({ ok: true });
   });
 
@@ -222,7 +222,7 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
     }
 
     log.info(`invite join: ${parsed.data.email} (${invite.role}) from ${req.ip}`);
-    setSessionCookie(reply, createSession(userId, req.headers['user-agent']));
+    setSessionCookie(reply, createSession(userId, req.headers['user-agent'], req.ip));
     return reply.code(201).send({ ok: true });
   });
 }
