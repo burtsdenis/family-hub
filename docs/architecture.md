@@ -68,3 +68,9 @@ Under the hood the app builds a template database at startup (migrations + seedi
 Visitors can create, edit and delete anything — nobody else will ever see it, which is the point: a shared demo is a graffiti wall by lunchtime. Password and membership changes and file uploads stay blocked.
 
 Deploying a public demo next to a production hub: [deploy-vps.md](deploy-vps.md), "Public demo".
+
+## Offline and updates
+
+The frontend is a PWA: a service worker precaches the app shell and answers GET API reads NetworkFirst — fresh when online, the last snapshot when not. Nothing external is involved (the strict CSP allows no third-party scripts); workbox is bundled and self-hosted. Auth is uncached except the single `auth/me` read, without which an offline reload would strand the person on the sign-in screen; signing out — or any 401 — deletes the offline caches, so cached family data never outlives a session.
+
+The same worker solves the long-lived-tab problem: a kiosk that stays open for weeks runs whatever bundle it started with, because a SPA re-reads `index.html` only on full navigation. A deploy now produces a waiting worker, the client shows a "hub was updated" toast, and a tab idle for 15+ minutes reloads itself. The demo never registers the worker: sandboxes are per-visitor, browser caches are not.
