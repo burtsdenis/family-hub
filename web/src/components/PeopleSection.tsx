@@ -208,7 +208,7 @@ export function PeopleSection() {
 
       <div className="mb-6 rounded-card border border-line bg-surface p-5">
         <h2 className="eyebrow mb-4">{t('Create manually (with a one-time password)')}</h2>
-        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
           <input
             placeholder={t('Name')}
             value={form.name}

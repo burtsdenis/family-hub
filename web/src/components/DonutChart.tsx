@@ -65,18 +65,65 @@ export function DonutChart({ segments, centerLabel, size = 132 }: Props) {
           </circle>
         );
       })}
-      {centerLabel && (
-        <text
-          x="50%"
-          y="50%"
-          textAnchor="middle"
-          dominantBaseline="central"
-          className="fill-[var(--c-text)] font-mono"
-          fontSize={size * 0.095}
-        >
-          {centerLabel}
-        </text>
-      )}
+      {centerLabel &&
+        (() => {
+          /*
+            The label must stay inside the hole: "RSD 129,510.28" is
+            wider than the inner circle and used to lie across the ring.
+            A spaced label (code + amount) splits into two lines, and
+            both shrink to the hole if a monster amount still demands it.
+            Mono glyphs are ~0.62em wide — close enough for a fit check.
+          */
+          const hole = size - 2 * stroke;
+          const fitted = (text: string, base: number) =>
+            Math.min(base, (hole * 0.92) / (Math.max(text.length, 1) * 0.62));
+          // formatMoney separates code and amount with a non-breaking
+          // space — match any whitespace, not the plain one
+          const space = centerLabel.search(/\s/);
+          if (space === -1) {
+            return (
+              <text
+                x="50%"
+                y="50%"
+                textAnchor="middle"
+                dominantBaseline="central"
+                className="fill-[var(--c-text)] font-mono"
+                fontSize={fitted(centerLabel, size * 0.095)}
+              >
+                {centerLabel}
+              </text>
+            );
+          }
+          const unit = centerLabel.slice(0, space);
+          const amount = centerLabel.slice(space + 1);
+          const amountSize = fitted(amount, size * 0.095);
+          return (
+            <>
+              <text
+                x="50%"
+                y="50%"
+                dy={-amountSize * 0.75}
+                textAnchor="middle"
+                dominantBaseline="central"
+                className="fill-[var(--c-text-muted)] font-mono"
+                fontSize={fitted(unit, size * 0.07)}
+              >
+                {unit}
+              </text>
+              <text
+                x="50%"
+                y="50%"
+                dy={amountSize * 0.5}
+                textAnchor="middle"
+                dominantBaseline="central"
+                className="fill-[var(--c-text)] font-mono"
+                fontSize={amountSize}
+              >
+                {amount}
+              </text>
+            </>
+          );
+        })()}
     </svg>
   );
 }
