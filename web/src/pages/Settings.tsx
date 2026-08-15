@@ -369,7 +369,10 @@ export function Settings() {
           inside, and user feedback asked for them here rather than in
           a dedicated navigation section */}
       {user?.role === 'admin' && (
-        <div className="mx-auto max-w-md space-y-5 lg:max-w-4xl 3xl:max-w-[86rem] 4xl:max-w-[114rem]">
+        // Explicit mt-5: the columns block above provides no bottom
+        // spacing of its own — the last card's margin is truncated at
+        // the column fragment edge, and the admin block sat glued to it
+        <div className="mx-auto mt-5 max-w-md space-y-5 lg:max-w-4xl 3xl:max-w-[86rem] 4xl:max-w-[114rem]">
           <MailSection />
           <PeopleSection />
         </div>
