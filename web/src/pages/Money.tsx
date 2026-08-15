@@ -501,7 +501,11 @@ export function Money() {
             )}
 
             {tab === 'operations' && (
-            <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+            /* minmax(0,…) on every track: with bare 1fr (and the implicit
+               mobile column) a transaction row with a long note dictates
+               the track's min width and pushes the whole page into a
+               horizontal scroll — same trap Notes hit with its list */
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
               {/* Transactions */}
               <div>
                 {byDate.length === 0 ? (

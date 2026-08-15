@@ -46,7 +46,7 @@ export function MoveBoard({ settings, onChange }: Props) {
 
   return (
     <section className="overflow-hidden rounded-card bg-[#131c24] text-[#e8eae5] shadow-sm">
-      <div className="grid divide-y divide-white/10 sm:grid-cols-[1.1fr_1fr] sm:divide-x sm:divide-y-0">
+      <div className="grid divide-y divide-white/10 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] sm:divide-x sm:divide-y-0">
         {/* Countdown */}
         <div className="px-6 py-5">
           <p className="eyebrow text-white/45!">{settings['move.label'] ?? t('The move')}</p>

@@ -85,6 +85,28 @@ input[type='time'] {
 }
 
 /*
+  min-width alone proved insufficient on a real iPhone (15 Pro Max,
+  standalone shortcut): the native menulist-style chrome of WebKit date
+  fields carries its own intrinsic width that survives min-width: 0.
+  Stripping the appearance makes the field a plain box that obeys the
+  grid column. Scoped to iOS via the -webkit-touch-callout guard so
+  desktop pickers keep their native look; the value pseudo-element
+  keeps an empty field from collapsing to bare padding.
+*/
+@supports (-webkit-touch-callout: none) {
+  input[type='date'],
+  input[type='time'] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input[type='date']::-webkit-date-and-time-value,
+  input[type='time']::-webkit-date-and-time-value {
+    min-height: 1.25em;
+    text-align: inherit;
+  }
+}
+
+/*
   Custom select arrow: the native glyph ignores the field's padding and
   sticks to the right edge (and the OS recolors it on the dark theme).
   #848f98 is picked as a middle tone readable on both themes; a CSS
