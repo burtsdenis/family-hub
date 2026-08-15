@@ -39,6 +39,28 @@ function subtitleOf(r: Result): string {
   return SERVER_SUBTITLES.has(r.subtitle) ? t(r.subtitle) : r.subtitle;
 }
 
+/**
+ * The sidebar trigger, separated from the modal. The modal must be
+ * mounted at the shell root: it used to live inside the sidebar, and on
+ * phones the sidebar is display:none — which hides even a fixed-position
+ * child, so search silently did nothing outside the desktop layout.
+ */
+export function SearchTrigger({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center gap-2 rounded-lg border border-line px-3 py-2 text-left text-sm text-muted transition-colors hover:text-ink"
+    >
+      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="m16 16 4 4" strokeLinecap="round" />
+      </svg>
+      {t('Search')}
+    </button>
+  );
+}
+
 export function GlobalSearch({
   open: openProp,
   onOpenChange,
@@ -113,18 +135,6 @@ export function GlobalSearch({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-2 rounded-lg border border-line px-3 py-2 text-left text-sm text-muted transition-colors hover:text-ink"
-      >
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <circle cx="11" cy="11" r="6.5" />
-          <path d="m16 16 4 4" strokeLinecap="round" />
-        </svg>
-        {t('Search')}
-      </button>
-
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center px-5 pt-20">
           <button
