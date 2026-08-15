@@ -45,6 +45,19 @@ export function destroySession(token: string): void {
   db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(hashToken(token));
 }
 
+/**
+ * The "stolen phone" button: kills every session of the user except the
+ * one making the request. Combined with the client wiping its offline
+ * caches on the next 401, the lost device loses both the session and
+ * the cached family data as soon as it touches the network.
+ */
+export function destroyOtherSessions(userId: string, currentToken: string): number {
+  const result = db
+    .prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?')
+    .run(userId, hashToken(currentToken));
+  return result.changes;
+}
+
 export function destroyAllSessions(userId: string): void {
   db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
 }

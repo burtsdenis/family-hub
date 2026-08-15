@@ -9,6 +9,7 @@ import {
   clearSessionCookie,
   createSession,
   destroyAllSessions,
+  destroyOtherSessions,
   destroySession,
   hashToken,
   setSessionCookie,
@@ -225,6 +226,28 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
 
   // The token was already checked in authenticate; the user sits on the request.
   app.get('/api/auth/me', (req) => req.user);
+
+  /** How many devices hold a live session — feeds the Settings row. */
+  app.get('/api/auth/sessions', (req) => {
+    const { n } = db
+      .prepare('SELECT count(*) AS n FROM sessions WHERE user_id = ? AND expires_at > ?')
+      .get(req.user!.id, new Date().toISOString()) as { n: number };
+    return { count: n };
+  });
+
+  /*
+    The "stolen phone" button: signs the user out everywhere except the
+    device pressing it. Unlike the admin's reset-password this keeps the
+    password — for the case where the credential is fine and only a
+    device went missing.
+  */
+  app.post('/api/auth/sessions/revoke-others', (req, reply) => {
+    const token = req.cookies[SESSION_COOKIE];
+    if (!token) return reply.code(401).send({ error: 'Sign in required' });
+    const removed = destroyOtherSessions(req.user!.id, token);
+    if (removed > 0) log.info(`sessions: ${req.user!.email} revoked ${removed} other session(s)`);
+    return { removed };
+  });
 
   /*
     The password-login switch. Two invariants, both server-side:

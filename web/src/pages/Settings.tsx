@@ -99,11 +99,16 @@ function SignInSection() {
   const dialogs = useDialogs();
   const [status, setStatus] = useState<string | null>(null);
   const [googleAvailable, setGoogleAvailable] = useState(false);
+  const [sessionCount, setSessionCount] = useState<number | null>(null);
 
   useEffect(() => {
     void api
       .get<{ google: boolean }>('/auth/state')
       .then((s) => setGoogleAvailable(s.google))
+      .catch(() => {});
+    void api
+      .get<{ count: number }>('/auth/sessions')
+      .then((s) => setSessionCount(s.count))
       .catch(() => {});
     const code = new URLSearchParams(window.location.search).get('google');
     if (code && LINK_MESSAGES[code]) {
@@ -198,6 +203,42 @@ function SignInSection() {
             {passwordOff ? t('Enable') : t('Disable')}
           </button>
         )}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4">
+        <div>
+          <p className="text-sm font-medium text-ink">{t('Devices')}</p>
+          <p className="text-xs text-muted">
+            {sessionCount === null
+              ? '…'
+              : `${sessionCount} ${plural(sessionCount, 'active session', 'active sessions')}`}
+          </p>
+        </div>
+        <button
+          type="button"
+          className={rowButton}
+          disabled={sessionCount !== null && sessionCount <= 1}
+          title={
+            sessionCount !== null && sessionCount <= 1
+              ? t('This is the only session')
+              : undefined
+          }
+          onClick={() =>
+            void run(async () => {
+              const sure = await dialogs.confirm({
+                title: t('Sign out on other devices?'),
+                message: t('Every device except this one will be signed out. Useful when a phone is lost — the device also clears its offline copy the next time it comes online.'),
+                confirmLabel: t('Sign out everywhere else'),
+              });
+              if (!sure) return;
+              const res = await api.post<{ removed: number }>('/auth/sessions/revoke-others', {});
+              setSessionCount(1);
+              setStatus(`${t('Done.')} ${res.removed} ${plural(res.removed, 'session closed', 'sessions closed')}`);
+            })
+          }
+        >
+          {t('Sign out everywhere else')}
+        </button>
       </div>
 
       {status && <p className="mt-3 text-sm text-muted">{status}</p>}
