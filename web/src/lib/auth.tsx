@@ -60,6 +60,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.post('/auth/logout', {});
     } finally {
       setUser(null);
+      // The service worker's offline caches hold family data and the
+      // last session answer — signing out must not leave them behind
+      if ('caches' in window) {
+        for (const name of ['api-reads', 'attachments', 'session']) {
+          void caches.delete(name);
+        }
+      }
     }
   }, []);
 

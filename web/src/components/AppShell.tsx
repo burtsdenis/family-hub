@@ -2,6 +2,7 @@ import { t } from '../lib/i18n';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../lib/auth';
+import { applyUpdate, setupPwa } from '../lib/pwa';
 import { QuickAdd } from './QuickAdd';
 import { GlobalSearch, SearchTrigger } from './GlobalSearch';
 
@@ -149,6 +150,35 @@ function SignOutButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/**
+ * "The hub was updated" — shown when a new service worker is waiting
+ * (see lib/pwa.ts for why long-lived tabs need this at all). Sits above
+ * the bottom bar on phones and in the corner on desktop.
+ */
+function UpdateToast() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    void setupPwa(() => setShow(true));
+  }, []);
+
+  if (!show) return null;
+  return (
+    <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 md:right-6 md:bottom-6 md:left-auto md:translate-x-0">
+      <div className="flex items-center gap-3 rounded-full border border-line bg-surface py-2 pr-2 pl-4 shadow-xl">
+        <span className="text-sm whitespace-nowrap text-ink">{t('The hub was updated')}</span>
+        <button
+          type="button"
+          onClick={applyUpdate}
+          className="rounded-full bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+        >
+          {t('Reload')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ThemeToggle() {
   const { dark, toggle } = useTheme();
   return (
@@ -250,6 +280,7 @@ export function AppShell() {
       </main>
 
       <QuickAdd onAdded={() => setRefreshKey((k) => k + 1)} />
+      <UpdateToast />
 
       {/* The search modal lives at the shell root: inside the sidebar it
           inherited the sidebar's display:none on phones and never showed */}
