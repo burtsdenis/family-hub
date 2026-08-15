@@ -85,6 +85,21 @@ Notes, tasks and projects are searched via FTS5; events and attachments by direc
 
 Private content never appears in someone else's results — not notes, not personal-calendar events, not files attached to them.
 
+## Install and offline
+
+The hub is a PWA: on a phone or tablet, "Add to Home Screen" installs
+it as a standalone app with its own icon. Cached pages and the last
+fetched data stay readable offline — the dashboard, tasks, notes and
+the rest render their most recent snapshot; writing while offline is
+deliberately not supported (no sync conflicts by construction).
+Signing out clears the offline caches.
+
+Long-lived tabs get updates without anyone noticing a deploy: when a
+new version reaches the server, an unobtrusive "The hub was updated —
+Reload" toast appears; a tab that has been idle for a while (the
+kitchen kiosk) reloads by itself. The demo runs without the service
+worker — sandboxes are per-visitor, browser caches are not.
+
 ## Mail
 
 The household paperwork inbox — deliberately **not an email client**. One
