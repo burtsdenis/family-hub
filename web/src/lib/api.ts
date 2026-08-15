@@ -14,6 +14,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) {
+    // A dead session must take the offline caches with it: after a
+    // remote "sign out everywhere" the lost device would otherwise keep
+    // serving cached family data for days. Same set logout clears.
+    if (res.status === 401 && 'caches' in window) {
+      for (const name of ['api-reads', 'attachments', 'session']) {
+        void caches.delete(name);
+      }
+    }
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
     throw new ApiError(t(body?.error ?? 'The server is unreachable'), res.status);
   }
