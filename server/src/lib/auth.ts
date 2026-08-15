@@ -31,13 +31,18 @@ export function hashToken(token: string): string {
 
 // ── Sessions ──────────────────────────────────────────────────────────────
 
-export function createSession(userId: string, userAgent: string | undefined): string {
+/** UTC wall stamp in the same shape created_at uses — one format, plain string ordering. */
+function utcStamp(date = new Date()): string {
+  return date.toISOString().replace('T', ' ').slice(0, 19);
+}
+
+export function createSession(userId: string, userAgent: string | undefined, ip?: string): string {
   const token = randomBytes(32).toString('base64url');
   const expires = new Date(Date.now() + SESSION_DAYS * 86_400_000);
   db.prepare(
-    `INSERT INTO sessions (id, user_id, token_hash, expires_at, user_agent)
-     VALUES (?, ?, ?, ?, ?)`,
-  ).run(id(), userId, hashToken(token), expires.toISOString(), userAgent ?? null);
+    `INSERT INTO sessions (id, user_id, token_hash, expires_at, user_agent, last_seen_at, ip)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id(), userId, hashToken(token), expires.toISOString(), userAgent ?? null, utcStamp(), ip ?? null);
   return token;
 }
 
@@ -119,6 +124,7 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply): Pr
   if (!user) {
     return reply.code(401).send({ error: 'Sign in required' });
   }
+  touchSession(token!, req.ip);
 
   // Until the password is changed, only the change endpoint is available
   if (user.must_change_password && path !== '/api/auth/change-password' && path !== '/api/auth/me') {
@@ -169,5 +175,29 @@ export function announceSetupIfEmpty(): void {
 
 /** Expired sessions are removed at startup so the table doesn't grow forever. */
 export function pruneSessions(): void {
-  db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(new Date().toISOString());
+  const now = new Date();
+  db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(now.toISOString());
+  // Idle sessions retire long before the hard 90-day expiry: a session
+  // nobody used for a month is an orphaned cookie (re-login in the same
+  // browser replaced it) or an abandoned device — either way, dead
+  // weight in the Devices list. Everything here is the same
+  // 'YYYY-MM-DD HH:MM:SS' UTC shape, so plain string comparison holds;
+  // rows from before last_seen_at existed fall back to created_at.
+  const idleCutoff = utcStamp(new Date(now.getTime() - 30 * 86_400_000));
+  db.prepare(
+    `DELETE FROM sessions WHERE coalesce(last_seen_at, created_at) <= ?`,
+  ).run(idleCutoff);
+}
+
+/**
+ * Activity stamp for the Devices list, throttled to one write per
+ * session per 5 minutes — the dashboard polling once a minute must not
+ * turn every request into an UPDATE.
+ */
+export function touchSession(token: string, ip: string | undefined): void {
+  const cutoff = utcStamp(new Date(Date.now() - 5 * 60_000));
+  db.prepare(
+    `UPDATE sessions SET last_seen_at = ?, ip = ?
+      WHERE token_hash = ? AND (last_seen_at IS NULL OR last_seen_at < ?)`,
+  ).run(utcStamp(), ip ?? null, hashToken(token), cutoff);
 }
