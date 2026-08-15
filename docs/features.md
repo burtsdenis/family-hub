@@ -8,7 +8,7 @@ logging), see [architecture.md](architecture.md).
 
 A hub with an empty database offers to create the first account right in the browser — that account becomes the administrator. Passwords are never printed to server logs.
 
-Family members are added with invitations: the administrator creates a single-use link (valid for a week, shown once, stored as a hash), the person opens it and fills in their own name, login and password. Manual creation with a one-time password remains as a fallback.
+Family members are added with invitations: the administrator creates a single-use link (valid for a week, shown once, stored as a hash), the person opens it and fills in their own name, login and password. This is the only way in — for a kid without their own device, the parent simply opens the link themselves. Each joining member automatically gets a distinct account color (the avatar is the first letter of the name, so color is what tells people apart).
 
 Day-to-day work happens under personal accounts. The administrator role manages the system; it has **no access to other people's private notes** — private queries filter by owner, and there is no "if admin, show everything" branch in the code.
 

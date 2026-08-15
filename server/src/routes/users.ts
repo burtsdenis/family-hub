@@ -1,35 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { db, id, now } from '../db/index.js';
+import { db, now } from '../db/index.js';
 import { destroyAllSessions, requireAdmin } from '../lib/auth.js';
 import { generatePassword, hashPassword } from '../lib/password.js';
-
-/**
- * The avatar is the first letter of the name, so color is what tells
- * people apart. An identical default color would make "Dad" and
- * "Daughter" indistinguishable.
- */
-const USER_COLORS = ['#1F6E8C', '#C4842B', '#6B8F5E', '#8C4A6B', '#7A5C9E', '#4A6B8C'];
-
-function nextColor(): string {
-  const used = (
-    db.prepare('SELECT color FROM users').all() as { color: string }[]
-  ).map((r) => r.color.toLowerCase());
-  return (
-    USER_COLORS.find((c) => !used.includes(c.toLowerCase())) ??
-    USER_COLORS[used.length % USER_COLORS.length]!
-  );
-}
-
-const createInput = z.object({
-  email: z.string().email('Enter an address like name@hub.local').max(200),
-  name: z.string().min(1, 'Enter a name').max(100),
-  role: z.enum(['admin', 'member', 'kid']),
-  color: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/)
-    .optional(),
-});
 
 export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/users', (req, reply) => {
@@ -43,41 +16,11 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
       .all();
   });
 
-  app.post('/api/users', async (req, reply) => {
-    if (!requireAdmin(req, reply)) return;
-
-    const parsed = createInput.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
-    }
-    const email = parsed.data.email.trim().toLowerCase();
-
-    const exists = db.prepare('SELECT 1 FROM users WHERE lower(email) = ?').get(email);
-    if (exists) return reply.code(409).send({ error: 'A member with this address already exists' });
-
-    const password = generatePassword();
-    const userId = id();
-    db.prepare(
-      `INSERT INTO users (id, email, name, role, color, password_hash, must_change_password, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
-    ).run(
-      userId,
-      email,
-      parsed.data.name,
-      parsed.data.role,
-      parsed.data.color ?? nextColor(),
-      await hashPassword(password),
-      now(),
-    );
-
-    // The password is returned exactly once — to show and hand to the person.
-    return reply.code(201).send({
-      user: db
-        .prepare('SELECT id, email, name, role, color FROM users WHERE id = ?')
-        .get(userId),
-      password,
-    });
-  });
+  // Manual account creation is gone on purpose: invitation links cover
+  // every case (for a kid without a device, the parent opens the link
+  // themselves), and one path into the family beats two half-used ones.
+  // Reset-password below still issues one-time passwords — that is
+  // recovery, not creation.
 
   app.patch('/api/users/:id', (req, reply) => {
     if (!requireAdmin(req, reply)) return;

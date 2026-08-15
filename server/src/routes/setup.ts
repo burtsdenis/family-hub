@@ -7,6 +7,24 @@ import { hashPassword } from '../lib/password.js';
 import { log } from '../lib/log.js';
 
 /*
+ * Distinct colors for joining members. Every visual identity in the hub
+ * (avatars, event participants) leans on the account color, and with
+ * the schema default alone the whole family came out the same blue —
+ * "Mom" and "Daughter" indistinguishable at a glance.
+ */
+const USER_COLORS = ['#1F6E8C', '#C4842B', '#6B8F5E', '#8C4A6B', '#7A5C9E', '#4A6B8C'];
+
+function nextColor(): string {
+  const used = (db.prepare('SELECT color FROM users').all() as { color: string }[]).map((r) =>
+    r.color.toLowerCase(),
+  );
+  return (
+    USER_COLORS.find((c) => !used.includes(c.toLowerCase())) ??
+    USER_COLORS[used.length % USER_COLORS.length]!
+  );
+}
+
+/*
   Initial setup and invites — onboarding without reading logs.
 
   Empty database: the hub, when opened, offers to create the first
@@ -188,9 +206,9 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
         .get(invite.id) as { used_at: string | null };
       if (fresh.used_at) return false;
       db.prepare(
-        `INSERT INTO users (id, email, name, role, password_hash, must_change_password, created_at)
-         VALUES (?, ?, ?, ?, ?, 0, ?)`,
-      ).run(userId, parsed.data.email, parsed.data.name, invite.role, passwordHash, now());
+        `INSERT INTO users (id, email, name, role, password_hash, color, must_change_password, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+      ).run(userId, parsed.data.email, parsed.data.name, invite.role, passwordHash, nextColor(), now());
       db.prepare('UPDATE invites SET used_by = ?, used_at = ? WHERE id = ?').run(
         userId,
         now(),
