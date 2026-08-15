@@ -97,7 +97,10 @@ export function DuePanel({
               key={key}
               className="flex flex-wrap items-center gap-3 rounded-lg bg-surface px-3 py-2.5"
             >
-              <span className="min-w-0 flex-1">
+              {/* Full row on phones: flex-1 with min-w-0 shrinks to a
+                  few-pixel column before flex-wrap ever kicks in, and the
+                  meta line collapsed to one word per line */}
+              <span className="w-full min-w-0 sm:w-auto sm:flex-1">
                 <span className="block truncate text-sm text-ink">{item.title}</span>
                 <span className="block text-xs text-muted">
                   {formatDate(item.occurred_on)} · {item.account_name}
@@ -186,7 +189,8 @@ export function RecurringPanel({
                 r.active ? '' : 'opacity-50'
               }`}
             >
-              <span className="min-w-0 flex-1">
+              {/* Same full-row-on-phones treatment as the confirm list above */}
+              <span className="w-full min-w-0 sm:w-auto sm:flex-1">
                 <span className="block truncate text-sm font-medium text-ink">
                   {r.title}
                   <span className="ml-2 text-xs font-normal text-muted">

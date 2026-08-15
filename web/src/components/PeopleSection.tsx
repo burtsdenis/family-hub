@@ -249,17 +249,22 @@ export function PeopleSection() {
               key={u.id}
               className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-4 py-3.5 last:border-0"
             >
-              <span
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: u.color }}
-                aria-hidden
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-ink">
-                  {u.name}
-                  {u.disabled_at && <span className="ml-2 text-xs text-muted">{t('disabled')}</span>}
-                </p>
-                <p className="truncate font-mono text-xs text-muted">{u.email}</p>
+              {/* Full row on phones: with flex-1 alone the name column
+                  shrank to a couple of characters before the actions
+                  wrapped ("S…" instead of "Sam") */}
+              <div className="flex w-full min-w-0 items-center gap-x-4 sm:w-auto sm:flex-1">
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: u.color }}
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">
+                    {u.name}
+                    {u.disabled_at && <span className="ml-2 text-xs text-muted">{t('disabled')}</span>}
+                  </p>
+                  <p className="truncate font-mono text-xs text-muted">{u.email}</p>
+                </div>
               </div>
               <span className="text-xs text-muted">{ROLE_LABEL[u.role]}</span>
               <button
