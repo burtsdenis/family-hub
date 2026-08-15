@@ -85,6 +85,9 @@ Frontend on `http://localhost:5173`, API on `http://localhost:8787`. Vite listen
 - **[Features](docs/features.md)** — the walkthrough: accounts and
   invitations, tasks, notes, calendar, search, and the money section
   with its semantics (reconciliation, budgets, recurring payments).
+- **[Family mail](docs/family-mail.md)** — connecting the shared
+  household mailbox: a dedicated account or a corner of a personal
+  Gmail behind a label.
 - **[Architecture](docs/architecture.md)** — the technical decisions:
   SQLite and migrations, local wall-clock time, money as integers,
   logging, how the demo sandboxes work.

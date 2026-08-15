@@ -9,6 +9,7 @@ import { Page } from '../components/Page';
 import { onEnter } from '../lib/keys';
 import { PALETTE, addToPalette, loadCustomPalette, removeFromPalette } from '../lib/palette';
 import { PeopleSection } from '../components/PeopleSection';
+import { MailSection } from '../components/MailSection';
 
 /**
  * The hub's custom colors on top of the stock palette. The list also grows
@@ -363,6 +364,11 @@ export function Settings() {
       {/* People management spans both columns: it is a rare-visit admin
           block, wide lists inside, and user feedback asked for exactly
           this instead of a dedicated navigation section */}
+      {user?.role === 'admin' && (
+        <div className="lg:col-span-2">
+          <MailSection />
+        </div>
+      )}
       {user?.role === 'admin' && (
         <div className="lg:col-span-2">
           <PeopleSection />

@@ -29,6 +29,11 @@ export function demoBlocked(method: string, path: string): boolean {
   // All file uploads: note attachments and transaction receipts
   if (method === 'POST' && path.includes('/attachments')) return true;
   if (method === 'POST' && path.includes('/receipts')) return true;
+  // Mail: sandboxes must not talk to real mail servers or send anything.
+  // Reading and "make it a task" stay open — that is the showcase.
+  if (path.startsWith('/api/mail/account')) return true;
+  if (path === '/api/mail/sync') return true;
+  if (path.endsWith('/reply') && path.startsWith('/api/mail/')) return true;
   return false;
 }
 
@@ -134,6 +139,31 @@ export async function seedDemo(): Promise<void> {
     db.prepare(
       `INSERT INTO event_participants (event_id, user_id) VALUES (?, ?), (?, ?), (?, ?)`,
     ).run(gym, alex, gym, sam, dentist, sam);
+
+    // ── Family mail ──
+    // A believable paperwork inbox; one message is already a task, so
+    // the mail → task link is visible without clicking anything
+    const school = id();
+    db.prepare(
+      `INSERT INTO mail_messages (id, kind, from_address, from_name, to_address, subject,
+                                  body_text, sent_at, received_at, read_at) VALUES
+       (?, 'in', 'office@riverside-school.example', 'Riverside School', 'family@hub.example',
+        'Parent-teacher evening on Thursday',
+        'Dear parents,' || char(10) || char(10) ||
+        'We look forward to seeing you this Thursday at 17:30 in the main hall. Please confirm your attendance by replying to this email.' || char(10) || char(10) ||
+        'Riverside School office', ?, ?, NULL),
+       (?, 'in', 'no-reply@citypower.example', 'City Power & Light', 'family@hub.example',
+        'Your electricity bill for July',
+        'Your bill for July is ready: 64.20 EUR, due by the 25th.' || char(10) ||
+        'The detailed statement is attached as a PDF in the original message.', ?, ?, ?)`,
+    ).run(school, day(-1) + ' 09:15', day(-1) + ' 09:15', id(), day(-4) + ' 08:00', day(-4) + ' 08:00', day(-3) + ' 20:11');
+
+    const schoolTask = id();
+    db.prepare(
+      `INSERT INTO tasks (id, project_id, level, title, description, status, priority, due_date, assignee_id, position, created_by)
+       VALUES (?, '00000000-0000-4000-8000-000000000001', 0, 'Confirm parent-teacher evening', 'Reply to the school before Thursday', 'todo', 'normal', ?, ?, 8, ?)`,
+    ).run(schoolTask, day(1), sam, alex);
+    db.prepare('UPDATE mail_messages SET task_id = ? WHERE id = ?').run(schoolTask, school);
 
     // ── Money ──
     const card = id();

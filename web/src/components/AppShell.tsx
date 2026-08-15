@@ -76,6 +76,16 @@ const NAV: NavItem[] = [
 /** Sections that don't belong in the main row. */
 const SECONDARY: NavItem[] = [
   {
+    to: '/mail',
+    label: t('Mail'),
+    icon: (
+      <svg viewBox="0 0 24 24" {...stroke}>
+        <rect x="3" y="5.5" width="18" height="13" rx="2" />
+        <path d="m4 7.5 8 6 8-6" />
+      </svg>
+    ),
+  },
+  {
     to: '/settings',
     label: t('Settings'),
     icon: (

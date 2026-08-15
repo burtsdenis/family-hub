@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs';
-import { mkdir, stat, unlink } from 'node:fs/promises';
+import { mkdir, stat, unlink, writeFile } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { createWriteStream } from 'node:fs';
@@ -83,6 +83,42 @@ interface UploadedInfo {
   size_bytes: number;
   is_image: boolean;
   url: string;
+}
+
+/**
+ * Attachment arriving as a buffer (a MIME part of a family-mail
+ * message) rather than a multipart upload. Same storage layout, same
+ * budget; an oversized part or a full store skips the file rather than
+ * failing the whole message — the text always lands.
+ */
+export async function saveMailAttachment(
+  mailMessageId: string,
+  file: { filename: string; mime: string; content: Buffer },
+): Promise<void> {
+  if (file.content.length === 0 || file.content.length > MAX_FILE_BYTES) return;
+  const { used } = db
+    .prepare('SELECT coalesce(sum(size_bytes), 0) AS used FROM attachments')
+    .get() as { used: number };
+  if (used + file.content.length > BUDGET_BYTES) return;
+
+  const storageName = storageNameFor(file.filename);
+  const month = today().slice(0, 7);
+  const folder = join(paths.attachments, month);
+  await mkdir(folder, { recursive: true });
+  await writeFile(join(folder, storageName), file.content);
+
+  db.prepare(
+    `INSERT INTO attachments (id, filename, mime, size_bytes, storage_path, mail_message_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id(),
+    file.filename.slice(0, 300),
+    safeMime(file.mime),
+    file.content.length,
+    join(month, storageName),
+    mailMessageId,
+    now(),
+  );
 }
 
 /**

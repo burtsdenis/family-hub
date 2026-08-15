@@ -85,6 +85,34 @@ Notes, tasks and projects are searched via FTS5; events and attachments by direc
 
 Private content never appears in someone else's results — not notes, not personal-calendar events, not files attached to them.
 
+## Mail
+
+The household paperwork inbox — deliberately **not an email client**. One
+shared address for the letters a family actually manages together: school,
+utilities, bookings, insurance. Everyone sees the same inbox; opening a
+letter marks it read for the whole family — a household desk has one
+"handled" state, not a per-person one.
+
+The hub polls an external mailbox over IMAP (any provider; a dedicated
+mailbox is best, a personal Gmail works via a filter into a separate
+label — the hub reads only the configured folder and never touches
+personal mail). Setup: [family-mail.md](family-mail.md).
+
+A letter becomes a task in one click; the task lands in the Inbox project
+and links back to the message. Attachments ride the regular attachments
+pipeline and storage budget.
+
+Replies are sent through the same mailbox's SMTP and always **from the
+family address** — the member's name travels in the display name and is
+recorded in the hub. Replies to your reply land back in the family
+mailbox, so the whole thread stays in one place. There is no
+compose-from-scratch: a paperwork desk answers letters, it does not
+start correspondence.
+
+v1 renders the plain-text part of a message; HTML rendering, ICS invites
+into the calendar and invoice-to-transaction are tracked in the
+[family mail epic](https://github.com/burtsdenis/family-hub/issues/30).
+
 ## Money
 
 Amounts are stored as integers in minor units: 1234.56 → 123456. Floating point in money produces rounding errors that accumulate in sums and eventually disagree with the bank.
