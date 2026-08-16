@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { id, now, openDatabase, runWithDb } from '../db/index.js';
 import { migrate } from '../db/migrate.js';
-import { consumeTotp, createSession, destroyOtherSessions, hashToken } from './auth.js';
+import { consumeTotp, createSession, destroyOtherSessions, hashToken, listSessions } from './auth.js';
 import { base32Encode, hotp } from './totp.js';
 
 describe('destroyOtherSessions', () => {
@@ -103,6 +103,62 @@ describe('consumeTotp', () => {
       expect(consumeTotp(userId, SECRET, '000000', NOW)).toBe(false);
       // The valid code is untouched by the failed attempt
       expect(consumeTotp(userId, SECRET, hotp(SECRET, STEP), NOW)).toBe(true);
+    });
+  });
+});
+
+describe('listSessions', () => {
+  it('puts the most recently active first, orphans last', () => {
+    const db = openDatabase(':memory:');
+    runWithDb(db, () => {
+      migrate();
+      const userId = id();
+      db.prepare(
+        `INSERT INTO users (id, email, name, role, password_hash, created_at)
+         VALUES (?, 'a@hub.local', 'A', 'member', 'x', ?)`,
+      ).run(userId, now());
+
+      const current = createSession(userId, 'laptop');
+      createSession(userId, 'phone');
+      createSession(userId, 'tablet');
+
+      // An orphan created early and never seen since, against a device
+      // active late the same day. Both stamps share one format, so the
+      // comparison must be plain — reformatting either side floated the
+      // orphan to the top, which is the opposite of what the list is for.
+      const byAgent = (agent: string) =>
+        db.prepare('SELECT id FROM sessions WHERE user_agent = ?').get(agent) as { id: string };
+      db.prepare('UPDATE sessions SET created_at = ?, last_seen_at = NULL WHERE id = ?').run(
+        '2026-08-15 09:00:00',
+        byAgent('phone').id,
+      );
+      db.prepare('UPDATE sessions SET created_at = ?, last_seen_at = ? WHERE id = ?').run(
+        '2026-08-15 08:00:00',
+        '2026-08-15 23:59:59',
+        byAgent('tablet').id,
+      );
+
+      const order = listSessions(userId, current).map((s) => s.user_agent);
+      expect(order.indexOf('tablet')).toBeLessThan(order.indexOf('phone'));
+    });
+  });
+
+  it('marks the requesting session and hides the token hash', () => {
+    const db = openDatabase(':memory:');
+    runWithDb(db, () => {
+      migrate();
+      const userId = id();
+      db.prepare(
+        `INSERT INTO users (id, email, name, role, password_hash, created_at)
+         VALUES (?, 'a@hub.local', 'A', 'member', 'x', ?)`,
+      ).run(userId, now());
+
+      createSession(userId, 'phone');
+      const current = createSession(userId, 'laptop');
+
+      const sessions = listSessions(userId, current);
+      expect(sessions.filter((s) => s.current).map((s) => s.user_agent)).toEqual(['laptop']);
+      expect(Object.keys(sessions[0]!)).not.toContain('token_hash');
     });
   });
 });
