@@ -196,6 +196,40 @@ export function pruneSessions(): void {
   ).run(idleCutoff);
 }
 
+export interface SessionInfo {
+  id: string;
+  created_at: string;
+  last_seen_at: string | null;
+  ip: string | null;
+  user_agent: string | null;
+  /** The session making the request — the row the UI must not offer to revoke. */
+  current: boolean;
+}
+
+/**
+ * Live sessions of one user, most recently active first.
+ *
+ * Both stamps are the same 'YYYY-MM-DD HH:MM:SS' UTC shape, so plain
+ * string ordering holds — but only as long as both sides stay in that
+ * shape. Reformatting one of them inside the ORDER BY is what previously
+ * floated orphaned rows to the top: ' ' sorts below 'T', so anything
+ * falling back to created_at outranked every row with a real
+ * last_seen_at. pruneSessions compares the same pair and is the model.
+ */
+export function listSessions(userId: string, currentToken: string): SessionInfo[] {
+  const currentHash = hashToken(currentToken);
+  const rows = db
+    .prepare(
+      `SELECT id, token_hash, created_at, last_seen_at, ip, user_agent
+         FROM sessions WHERE user_id = ? AND expires_at > ?
+        ORDER BY coalesce(last_seen_at, created_at) DESC`,
+    )
+    .all(userId, new Date().toISOString()) as (Omit<SessionInfo, 'current'> & {
+    token_hash: string;
+  })[];
+  return rows.map(({ token_hash, ...s }) => ({ ...s, current: token_hash === currentHash }));
+}
+
 /**
  * Check a TOTP code and spend it in one move: true only when the code is
  * valid *and* its step has not been used before.
