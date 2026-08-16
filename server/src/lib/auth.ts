@@ -3,6 +3,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { db, id } from '../db/index.js';
 import { env } from '../env.js';
 import { log } from './log.js';
+import { totpStep } from './totp.js';
 
 export const SESSION_COOKIE = 'hub_session';
 const SESSION_DAYS = 90;
@@ -193,6 +194,36 @@ export function pruneSessions(): void {
   db.prepare(
     `DELETE FROM sessions WHERE coalesce(last_seen_at, created_at) <= ?`,
   ).run(idleCutoff);
+}
+
+/**
+ * Check a TOTP code and spend it in one move: true only when the code is
+ * valid *and* its step has not been used before.
+ *
+ * The guard is the UPDATE itself rather than a read followed by a write.
+ * Two requests arriving with the same code would both pass a read — the
+ * conditional write lets exactly one of them through, which is the
+ * double-submit case as much as the attacker one.
+ *
+ * A wrong code and an already-spent one are deliberately the same answer
+ * to the caller: telling them apart would confirm to whoever replayed it
+ * that the code was genuine.
+ */
+export function consumeTotp(
+  userId: string,
+  secretBase32: string,
+  code: string,
+  now = Date.now(),
+): boolean {
+  const step = totpStep(secretBase32, code, now);
+  if (step === null) return false;
+  const result = db
+    .prepare(
+      `UPDATE users SET totp_last_step = ?
+        WHERE id = ? AND (totp_last_step IS NULL OR totp_last_step < ?)`,
+    )
+    .run(step, userId, step);
+  return result.changes === 1;
 }
 
 /**

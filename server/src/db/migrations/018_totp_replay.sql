@@ -1,0 +1,14 @@
+-- A one-time code has to be usable once.
+--
+-- The code itself carries no notion of having been spent: it is a pure
+-- function of the secret and a 30-second time step, so within that step
+-- (plus the one on either side we accept for clock drift) the answer to
+-- "do these six digits match?" never changes. The duty is the verifier's,
+-- and RFC 6238 §5.2 spells it out — remember the last accepted step and
+-- refuse anything at or below it. Until now nothing was remembered, so a
+-- code observed over a shoulder stayed good for another ~90 seconds and
+-- opened as many sessions as it was replayed into.
+--
+-- NULL means nothing has been spent yet: a freshly minted secret, or an
+-- account that enabled two-factor before this migration.
+ALTER TABLE users ADD COLUMN totp_last_step INTEGER;

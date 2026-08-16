@@ -67,20 +67,29 @@ export function hotp(secretBase32: string, counter: number): string {
 }
 
 /**
- * Accepts the current 30-second step and one step to either side —
- * clock drift on the phone and the human pause between reading and
- * typing the code. One step, not more: every extra step doubles the
- * brute-force window.
+ * The time step a code belongs to, or null when it matches none of the
+ * accepted ones.
+ *
+ * Accepts the current 30-second step and one step to either side — clock
+ * drift on the phone and the human pause between reading and typing the
+ * code. One step, not more: every extra step doubles the brute-force
+ * window.
+ *
+ * It returns the step rather than a boolean because a caller cannot make
+ * a code one-time without knowing which step to burn — see consumeTotp
+ * in lib/auth.ts. This module stays pure on purpose: it is checked
+ * against the RFC vectors, and a database would only get in the way.
  */
-export function verifyTotp(secretBase32: string, code: string, now = Date.now()): boolean {
+export function totpStep(secretBase32: string, code: string, now = Date.now()): number | null {
   const normalized = code.replace(/\s+/g, '');
-  if (!/^\d{6}$/.test(normalized)) return false;
-  const step = Math.floor(now / 1000 / STEP_SECONDS);
+  if (!/^\d{6}$/.test(normalized)) return null;
+  const current = Math.floor(now / 1000 / STEP_SECONDS);
   for (const delta of [0, -1, 1]) {
-    const expected = hotp(secretBase32, step + delta);
-    if (timingSafeEqual(Buffer.from(expected), Buffer.from(normalized))) return true;
+    const step = current + delta;
+    const expected = hotp(secretBase32, step);
+    if (timingSafeEqual(Buffer.from(expected), Buffer.from(normalized))) return step;
   }
-  return false;
+  return null;
 }
 
 /** The otpauth:// URI that authenticator apps read from the QR code. */

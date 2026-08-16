@@ -59,7 +59,8 @@ const hash = await hashPassword(password);
 // lost authenticator is exactly the lockout it exists to escape.
 db.prepare(
   `UPDATE users SET password_hash = ?, must_change_password = 1, disabled_at = NULL,
-                    totp_secret = NULL, totp_confirmed_at = NULL WHERE id = ?`,
+                    totp_secret = NULL, totp_confirmed_at = NULL, totp_last_step = NULL
+    WHERE id = ?`,
 ).run(hash, user.id);
 
 // Close previous sessions: if the password is being reset, they can't be trusted
