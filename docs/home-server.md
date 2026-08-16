@@ -13,9 +13,13 @@ docker compose up -d --build
 
 The hub comes up on `http://localhost:8787` and is reachable from other devices on the network by the machine's address. The port is exposed directly so everything works without HTTPS.
 
+An empty database offers to create the first account — that one becomes the administrator:
+
+![The first-run screen: name, login and password for the administrator](screenshots/first-run.png)
+
 ## HTTPS
 
-Browsers require HTTPS for secure session cookies, and the planned PWA install/offline support will need it too:
+Browsers require HTTPS for secure session cookies, and installing the hub to a phone's home screen (it is a PWA) needs it as well:
 
 ```bash
 ./scripts/setup-https.sh                  # name, certificate, hints

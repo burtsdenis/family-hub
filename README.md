@@ -17,6 +17,20 @@ The core is complete and battle-tested by daily family use: accounts and sign-in
     <td><img src="docs/screenshots/money.png" alt="Money: accounts, spending, budgets and recurring payments"></td>
     <td><img src="docs/screenshots/notes.png" alt="Notes: markdown with wiki-links and attachments"></td>
   </tr>
+  <tr>
+    <td><img src="docs/screenshots/mail.png" alt="Mail: the shared household inbox, one click from letter to task"></td>
+    <td><img src="docs/screenshots/settings.png" alt="Settings: sign-in, two-factor codes, devices and the colour palette"></td>
+  </tr>
+</table>
+
+And on a phone, where it is installed to the home screen and the day starts with three one-tap actions:
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/phone-dashboard.png" alt="The phone dashboard: task, expense and note in one tap"></td>
+    <td width="33%"><img src="docs/screenshots/phone-money.png" alt="Money on a phone: accounts stacked, the quick expense form below"></td>
+    <td width="33%"><img src="docs/screenshots/phone-tasks.png" alt="Tasks on a phone"></td>
+  </tr>
 </table>
 
 ## Why not Notion / Google / Nextcloud?
@@ -106,8 +120,8 @@ The roadmap lives where you can see and influence it:
 
 - **[Roadmap board](https://github.com/users/burtsdenis/projects/1)** —
   Now / Next / Later at a glance.
-- **[v0.2 milestone](https://github.com/burtsdenis/family-hub/milestone/1)** —
-  what is being worked on right now.
+- **[Releases](https://github.com/burtsdenis/family-hub/releases)** —
+  what landed and when; v1.0.0 is the current one.
 - **[Issues](https://github.com/burtsdenis/family-hub/issues)** — vote
   with a 👍 on what you want most; that is genuinely how things get
   prioritized here. Want to contribute? Start with

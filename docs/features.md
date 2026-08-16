@@ -35,9 +35,13 @@ An emergency door deserves a second lock: any account can enable **two-factor au
 
 Settings also shows **Devices** — every live session with browser, IP and last activity, the current one marked. Any session can be revoked individually, or all but the current one at once ("Sign out everywhere else" — the lost-phone button). A revoked device also clears its offline copy of the data the next time it touches the network. Sessions idle for a month retire on their own.
 
+![Settings: sign-in, two-factor authentication, devices and the palette](screenshots/settings.png)
+
 Setting up Google sign-in on a server: [deploy-vps.md](deploy-vps.md), "Google sign-in".
 
 ## Tasks
+
+![Tasks: projects, a kanban board and three levels of nesting](screenshots/tasks.png)
 
 Three nesting levels: story → task → subtask. The server refuses anything deeper, deliberately — otherwise the tree turns into a dump.
 
@@ -50,6 +54,8 @@ Task order is accepted as a full list of IDs (`POST /api/tasks/reorder`) rather 
 `Cmd/Ctrl + K` opens quick-add from any section. A task with no project selected goes to the Inbox.
 
 ## Notes
+
+![Notes: markdown with wiki-links, templates and attachments](screenshots/notes.png)
 
 Stored as markdown. The editor is TipTap, but what lands on disk is plain markdown, readable in any text editor.
 
@@ -65,13 +71,15 @@ A private note is visible only to its owner — in lists, in search, and by dire
 
 Files go to the data directory under `attachments/YYYY-MM/` with generated names; the original name is kept in the database. A human-supplied name never becomes part of a disk path — otherwise `../../` in a name would write anywhere.
 
-The per-file ceiling is 50 MB. Total volume is not hard-limited but is tracked: `GET /api/attachments/usage`.
+The per-file ceiling is 50 MB, and the store as a whole has a 2 GB budget: Settings shows how much is used, and once the budget is exhausted new uploads are refused rather than draining the disk. Usage is available at `GET /api/attachments/usage`.
 
 Files can be dragged straight into note text or pasted from the clipboard. Images land at the drop point and enter the markdown as regular images; other files simply attach.
 
 An attachment is visible to whoever can see the note. Deleting a note removes the files from disk, not just the rows.
 
 ## Calendar
+
+![Calendar: shared and personal layers, recurring events, who is going](screenshots/calendar.png)
 
 Time is stored as local wall-clock time, not UTC. "Every Tuesday at 10:00" must stay at 10:00 after a clock change; storing UTC would force recalculating every series occurrence through DST rules. A household lives in one time zone.
 
@@ -106,6 +114,8 @@ worker — sandboxes are per-visitor, browser caches are not.
 
 ## Mail
 
+![Mail: the shared household inbox, one click from letter to task](screenshots/mail.png)
+
 The household paperwork inbox — deliberately **not an email client**. One
 shared address for the letters a family actually manages together: school,
 utilities, bookings, insurance. Everyone sees the same inbox; opening a
@@ -133,6 +143,8 @@ into the calendar and invoice-to-transaction are tracked in the
 [family mail epic](https://github.com/burtsdenis/family-hub/issues/30).
 
 ## Money
+
+![Money: accounts per currency, spending by category, budgets and reconciliation](screenshots/money.png)
 
 Amounts are stored as integers in minor units: 1234.56 → 123456. Floating point in money produces rounding errors that accumulate in sums and eventually disagree with the bank.
 
@@ -179,6 +191,14 @@ Auto-creation catches up at server startup: the machine may have slept through a
 Attached to a transaction with the same machinery as note attachments. The image is downscaled client-side to 1600 px on the long edge: a phone photo weighs megabytes, and all a receipt needs to show is the amount and the date.
 
 ## Interface
+
+<table>
+  <tr>
+    <td width="33%"><img src="screenshots/phone-dashboard.png" alt="The phone dashboard: task, expense and note in one tap"></td>
+    <td width="33%"><img src="screenshots/phone-money.png" alt="Money on a phone: accounts stacked, the quick expense form below"></td>
+    <td width="33%"><img src="screenshots/phone-tasks.png" alt="Tasks on a phone"></td>
+  </tr>
+</table>
 
 Enter in any dialog performs the primary action — save, confirm, add — regardless of where the focus is. In a multi-line field Enter stays a line break; on a button it presses that button. Escape closes. One rule for every window: task card, event, transaction, budget, confirmations.
 
