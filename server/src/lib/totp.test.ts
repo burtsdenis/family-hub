@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { base32Decode, base32Encode, hotp, otpauthUri, verifyTotp } from './totp.js';
+import { base32Decode, base32Encode, hotp, otpauthUri, totpStep } from './totp.js';
 
 // RFC 6238 appendix B vectors use the ASCII secret "12345678901234567890";
 // its base32 form:
@@ -29,20 +29,27 @@ describe('totp against RFC 6238 vectors', () => {
 
   for (const [seconds, expected] of vectors) {
     it(`T=${seconds} → ${expected}`, () => {
-      expect(verifyTotp(RFC_SECRET, expected, seconds * 1000)).toBe(true);
+      expect(totpStep(RFC_SECRET, expected, seconds * 1000)).toBe(Math.floor(seconds / 30));
     });
   }
 
   it('rejects a wrong code and malformed input', () => {
-    expect(verifyTotp(RFC_SECRET, '000000', 59_000)).toBe(false);
-    expect(verifyTotp(RFC_SECRET, '28708', 59_000)).toBe(false);
-    expect(verifyTotp(RFC_SECRET, 'abcdef', 59_000)).toBe(false);
+    expect(totpStep(RFC_SECRET, '000000', 59_000)).toBeNull();
+    expect(totpStep(RFC_SECRET, '28708', 59_000)).toBeNull();
+    expect(totpStep(RFC_SECRET, 'abcdef', 59_000)).toBeNull();
   });
 
   it('accepts one step of clock drift, not two', () => {
     const t = 1111111109 * 1000;
-    expect(verifyTotp(RFC_SECRET, hotp(RFC_SECRET, Math.floor(1111111109 / 30) - 1), t)).toBe(true);
-    expect(verifyTotp(RFC_SECRET, hotp(RFC_SECRET, Math.floor(1111111109 / 30) - 2), t)).toBe(false);
+    const step = Math.floor(1111111109 / 30);
+    expect(totpStep(RFC_SECRET, hotp(RFC_SECRET, step - 1), t)).toBe(step - 1);
+    expect(totpStep(RFC_SECRET, hotp(RFC_SECRET, step - 2), t)).toBeNull();
+  });
+
+  it('reports which step matched, so the caller can burn it', () => {
+    const t = 1111111109 * 1000;
+    const step = Math.floor(1111111109 / 30);
+    expect(totpStep(RFC_SECRET, hotp(RFC_SECRET, step + 1), t)).toBe(step + 1);
   });
 });
 

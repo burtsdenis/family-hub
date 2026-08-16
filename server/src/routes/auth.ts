@@ -7,6 +7,7 @@ import { env } from '../env.js';
 import {
   SESSION_COOKIE,
   clearSessionCookie,
+  consumeTotp,
   createSession,
   destroyAllSessions,
   destroyOtherSessions,
@@ -212,9 +213,10 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     const row = db
       .prepare('SELECT totp_secret FROM users WHERE id = ? AND disabled_at IS NULL')
       .get(pending.userId) as { totp_secret: string | null } | undefined;
-    const { verifyTotp } = await import('../lib/totp.js');
-    if (!row?.totp_secret || !verifyTotp(row.totp_secret, parsed.data.code)) {
-      log.warn(`mfa: wrong code for user ${pending.userId} from ${req.ip}`);
+    // consumeTotp burns the step, so a code that already opened a session
+    // cannot open a second one while its window is still running
+    if (!row?.totp_secret || !consumeTotp(pending.userId, row.totp_secret, parsed.data.code)) {
+      log.warn(`mfa: wrong or reused code for user ${pending.userId} from ${req.ip}`);
       return reply.code(401).send({ error: 'Wrong code' });
     }
 
@@ -245,10 +247,10 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(409).send({ error: 'Two-factor authentication is already enabled' });
     }
     const secret = generateTotpSecret();
-    db.prepare('UPDATE users SET totp_secret = ?, totp_confirmed_at = NULL WHERE id = ?').run(
-      secret,
-      req.user!.id,
-    );
+    db.prepare(
+      `UPDATE users SET totp_secret = ?, totp_confirmed_at = NULL, totp_last_step = NULL
+        WHERE id = ?`,
+    ).run(secret, req.user!.id);
     return { secret, uri: otpauthUri(req.user!.email, secret) };
   });
 
@@ -262,8 +264,9 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     if (!row.totp_secret || row.totp_confirmed_at) {
       return reply.code(409).send({ error: 'Start the setup first' });
     }
-    const { verifyTotp } = await import('../lib/totp.js');
-    if (!verifyTotp(row.totp_secret, parsed.data.code)) {
+    // Spent here too: the code that proved the authenticator works must
+    // not still be good for the sign-in that follows
+    if (!consumeTotp(req.user!.id, row.totp_secret, parsed.data.code)) {
       return reply.code(401).send({ error: 'Wrong code' });
     }
     db.prepare('UPDATE users SET totp_confirmed_at = ? WHERE id = ?').run(now(), req.user!.id);
@@ -281,13 +284,15 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     if (!row.totp_secret || !row.totp_confirmed_at) {
       return reply.code(409).send({ error: 'Two-factor authentication is not enabled' });
     }
-    const { verifyTotp } = await import('../lib/totp.js');
-    if (!verifyTotp(row.totp_secret, parsed.data.code)) {
+    if (!consumeTotp(req.user!.id, row.totp_secret, parsed.data.code)) {
       return reply.code(401).send({ error: 'Wrong code' });
     }
-    db.prepare('UPDATE users SET totp_secret = NULL, totp_confirmed_at = NULL WHERE id = ?').run(
-      req.user!.id,
-    );
+    // The spent step goes with the secret: the next setup starts clean,
+    // and a stale step must never sit in the way of a fresh authenticator
+    db.prepare(
+      `UPDATE users SET totp_secret = NULL, totp_confirmed_at = NULL, totp_last_step = NULL
+        WHERE id = ?`,
+    ).run(req.user!.id);
     log.info(`mfa: disabled for ${req.user!.email}`);
     return { ok: true };
   });
