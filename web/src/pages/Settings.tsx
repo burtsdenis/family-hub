@@ -480,7 +480,13 @@ export function Settings() {
       </div>
 
       <section className="mb-5 break-inside-avoid rounded-card border border-line bg-surface p-5">
-        <h2 className="eyebrow mb-4">{t('Language')} / Language</h2>
+        {/* The English word is kept alongside the translation so the setting
+            is findable in a language you do not read — but only when the two
+            actually differ, or English shows "Language / Language". */}
+        <h2 className="eyebrow mb-4">
+          {t('Language')}
+          {t('Language') !== 'Language' && ' / Language'}
+        </h2>
         <div className="flex gap-2">
           <button
             type="button"
@@ -554,7 +560,7 @@ export function Settings() {
             />
           </div>
           <p className="mt-2 text-xs text-muted">
-            {t('The guideline is {n} GB. There is no hard limit, but keep an eye on growth: attachments are not part of the GitHub backup.', { n: Math.round(usage.budget / 1024 / 1024 / 1024) })}
+            {t('The budget is {n} GB — once it runs out, new uploads are refused. Attachments are not part of the backup archive, so keep an eye on growth.', { n: Math.round(usage.budget / 1024 / 1024 / 1024) })}
           </p>
         </section>
       )}

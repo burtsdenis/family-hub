@@ -513,7 +513,7 @@ export const ru: Record<string, string> = {
   'The event ends before it starts': 'Конец события раньше начала',
   'The event needs a title': 'У события должно быть название',
   'The file is missing on disk': 'Файл потерян на диске',
-  'The guideline is {n} GB. There is no hard limit, but keep an eye on growth: attachments are not part of the GitHub backup.': 'Ориентир — {n} ГБ. Жёсткого запрета нет, но за ростом стоит следить: вложения не попадают в бэкап на GitHub.',
+  'The budget is {n} GB — once it runs out, new uploads are refused. Attachments are not part of the backup archive, so keep an eye on growth.': 'Бюджет — {n} ГБ, при исчерпании новые загрузки отклоняются. Вложения не попадают в архив бэкапа, так что за ростом стоит следить.',
   'The hub is already set up': 'Хаб уже настроен',
   'The issued password was shown once. Set your own before continuing.': 'Выданный пароль виден в логе сервера. Задайте свой, прежде чем продолжить.',
   'The link is invalid: expired or already used': 'Ссылка не действует: истекла или уже использована',
