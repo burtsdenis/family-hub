@@ -4,6 +4,8 @@ The Mail section reads one shared mailbox over IMAP and sends replies
 through its SMTP. Any provider works; below are the two setups that make
 the most sense.
 
+![The Mail section: a letter open, with the reply box and the button that turns it into a task](screenshots/mail.png)
+
 ## Option A: a dedicated mailbox (cleanest)
 
 Create a mailbox that exists only for the household — either a fresh

@@ -10,7 +10,7 @@ server/               Fastify + SQLite
   src/db/migrations/  Schema. The single source of truth
   src/routes/         API
 web/                  React + Vite + Tailwind
-scripts/              Certificates and backups
+scripts/              Certificates, backups, export/import, admin reset
 ```
 
 Data lives **outside the project folder** — in `~/.family-hub` (or the mounted volume): database, attachments, backups. Replacing the code never touches it.
@@ -31,7 +31,9 @@ Passwords are hashed with scrypt from Node's standard library. The sessions tabl
 
 ## Time
 
-The app's clock is local wall-clock time everywhere, server included — nothing is stored in UTC. "Today" on the dashboard, recurring transaction dates, calendar events and note placeholders are computed in the `TZ` time zone: otherwise everything would live in "yesterday" between midnight and one-two a.m., and "every Tuesday at 10:00" would drift with DST. A household lives in one time zone; set `TZ` accordingly.
+Everything a person enters or reads is local wall-clock time, server included: due dates, "today" on the dashboard, recurring transaction dates, calendar events and note placeholders are computed in the `TZ` time zone. Otherwise everything would live in "yesterday" between midnight and one-two a.m., and "every Tuesday at 10:00" would drift with DST. A household lives in one time zone; set `TZ` accordingly.
+
+Machine timestamps are the deliberate exception: `created_at`, `updated_at`, session stamps and note-version times are written in UTC (`now()` in `db/index.ts`, and the `datetime('now')` column defaults). They are never compared against a wall-clock date — only against each other — so one monotonic scale is the safer choice, and it survives a server that changes time zone. The rule of thumb when adding a column: a date a person picked is local, a moment the machine recorded is UTC.
 
 ## Money
 
@@ -65,7 +67,7 @@ Malformed path or query parameters answer 400 and log as `WARN`. Previously that
 
 Under the hood the app builds a template database at startup (migrations + seeding, rebuilt daily so the seeded dates stay fresh) and clones the file per visitor — a copy costs milliseconds. Each request is routed to its visitor's database through an `AsyncLocalStorage` context, so route code is identical in normal and demo modes. A sandbox disappears after a couple of idle hours, on sign-out, or when the app restarts; oversized sandboxes and the least-recently-used ones past a cap are dropped too.
 
-Visitors can create, edit and delete anything — nobody else will ever see it, which is the point: a shared demo is a graffiti wall by lunchtime. Password and membership changes and file uploads stay blocked.
+Visitors can create, edit and delete anything — nobody else will ever see it, which is the point: a shared demo is a graffiti wall by lunchtime. What stays blocked is everything that would outlive the sandbox or reach the outside world: password and membership changes, invitations, file uploads, two-factor setup, Google linking, and the mailbox — its settings, manual sync and sending. Reading the seeded letters and turning one into a task stay open, since that is the part worth showing.
 
 Deploying a public demo next to a production hub: [deploy-vps.md](deploy-vps.md), "Public demo".
 

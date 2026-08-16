@@ -150,6 +150,11 @@ Caddy obtains the certificate by itself — if the browser complains, wait
 a minute and check `logs caddy`: it is almost always a DNS record that
 has not propagated yet.
 
+![The first-run screen: name, login and password for the administrator](screenshots/first-run.png)
+
+This screen appears exactly once. After it, the same address shows the
+ordinary sign-in form.
+
 ## 5. Moving data from a home machine
 
 If the hub already lived at home and has data — just move the directory:

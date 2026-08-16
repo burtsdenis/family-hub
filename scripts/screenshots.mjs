@@ -1,0 +1,145 @@
+#!/usr/bin/env node
+/*
+  Documentation screenshots.
+
+  Shot from a demo sandbox, never from a real hub: the seeded family is
+  plausible, the dates are relative to today, and nobody's actual money
+  ends up in the README.
+
+  Chrome rather than a bundled browser: playwright-core ships no binaries,
+  and a Mac already has one. Set CHROME to point elsewhere.
+
+    DEMO_MODE=true DATA_DIR=~/.family-hub-demo npm run dev   # in one terminal
+    node scripts/screenshots.mjs                             # in another
+
+  Both themes are written when --both is passed; by default only the dark
+  one, which is what the README uses.
+*/
+import { chromium } from 'playwright-core';
+import { mkdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const OUT = join(ROOT, 'docs/screenshots');
+const BASE = process.env.BASE_URL ?? 'http://localhost:5173';
+const CHROME =
+  process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+
+/** Retina: the README is read on laptop screens, a 1x shot looks soft. */
+const VIEWPORT = { width: 1440, height: 900 };
+const SCALE = 2;
+
+/**
+ * One entry per image. `prepare` runs after navigation, before the shot —
+ * for opening a panel or scrolling a section into view.
+ */
+const SHOTS = [
+  { name: 'dashboard', path: '/' },
+  { name: 'tasks', path: '/tasks' },
+  { name: 'calendar', path: '/calendar' },
+  { name: 'money', path: '/money' },
+  { name: 'notes', path: '/notes' },
+  {
+    name: 'mail',
+    path: '/mail',
+    // An empty reading pane sells nothing — open the first letter
+    async prepare(page) {
+      await page.locator('button', { hasText: 'Riverside School' }).first().click();
+      await page.waitForLoadState('networkidle');
+    },
+  },
+  {
+    name: 'settings',
+    path: '/settings',
+    // The mailbox block sits below the fold on a 900px viewport
+    async prepare(page) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+    },
+  },
+];
+
+const both = process.argv.includes('--both');
+
+/**
+ * The setup screen an empty hub shows — the one both install guides
+ * describe. It only exists before the first account, so it needs a hub
+ * with no users rather than the demo:
+ *
+ *   rm -rf ~/.family-hub-qa
+ *   DATA_DIR=~/.family-hub-qa npm run dev
+ *   node scripts/screenshots.mjs --first-run
+ */
+async function shootFirstRun(browser) {
+  const context = await browser.newContext({
+    viewport: VIEWPORT,
+    deviceScaleFactor: SCALE,
+    colorScheme: 'dark',
+    locale: 'en-GB',
+  });
+  const page = await context.newPage();
+  await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
+  await page.evaluate(() => {
+    localStorage.setItem('hub.theme', 'dark');
+    localStorage.setItem('hub-lang', 'en');
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  const heading = page.getByText(/first run/i);
+  if ((await heading.count()) === 0) {
+    throw new Error('This hub already has an account — point BASE_URL at an empty one');
+  }
+  await page.screenshot({ path: join(OUT, 'first-run.png') });
+  console.log('  dark  first-run.png');
+  await context.close();
+}
+
+async function shoot(browser, theme) {
+  const context = await browser.newContext({
+    viewport: VIEWPORT,
+    deviceScaleFactor: SCALE,
+    colorScheme: theme,
+    // The seeded family speaks English; the screenshots in the docs do too
+    locale: 'en-GB',
+  });
+  const page = await context.newPage();
+
+  // The demo hands out a sandbox for a button press — no credentials to type
+  await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
+  await page.evaluate((t) => {
+    localStorage.setItem('hub.theme', t);
+    localStorage.setItem('hub-lang', 'en');
+  }, theme);
+  await page.reload({ waitUntil: 'networkidle' });
+
+  const demoButton = page.getByRole('button', { name: /try the demo/i });
+  await demoButton.click();
+  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 });
+  await page.waitForLoadState('networkidle');
+
+  for (const shot of SHOTS) {
+    await page.goto(`${BASE}${shot.path}`, { waitUntil: 'networkidle' });
+    if (shot.prepare) await shot.prepare(page);
+    // Charts and avatars animate in; a beat avoids catching a half-drawn donut
+    await page.waitForTimeout(600);
+    const suffix = both && theme === 'light' ? '-light' : '';
+    const file = join(OUT, `${shot.name}${suffix}.png`);
+    await page.screenshot({ path: file });
+    console.log(`  ${theme.padEnd(5)} ${shot.name}${suffix}.png`);
+  }
+
+  await context.close();
+}
+
+const browser = await chromium.launch({ executablePath: CHROME });
+try {
+  await mkdir(OUT, { recursive: true });
+  console.log(`Shooting ${BASE} → docs/screenshots`);
+  if (process.argv.includes('--first-run')) {
+    await shootFirstRun(browser);
+  } else {
+    await shoot(browser, 'dark');
+    if (both) await shoot(browser, 'light');
+  }
+} finally {
+  await browser.close();
+}
