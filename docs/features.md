@@ -192,6 +192,14 @@ Attached to a transaction with the same machinery as note attachments. The image
 
 ## Interface
 
+<table>
+  <tr>
+    <td width="33%"><img src="screenshots/phone-dashboard.png" alt="The phone dashboard: task, expense and note in one tap"></td>
+    <td width="33%"><img src="screenshots/phone-money.png" alt="Money on a phone: accounts stacked, the quick expense form below"></td>
+    <td width="33%"><img src="screenshots/phone-tasks.png" alt="Tasks on a phone"></td>
+  </tr>
+</table>
+
 Enter in any dialog performs the primary action — save, confirm, add — regardless of where the focus is. In a multi-line field Enter stays a line break; on a button it presses that button. Escape closes. One rule for every window: task card, event, transaction, budget, confirmations.
 
 On a phone the main screen starts with three quick actions: task, expense, note. A phone is pulled out to record something on the go — these three buttons do it in one tap. The task one opens the same quick-add as `Cmd/Ctrl + K`, the expense one opens the transaction form, the note is created and opened immediately. Wide screens do not show the block: they have hotkeys and section buttons.

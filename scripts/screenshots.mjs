@@ -61,6 +61,50 @@ const SHOTS = [
 
 const both = process.argv.includes('--both');
 
+/*
+  The phone set. A narrow viewport is not the desktop one squeezed: the
+  dashboard grows three quick-action buttons that wide screens never show,
+  the sidebar becomes a bottom bar, and the money rows restack. Those are
+  the parts worth a picture, so this shoots fewer screens rather than all
+  of them at 375px.
+
+  iPhone 12/13/14 metrics, and `isMobile` so the app takes the touch
+  branch rather than merely rendering narrow.
+*/
+const PHONE_SHOTS = [
+  { name: 'phone-dashboard', path: '/' },
+  { name: 'phone-money', path: '/money' },
+  { name: 'phone-tasks', path: '/tasks' },
+];
+
+async function shootPhone(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true,
+    colorScheme: 'dark',
+    locale: 'en-GB',
+  });
+  const page = await context.newPage();
+  await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
+  await page.evaluate(() => {
+    localStorage.setItem('hub.theme', 'dark');
+    localStorage.setItem('hub-lang', 'en');
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: /try the demo/i }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 });
+
+  for (const shot of PHONE_SHOTS) {
+    await page.goto(`${BASE}${shot.path}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: join(OUT, `${shot.name}.png`) });
+    console.log(`  phone ${shot.name}.png`);
+  }
+  await context.close();
+}
+
 /**
  * The setup screen an empty hub shows — the one both install guides
  * describe. It only exists before the first account, so it needs a hub
@@ -136,9 +180,12 @@ try {
   console.log(`Shooting ${BASE} → docs/screenshots`);
   if (process.argv.includes('--first-run')) {
     await shootFirstRun(browser);
+  } else if (process.argv.includes('--phone')) {
+    await shootPhone(browser);
   } else {
     await shoot(browser, 'dark');
     if (both) await shoot(browser, 'light');
+    await shootPhone(browser);
   }
 } finally {
   await browser.close();

@@ -23,6 +23,16 @@ The core is complete and battle-tested by daily family use: accounts and sign-in
   </tr>
 </table>
 
+And on a phone, where it is installed to the home screen and the day starts with three one-tap actions:
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/phone-dashboard.png" alt="The phone dashboard: task, expense and note in one tap"></td>
+    <td width="33%"><img src="docs/screenshots/phone-money.png" alt="Money on a phone: accounts stacked, the quick expense form below"></td>
+    <td width="33%"><img src="docs/screenshots/phone-tasks.png" alt="Tasks on a phone"></td>
+  </tr>
+</table>
+
 ## Why not Notion / Google / Nextcloud?
 
 The most common question in the feedback, in its three variants — answered honestly.
