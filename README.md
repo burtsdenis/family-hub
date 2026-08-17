@@ -124,8 +124,13 @@ The roadmap lives where you can see and influence it:
   what landed and when; v1.0.0 is the current one.
 - **[Issues](https://github.com/burtsdenis/family-hub/issues)** — vote
   with a 👍 on what you want most; that is genuinely how things get
-  prioritized here. Want to contribute? Start with
-  [good first issue](https://github.com/burtsdenis/family-hub/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+  prioritized here.
+
+Want to contribute? [CONTRIBUTING.md](CONTRIBUTING.md) covers running it
+locally, the house conventions and the invariants worth knowing before
+you touch the money or the privacy code. Start with a
+[good first issue](https://github.com/burtsdenis/family-hub/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) —
+they are written to be picked up cold.
 
 Coming up next: CSV bank-statement import and shared shopping lists.
 

@@ -1,7 +1,8 @@
 # Architecture
 
 The technical decisions and the reasoning behind them. For user-facing
-behaviour, see [features.md](features.md).
+behaviour, see [features.md](features.md); for the conventions to follow
+when changing any of this, see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Layout
 
