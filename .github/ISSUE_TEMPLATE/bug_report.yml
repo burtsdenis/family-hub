@@ -1,0 +1,70 @@
+name: Bug report
+description: Something behaves differently from what it promises
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The fields below are the shape the issues in this repository already
+        take — they are what makes a report actionable without a round trip
+        of questions. Prose is welcome in any of them; none of this has to
+        be terse.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What you did
+      description: Numbered steps, starting from a hub with nothing special about it. Anything you had to set up first counts as a step.
+      placeholder: |
+        1. Money → Transaction
+        2. Type an amount
+        3. Click a category
+        4. Press Enter
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and why
+      description: The "why" matters more than it looks — if the behaviour contradicts something the docs promise, say which; if it is your own expectation, say that instead. Both are useful, and they lead to different fixes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: The actual result — an error message, a number, a screenshot. A paraphrase loses the detail that usually turns out to matter.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: A release tag, or the commit you are running. `docker image inspect` or `git rev-parse --short HEAD`.
+      placeholder: v1.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: how
+    attributes:
+      label: How you run it
+      options:
+        - Docker at home
+        - Docker on a VPS
+        - npm run dev
+        - The public demo
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: cause
+    attributes:
+      label: Cause, if you found it
+      description: Entirely optional, and enormously helpful — a `file.ts:line` and the reasoning. If you got as far as knowing why, that is most of the fix.
+    validations:
+      required: false

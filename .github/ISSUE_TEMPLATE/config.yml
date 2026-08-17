@@ -1,0 +1,14 @@
+# The blank issue stays available on purpose. The forms cover the two
+# common shapes; anything that is neither — a question, a design
+# argument, a security report — is better as prose than squeezed into
+# fields that do not fit it.
+blank_issues_enabled: true
+
+contact_links:
+  - name: Before you start contributing code
+    url: https://github.com/burtsdenis/family-hub/blob/master/CONTRIBUTING.md
+    about: Running it locally, the house conventions, and the invariants worth knowing before touching the money or privacy code.
+
+  - name: Security issues
+    url: https://github.com/burtsdenis/family-hub/blob/master/CONTRIBUTING.md#reporting-a-bug
+    about: File them as ordinary public issues — deliberately. This is self-hosted software and people are running the current release; they deserve to know what it does and does not guarantee.
