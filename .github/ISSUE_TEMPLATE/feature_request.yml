@@ -1,0 +1,48 @@
+name: Feature or improvement
+description: Something the hub should do, or should do differently
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is a deliberately finished product rather than a platform, so
+        the useful question is usually not "can it do X" but "what is the
+        household actually trying to get done". Describing the situation
+        gets you a better answer than describing the feature — sometimes a
+        different one than you had in mind, and occasionally a "no" with a
+        reason, which is also a real outcome here.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The situation, before any solution. Who in the family, how often, and what happens today instead.
+      placeholder: |
+        Every week one of us buys something the other already bought.
+        We keep a list in a chat and nobody reads it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What do you do about it now?
+      description: Whether you work around it with a note, a spreadsheet, another app — or simply live with it. The workaround usually reveals what the real requirement is.
+    validations:
+      required: false
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind, if anything
+      description: A sketch is fine. It will be argued with, and that is the point rather than a rejection.
+    validations:
+      required: false
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: What would make it done?
+      description: The smallest version that would genuinely help. Features here tend to ship small and grow, and knowing the floor is more useful than knowing the ceiling.
+    validations:
+      required: false
