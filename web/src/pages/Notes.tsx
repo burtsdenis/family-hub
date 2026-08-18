@@ -11,7 +11,7 @@ import { today } from '../lib/tasks';
 import { Empty, Page } from '../components/Page';
 import { Editor, type UploadedFile } from '../components/Editor';
 import { EntityDialog } from '../components/EntityDialog';
-import { useDialogs } from '../components/Dialog';
+import { inlineDanger, useDialogs } from '../components/Dialog';
 
 interface Folder {
   id: string;
@@ -635,7 +635,7 @@ export function Notes() {
               <button
                 type="button"
                 onClick={() => void removeNote()}
-                className="ml-auto text-sm text-muted underline underline-offset-2 hover:text-urgent"
+                className={`ml-auto ${inlineDanger}`}
               >
                 {t('Delete')}
               </button>
