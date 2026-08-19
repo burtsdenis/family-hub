@@ -292,6 +292,13 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete('/api/accounts/:id', (req, reply) => {
     const { id: accountId } = z.object({ id: z.string().uuid() }).parse(req.params);
+    // Same lookup as archive above. Without it this route deleted by id
+    // alone: anyone could remove an empty account they could not even see.
+    const visible = db
+      .prepare(`SELECT a.id FROM accounts a WHERE a.id = ? AND ${ACCOUNT_VISIBLE}`)
+      .get(accountId, req.user?.id ?? '');
+    if (!visible) return reply.code(404).send({ error: 'Account not found' });
+
     const count = (
       db
         .prepare('SELECT count(*) AS n FROM transactions WHERE account_id = ? OR to_account_id = ?')
