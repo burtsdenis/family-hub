@@ -62,6 +62,16 @@ One-off critical messages print **regardless of level**, even at `silent`: appli
 
 Malformed path or query parameters answer 400 and log as `WARN`. Previously that crashed with a 500 and looked like a server error in the log.
 
+## Tests
+
+`app.ts` builds the HTTP surface — hooks, plugins, routes — and `index.ts` starts the world: migrations, the session pruner, the port, the mail poller, signal handlers. The split exists for one reason: importing the app must not start a server. Before it, the guards that carry the privacy promise could not be tested at all, because reaching them meant listening on a port.
+
+With it, a test builds the same app the process does and drives it through `inject()` against an in-memory database. The database is bound per request with an `onRequest` hook — which is the same mechanism demo mode uses to route a visitor to their sandbox. That layer was built for the public demo and turned out to be exactly what makes route tests possible; the alternative would have been threading a database argument through every route.
+
+Two checks read the source instead of calling it: every `t()` key must exist in the Russian dictionary, and every migration must apply to an empty database. They catch what no single test can, because nothing is wrong at any one call site.
+
+What is deliberately not covered: anything whose failure is visible rather than logical — colours, spacing, dark-theme contrast, the service worker. Those are checked by looking, and asserting on class names would break on every redesign without ever catching a bug.
+
 ## Demo mode
 
 `DEMO_MODE=true` turns the hub into a public sandbox where **every visitor gets their own throwaway copy** of a seeded sample family. One button to enter — no password.
