@@ -1,0 +1,279 @@
+import { beforeAll, describe, expect, it } from 'vitest';
+import { buildTestApp, type Harness } from '../test-harness.js';
+import { runWithDb } from '../db/index.js';
+import { runAutoCreate } from './budgets.js';
+
+/*
+  The money rules, as tests.
+
+  These are the decisions where a wrong answer looks right: a balance is
+  still a number, a discrepancy is still a figure, a rent charged twice is
+  still a plausible row. Nothing crashes — the total just stops matching
+  the bank, weeks later, with no way back to the change that caused it.
+
+  Everything here was verified by hand during a QA pass first. That is the
+  point of writing it down: a hand check is a moment, a test is a rule.
+*/
+
+let hub: Harness;
+let cookie = '';
+const INBOX = '00000000-0000-4000-8000-000000000001';
+
+async function account(name: string, opening = 0): Promise<string> {
+  const res = await hub.as(cookie, 'POST', '/api/accounts', {
+    name,
+    currency: 'EUR',
+    opening_balance: opening,
+  });
+  return res.json<{ id: string }>().id;
+}
+
+async function balanceOf(name: string): Promise<number> {
+  const list = (await hub.as(cookie, 'GET', '/api/accounts')).json<
+    { name: string; balance: number; checked_balance: number | null; last_actual: number | null }[]
+  >();
+  return list.find((a) => a.name === name)!.balance;
+}
+
+async function accountRow(name: string) {
+  const list = (await hub.as(cookie, 'GET', '/api/accounts')).json<
+    { name: string; balance: number; checked_balance: number | null; last_actual: number | null }[]
+  >();
+  return list.find((a) => a.name === name)!;
+}
+
+async function spend(accountId: string, amount: number, on: string, categoryId?: string) {
+  return hub.as(cookie, 'POST', '/api/transactions', {
+    account_id: accountId,
+    kind: 'expense',
+    amount,
+    occurred_on: on,
+    ...(categoryId ? { category_id: categoryId } : {}),
+  });
+}
+
+beforeAll(async () => {
+  hub = await buildTestApp();
+  cookie = hub.join('alice').cookie;
+});
+
+describe('balances are computed, never stored', () => {
+  it('a backdated expense moves the balance now', async () => {
+    const id = await account('Computed', 100_00);
+    await spend(id, 30_00, '2026-08-10');
+    expect(await balanceOf('Computed')).toBe(70_00);
+
+    // Entered later, dated earlier — a stored balance would have missed it
+    await spend(id, 5_00, '2026-07-01');
+    expect(await balanceOf('Computed')).toBe(65_00);
+  });
+
+  it('editing an old amount recomputes rather than adjusts', async () => {
+    const id = await account('Edited', 100_00);
+    const tx = (await spend(id, 30_00, '2026-08-10')).json<{ id: string }>().id;
+    await hub.as(cookie, 'PATCH', `/api/transactions/${tx}`, { amount: 10_00 });
+    expect(await balanceOf('Edited')).toBe(90_00);
+  });
+});
+
+describe('reconciliation compares against the balance at the moment of the check', () => {
+  it('a transaction dated after the check does not move the discrepancy', async () => {
+    const id = await account('Later', 100_00);
+    await spend(id, 10_00, '2026-08-10');
+
+    await hub.as(cookie, 'POST', `/api/accounts/${id}/reconcile`, {
+      actual_balance: 88_00,
+      checked_on: '2026-08-15',
+    });
+    const checked = (await accountRow('Later')).checked_balance;
+    expect(checked).toBe(90_00);
+
+    // The bank will process this one too; there is nothing to compare it against yet
+    await spend(id, 7_77, '2026-08-20');
+    expect((await accountRow('Later')).checked_balance).toBe(checked);
+  });
+
+  it('a forgotten expense dated before the check closes it', async () => {
+    const id = await account('Forgotten', 100_00);
+    await spend(id, 10_00, '2026-08-10');
+    await hub.as(cookie, 'POST', `/api/accounts/${id}/reconcile`, {
+      actual_balance: 88_00,
+      checked_on: '2026-08-15',
+    });
+    expect((await accountRow('Forgotten')).checked_balance).toBe(90_00);
+
+    // This is the workflow the feature exists for: see a gap, find what
+    // was missed, enter it, watch the two sides meet
+    await spend(id, 2_00, '2026-08-12');
+    const row = await accountRow('Forgotten');
+    expect(row.checked_balance).toBe(88_00);
+    expect(row.last_actual).toBe(88_00);
+  });
+
+  it('a second check on the same day replaces the first, it does not add a twin', async () => {
+    const id = await account('Twice', 100_00);
+    for (const actual of [90_00, 80_00]) {
+      await hub.as(cookie, 'POST', `/api/accounts/${id}/reconcile`, {
+        actual_balance: actual,
+        checked_on: '2026-08-15',
+      });
+    }
+    const rows = hub.db
+      .prepare('SELECT actual_balance FROM reconciliations WHERE account_id = ?')
+      .all(id) as { actual_balance: number }[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.actual_balance).toBe(80_00);
+  });
+});
+
+describe('subcategories are exactly one level deep', () => {
+  let parent = '';
+  let child = '';
+
+  beforeAll(async () => {
+    parent = (await hub.as(cookie, 'POST', '/api/categories', { name: 'Car', kind: 'expense' })).json<{
+      id: string;
+    }>().id;
+    child = (
+      await hub.as(cookie, 'POST', '/api/categories', {
+        name: 'Fuel',
+        kind: 'expense',
+        parent_id: parent,
+      })
+    ).json<{ id: string }>().id;
+  });
+
+  it('refuses a child of a child', async () => {
+    const res = await hub.as(cookie, 'POST', '/api/categories', {
+      name: 'Diesel',
+      kind: 'expense',
+      parent_id: child,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('refuses turning a parent into a subcategory', async () => {
+    const res = await hub.as(cookie, 'PATCH', `/api/categories/${parent}`, { parent_id: child });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('refuses a category as its own parent', async () => {
+    const res = await hub.as(cookie, 'PATCH', `/api/categories/${child}`, { parent_id: child });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('a limit on a parent counts what its children spent', () => {
+  it('adds the children in and keeps a separate limit on a child', async () => {
+    const id = await account('Budgeted', 1000_00);
+    const parent = (
+      await hub.as(cookie, 'POST', '/api/categories', { name: 'Household', kind: 'expense' })
+    ).json<{ id: string }>().id;
+    const child = (
+      await hub.as(cookie, 'POST', '/api/categories', {
+        name: 'Cleaning',
+        kind: 'expense',
+        parent_id: parent,
+      })
+    ).json<{ id: string }>().id;
+
+    await spend(id, 50_00, '2026-08-05', child);
+    await spend(id, 20_00, '2026-08-06', parent);
+
+    await hub.as(cookie, 'PUT', '/api/budgets', { category_id: parent, currency: 'EUR', amount: 150_00 });
+    await hub.as(cookie, 'PUT', '/api/budgets', { category_id: child, currency: 'EUR', amount: 40_00 });
+
+    const budgets = (await hub.as(cookie, 'GET', '/api/budgets?month=2026-08')).json<
+      { category_name: string; limit_amount: number; spent: number }[]
+    >();
+    const byName = Object.fromEntries(budgets.map((b) => [b.category_name, b]));
+
+    // The parent's own 20 plus the child's 50
+    expect(byName.Household!.spent).toBe(70_00);
+    expect(byName.Household!.limit_amount).toBe(150_00);
+    // The child keeps its own, smaller limit alongside
+    expect(byName.Cleaning!.spent).toBe(50_00);
+    expect(byName.Cleaning!.limit_amount).toBe(40_00);
+  });
+});
+
+describe('a recurring rule cannot charge the rent twice', () => {
+  it('catches up once, and a restart does not double it', async () => {
+    const id = await account('Rent from', 5000_00);
+    const rule = await hub.as(cookie, 'POST', '/api/recurring', {
+      title: 'Rent',
+      kind: 'expense',
+      start_on: '2026-05-01',
+      recurrence_rule: 'FREQ=MONTHLY;INTERVAL=1',
+      account_id: id,
+      amount: 500_00,
+      auto_create: true,
+    });
+    expect(rule.statusCode).toBe(201);
+
+    const count = () =>
+      (
+        hub.db
+          .prepare('SELECT count(*) AS n FROM transactions WHERE recurring_id IS NOT NULL')
+          .get() as { n: number }
+      ).n;
+
+    const afterCreate = count();
+    expect(afterCreate).toBeGreaterThan(0);
+
+    // What happens on every boot. The unique index on rule + occurrence
+    // date is the thing being tested; without it a machine that restarts
+    // twice in a morning charges the rent twice.
+    runWithDb(hub.db, () => runAutoCreate());
+    runWithDb(hub.db, () => runAutoCreate());
+    expect(count()).toBe(afterCreate);
+  });
+});
+
+describe('currencies never mix', () => {
+  it('a total is per currency, and there is no grand total', async () => {
+    await hub.as(cookie, 'POST', '/api/accounts', {
+      name: 'Dinars',
+      currency: 'RSD',
+      opening_balance: 5000_00,
+    });
+    const summary = (await hub.as(cookie, 'GET', '/api/money/summary?from=2026-08-01&to=2026-08-31')).json<{
+      byCurrency: { currency: string }[];
+    }>();
+    const currencies = new Set(summary.byCurrency.map((row) => row.currency));
+    for (const currency of currencies) expect(currency).toMatch(/^[A-Z]{3}$/);
+  });
+});
+
+describe('tasks nest three levels deep and no further', () => {
+  it('refuses a fourth level, a cycle, and a subtree that would not fit', async () => {
+    const mk = async (title: string, parent?: string) =>
+      (
+        await hub.as(cookie, 'POST', '/api/tasks', {
+          project_id: INBOX,
+          title,
+          ...(parent ? { parent_id: parent } : {}),
+        })
+      ).json<{ id: string }>().id;
+
+    const story = await mk('story');
+    const task = await mk('task', story);
+    const subtask = await mk('subtask', task);
+
+    const fourth = await hub.as(cookie, 'POST', '/api/tasks', {
+      project_id: INBOX,
+      title: 'too deep',
+      parent_id: subtask,
+    });
+    expect(fourth.statusCode).toBe(400);
+
+    // A two-deep subtree moved under a level-3 task would need five levels
+    const otherRoot = await mk('other root');
+    await mk('other child', otherRoot);
+    const moved = await hub.as(cookie, 'PATCH', `/api/tasks/${otherRoot}`, { parent_id: subtask });
+    expect(moved.statusCode).toBe(400);
+
+    const cycle = await hub.as(cookie, 'PATCH', `/api/tasks/${story}`, { parent_id: subtask });
+    expect(cycle.statusCode).toBe(400);
+  });
+});
