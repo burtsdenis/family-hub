@@ -266,6 +266,12 @@ export async function registerCalendarRoutes(app: FastifyInstance): Promise<void
 
   app.delete('/api/calendars/:id', (req, reply) => {
     const { id: calendarId } = z.object({ id: z.string().uuid() }).parse(req.params);
+    // Same lookup as the patch above: a personal calendar belongs to its
+    // owner for deleting too, not only for reading.
+    const visible = db
+      .prepare(`SELECT c.id FROM calendars c WHERE c.id = ? AND ${CALENDAR_VISIBLE}`)
+      .get(calendarId, req.user?.id ?? '');
+    if (!visible) return reply.code(404).send({ error: 'Calendar not found' });
 
     const count = (
       db.prepare('SELECT count(*) AS n FROM events WHERE calendar_id = ?').get(calendarId) as {
