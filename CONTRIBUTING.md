@@ -189,23 +189,79 @@ thing this project has to a schema changelog, and they read like one.
 Then run the tests: `migrate.test.ts` applies every migration to an
 in-memory database.
 
-**A test.** Vitest, in both workspaces. Pure logic tests live next to the
-code (`lib/*.test.ts`). For anything touching the database, the pattern
-is an in-memory database with the migrations applied — see
-`server/src/lib/auth.test.ts`:
+**A test.** See the section below — there is more machinery than there
+used to be, and most of it exists so that the rules worth protecting can
+be protected.
 
-```ts
-const db = openDatabase(':memory:');
-runWithDb(db, () => {
-  migrate();
-  // …
-});
+## Tests
+
+```bash
+npm test                      # both workspaces, what CI runs
+npm test --workspace=server   # just one
 ```
 
-Not everything needs a test. Something you fixed that could silently come
-back does — a wrong sort order, an off-by-one in a date, an amount that
-survives a round trip. If you cannot write the test without extracting a
-function first, extracting it is usually the right move.
+Three kinds, in rough order of how often you will write them.
+
+**Pure logic, next to the code.** `lib/*.test.ts` on both sides. Amount
+parsing, recurrence arithmetic, plural forms, TOTP against the RFC
+vectors. If the thing you are fixing can be reached by a function call,
+this is where it goes, and it is the cheapest test in the repository.
+
+**Through the API, without a socket.** `buildTestApp()` in
+`server/src/test-harness.ts` gives you the real app, an in-memory
+database with the migrations applied, and people to be:
+
+```ts
+const hub = await buildTestApp();
+const alice = hub.join('alice');
+const res = await hub.as(alice.cookie, 'POST', '/api/notes', { title: 'x' });
+expect(res.statusCode).toBe(201);
+```
+
+This is how anything involving routes, guards or status codes is tested —
+see `routes/guards.test.ts` and `routes/money-semantics.test.ts`.
+
+One thing to know before you write your own setup: wrapping
+`app.inject()` in `runWithDb` does **not** work. The request is
+dispatched onto its own async chain and the `AsyncLocalStorage` context
+does not follow it. The harness binds the database with an `onRequest`
+hook instead, exactly the way demo mode binds a request to a visitor's
+sandbox. Use the harness rather than rediscovering this.
+
+**Whole-repository checks.** A couple of tests read the source rather
+than call it: every `t()` key exists in the Russian dictionary, every
+migration applies to an empty database. They catch the class of mistake
+that no individual test would, because nothing is wrong at any one call
+site.
+
+### What deserves a test
+
+Not everything. Something you fixed that could come back **silently**
+does — a wrong sort order, an off-by-one in a date, an amount that has to
+survive a round trip, a guard that could go missing. Visual things do
+not: a colour, a spacing, a dark-theme contrast. Those are caught by
+looking, and a test that asserts a class name is a test that breaks on
+every redesign without ever catching a bug.
+
+If you cannot write the test without extracting a function first,
+extracting it is usually the right move. Both the TOTP replay fix and the
+Devices ordering fix became testable exactly that way.
+
+### Make it fail first
+
+The most useful minute you can spend on a test is breaking the code it
+guards and watching the right case go red. It is not a formality:
+
+- a test can pass for the wrong reason and read as though it proved
+  something;
+- a test can assert on a field that some *other* layer happens to
+  protect, which is what happened to the transaction-list case in
+  `guards.test.ts` — it keyed on the note, and the note is masked
+  independently of the guard being tested, so it passed with the guard
+  removed. It keys on the id now.
+
+Delete the guard, invert the condition, drop the `WHERE` clause — then
+put it back. If nothing went red, the test is decoration.
 
 ## Reporting a bug
 
