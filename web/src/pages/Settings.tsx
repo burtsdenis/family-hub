@@ -12,7 +12,7 @@ import { COMMON_CURRENCIES } from '../lib/money';
 import { PeopleSection } from '../components/PeopleSection';
 import { MailSection } from '../components/MailSection';
 import { TotpSection } from '../components/TotpSection';
-
+import { inlineDanger } from '../components/Dialog';
 /**
  * The hub's custom colors on top of the stock palette. The list also grows
  * from the color pickers in entity dialogs; this is where it gets pruned.
@@ -334,7 +334,7 @@ function SignInSection() {
                       await loadSessions();
                     })
                   }
-                  className="shrink-0 text-xs text-muted underline underline-offset-2 hover:text-urgent"
+                  className={`${inlineDanger} text-sm shrink-0`}
                 >
                   {t('Revoke')}
                 </button>

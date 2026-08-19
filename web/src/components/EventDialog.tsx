@@ -382,7 +382,7 @@ export function EventDialog({
             <button
               type="button"
               onClick={() => void removeAll()}
-              className={inlineDanger}
+              className={`${inlineDanger} text-sm`}
             >
               {occurrence.is_recurring ? t('Delete series') : t('Delete')}
             </button>

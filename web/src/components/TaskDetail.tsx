@@ -245,7 +245,7 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
           <button
             type="button"
             onClick={() => void remove()}
-            className={inlineDanger}
+            className={`${inlineDanger} text-sm`}
           >
             {t('Delete')}
           </button>

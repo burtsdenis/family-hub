@@ -635,7 +635,7 @@ export function Notes() {
               <button
                 type="button"
                 onClick={() => void removeNote()}
-                className={`ml-auto ${inlineDanger}`}
+                className={`${inlineDanger} text-sm ml-auto`}
               >
                 {t('Delete')}
               </button>
@@ -743,7 +743,7 @@ export function Notes() {
                     <button
                       type="button"
                       onClick={() => void removeAttachment(a)}
-                      className="text-xs text-muted underline underline-offset-2 hover:text-urgent"
+                      className={`${inlineDanger} text-xs`}
                     >
                       {t('Delete')}
                     </button>
