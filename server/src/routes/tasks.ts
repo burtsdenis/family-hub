@@ -246,7 +246,21 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
       levelDelta = newLevel - task.level;
     }
 
-    const fields = Object.entries(d).filter(([, v]) => v !== undefined);
+    // Same guard as the projects patch: SQL identifiers must come from this
+    // literal list, not from request keys — z.object() stripping unknown
+    // keys is the only thing protecting the SET clause otherwise. (#63)
+    const UPDATABLE = new Set([
+      'parent_id',
+      'title',
+      'description',
+      'status',
+      'priority',
+      'due_date',
+      'expected_date',
+      'assignee_id',
+      'recurrence_rule',
+    ]);
+    const fields = Object.entries(d).filter(([k, v]) => UPDATABLE.has(k) && v !== undefined);
     const run = db.transaction(() => {
       if (fields.length > 0) {
         const set = fields.map(([k]) => `${k} = ?`).join(', ');

@@ -23,8 +23,21 @@ const eventBase = z.object({
   title: z.string().min(1, 'The event needs a title').max(300),
   description: z.string().max(10_000).nullable().optional(),
   location: z.string().max(300).nullable().optional(),
-  starts_at: z.string().regex(new RegExp(`${DATE.source.slice(0, -1)}(T\\d{2}:\\d{2})?$`)),
-  ends_at: z.string().regex(new RegExp(`${DATE.source.slice(0, -1)}(T\\d{2}:\\d{2})?$`)),
+  // The message matches due_date in tasks.ts — without one, a malformed
+  // date answers with zod's bare "Invalid", which names neither the field
+  // nor the shape (#86)
+  starts_at: z
+    .string()
+    .regex(
+      new RegExp(`${DATE.source.slice(0, -1)}(T\\d{2}:\\d{2})?$`),
+      'Date must be YYYY-MM-DD or YYYY-MM-DDTHH:MM',
+    ),
+  ends_at: z
+    .string()
+    .regex(
+      new RegExp(`${DATE.source.slice(0, -1)}(T\\d{2}:\\d{2})?$`),
+      'Date must be YYYY-MM-DD or YYYY-MM-DDTHH:MM',
+    ),
   all_day: z.boolean().optional(),
   recurrence_rule: z.string().max(100).nullable().optional(),
   project_id: z.string().uuid().nullable().optional(),

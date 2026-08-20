@@ -61,7 +61,15 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
       return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Check the fields' });
     }
 
-    const fields = Object.entries(parsed.data).filter(([, v]) => v !== undefined);
+    // The SET clause is built from these keys, so they must never be
+    // request-derived. Today z.object() strips unknown keys, but that is a
+    // silent, load-bearing default — one .passthrough() added to the schema
+    // for an unrelated reason would turn request JSON into SQL identifiers.
+    // The literal list makes the dependency explicit. (#63)
+    const UPDATABLE = new Set(['title', 'description', 'color', 'icon']);
+    const fields = Object.entries(parsed.data).filter(
+      ([k, v]) => UPDATABLE.has(k) && v !== undefined,
+    );
     if (fields.length === 0) return reply.code(400).send({ error: 'Nothing to change' });
 
     const set = fields.map(([k]) => `${k} = ?`).join(', ');
