@@ -11,7 +11,7 @@ import {
 } from '../lib/tasks';
 import { dialogKeys, onEnter } from '../lib/keys';
 import { clearBlankOnBlur } from '../lib/forms';
-import { useDialogs } from './Dialog';
+import { useDialogs, useScrollLock } from './Dialog';
 
 const field =
   'w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent';
@@ -94,8 +94,19 @@ export function TaskDetail({ task, members, onSaved, onClose }: Props) {
     onClose();
   }
 
+  useScrollLock();
+
+  /*
+    Deliberately NOT the shared Modal (#84): this is a right-hand
+    slide-over — full height, its own header with a Close, content that
+    scrolls inside the panel — not a centred titled card with a footer.
+    Teaching Modal a drawer variant for one caller would cost more than
+    the duplication it removes. What the shells really share is behaviour,
+    and that comes from the same places Modal takes it: dialogKeys above,
+    the scroll lock here.
+  */
   return (
-    <div className="fixed inset-0 z-30 flex justify-end">
+    <div className="fixed inset-0 z-30 flex justify-end overscroll-contain">
       <button
         type="button"
         aria-label={t('Close')}
