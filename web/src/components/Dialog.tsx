@@ -19,6 +19,38 @@ import { clearBlankOnBlur } from '../lib/forms';
  * Plus they can't be tested automatically: the browser closes them itself.
  */
 
+/*
+  The page must not scroll behind an open overlay (#71). Nothing locked it:
+  the overlay covers the viewport but the document behind still scrolls,
+  and when the dialog itself has nothing to scroll (the common case) the
+  wheel chains straight through. Two halves, because either alone leaves
+  a case: this lock stops the document, and overscroll-contain on the
+  overlay stops a TALL dialog from chaining at its ends.
+
+  A counter rather than a boolean — a confirmation opened on top of a
+  dialog must not unlock the page when only it closes. The scrollbar-width
+  compensation keeps desktop layout from jumping when the bar disappears.
+*/
+let scrollLocks = 0;
+
+export function useScrollLock(): void {
+  useEffect(() => {
+    if (scrollLocks === 0) {
+      const scrollbar = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      if (scrollbar > 0) document.body.style.paddingRight = `${scrollbar}px`;
+    }
+    scrollLocks += 1;
+    return () => {
+      scrollLocks -= 1;
+      if (scrollLocks === 0) {
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }
+    };
+  }, []);
+}
+
 export function Modal({
   title,
   children,
@@ -35,6 +67,7 @@ export function Modal({
   onSubmit?: () => void;
   width?: string;
 }) {
+  useScrollLock();
   useEffect(() => {
     const onKey = dialogKeys(() => onSubmit?.(), onClose);
     window.addEventListener('keydown', onKey);
@@ -42,7 +75,9 @@ export function Modal({
   }, [onClose, onSubmit]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-5 py-20">
+    // The bottom padding folds in the safe area: on a notched phone the
+    // footer row otherwise sits partly under the home indicator (#83)
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain px-5 pt-20 pb-[max(5rem,env(safe-area-inset-bottom))]">
       <button
         type="button"
         aria-label={t('Close')}
