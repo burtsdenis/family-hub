@@ -249,3 +249,42 @@ describe('an event on a personal calendar', () => {
     expect((await as(bobCookie, 'DELETE', `/api/events/${eventId}`)).statusCode).toBe(404);
   });
 });
+
+describe('a note expanded from a private template', () => {
+  it('inherits the template privacy instead of publishing it (#50)', async () => {
+    const created = await as(aliceCookie, 'POST', '/api/notes', {
+      title: 'Gift planning',
+      body_md: 'the thing we discussed',
+      visibility: 'private',
+      is_template: true,
+    });
+    const templateId = created.json<{ id: string }>().id;
+
+    // No explicit visibility in the request — the trap from the issue
+    const note = await as(aliceCookie, 'POST', '/api/notes', {
+      template_id: templateId,
+    });
+    expect(note.statusCode).toBe(201);
+    const { id: noteId, visibility } = note.json<{ id: string; visibility: string }>();
+    expect(visibility).toBe('private');
+
+    // And the receipt: Bob cannot see it
+    const bob = await as(bobCookie, 'GET', `/api/notes/${noteId}`);
+    expect(bob.statusCode).toBe(404);
+  });
+
+  it('an explicit choice in the request still wins', async () => {
+    const created = await as(aliceCookie, 'POST', '/api/notes', {
+      title: 'Shopping list frame',
+      visibility: 'private',
+      is_template: true,
+    });
+    const templateId = created.json<{ id: string }>().id;
+
+    const note = await as(aliceCookie, 'POST', '/api/notes', {
+      template_id: templateId,
+      visibility: 'shared',
+    });
+    expect(note.json<{ visibility: string }>().visibility).toBe('shared');
+  });
+});

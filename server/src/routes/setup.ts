@@ -12,7 +12,7 @@ import { log } from '../lib/log.js';
  * the schema default alone the whole family came out the same blue —
  * "Mom" and "Daughter" indistinguishable at a glance.
  */
-const USER_COLORS = ['#1F6E8C', '#C4842B', '#6B8F5E', '#8C4A6B', '#7A5C9E', '#4A6B8C'];
+export const USER_COLORS = ['#1F6E8C', '#C4842B', '#6B8F5E', '#8C4A6B', '#7A5C9E', '#4A6B8C'];
 
 function nextColor(): string {
   const used = (db.prepare('SELECT color FROM users').all() as { color: string }[]).map((r) =>
@@ -86,10 +86,14 @@ export async function registerSetupRoutes(app: FastifyInstance): Promise<void> {
     const created = db.transaction(() => {
       const n = (db.prepare('SELECT count(*) AS n FROM users').get() as { n: number }).n;
       if (n > 0) return false;
+      // Explicit color: the schema default (#2E6F8E) is a near-twin of
+      // USER_COLORS[0] (#1F6E8C) — without this, the palette that gives
+      // invited members distinct colors never covered the admin, so a
+      // two-person household still ended up with two look-alike avatars.
       db.prepare(
-        `INSERT INTO users (id, email, name, role, password_hash, must_change_password, created_at)
-         VALUES (?, ?, ?, 'admin', ?, 0, ?)`,
-      ).run(userId, parsed.data.email, parsed.data.name, passwordHash, now());
+        `INSERT INTO users (id, email, name, role, password_hash, color, must_change_password, created_at)
+         VALUES (?, ?, ?, 'admin', ?, ?, 0, ?)`,
+      ).run(userId, parsed.data.email, parsed.data.name, passwordHash, nextColor(), now());
       return true;
     })();
 

@@ -156,6 +156,12 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(401).send({ error: 'Wrong login or password' });
     }
 
+    // Only the per-login counter clears on success. The ip: counter
+    // deliberately survives: it exists to catch a dictionary sweep, and if
+    // success reset it, anyone holding one valid account behind the same
+    // address could interleave their own sign-ins to keep the sweep alive
+    // forever. A family's honest typos ride out the 15-minute window
+    // instead — the 20-per-address threshold is sized for exactly that.
     attempts.delete(email);
 
     // Second factor: the password alone opens nothing when TOTP is
