@@ -199,6 +199,7 @@ export function TransactionDialog({
             <button
               key={k}
               type="button"
+              data-chip
               onClick={() => {
                 setKind(k);
                 setDraft((d) => ({ ...d, category_id: '' }));
@@ -306,6 +307,7 @@ export function TransactionDialog({
                   <button
                     key={c.id}
                     type="button"
+                    data-chip
                     onClick={() =>
                       setDraft({ ...draft, category_id: draft.category_id === c.id ? '' : c.id })
                     }
