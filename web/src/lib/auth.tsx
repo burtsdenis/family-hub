@@ -74,7 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await api.post('/auth/logout', {});
+      // The server has often already destroyed the session by the time this
+      // runs (e.g. "sign in again" after a password change), so a 401 here
+      // is expected — the cleanup below is the point, not the request.
+      await api.post('/auth/logout', {}).catch(() => {});
     } finally {
       setUser(null);
       // The service worker's offline caches hold family data and the
