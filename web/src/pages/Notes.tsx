@@ -434,13 +434,6 @@ export function Notes() {
         >
           {t('All')}
         </button>
-        <button
-          type="button"
-          onClick={() => setFolderId('none')}
-          className={`${chip} ${folderId === 'none' ? chipOn : chipOff}`}
-        >
-          {t('No folder')}
-        </button>
         {folders.map((f) => (
           <span
             key={f.id}
