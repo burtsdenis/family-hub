@@ -45,6 +45,9 @@ export function MoveBoard({ settings, onChange }: Props) {
   }
 
   return (
+    // Literal colors here are deliberate: this card is always dark, in both themes,
+    // so its inner elements (including the progress bar below) pull from the dark
+    // palette on purpose, regardless of the active theme.
     <section className="overflow-hidden rounded-card bg-[#131c24] text-[#e8eae5] shadow-sm">
       <div className="grid divide-y divide-white/10 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] sm:divide-x sm:divide-y-0">
         {/* Countdown */}
@@ -125,6 +128,8 @@ export function MoveBoard({ settings, onChange }: Props) {
 
           {progress !== null && !editing && (
             <div className="mt-3.5 h-1 overflow-hidden rounded-full bg-white/12">
+              {/* Fixed dark-palette accent, not the bg-accent token: this bar sits on the
+                 always-dark card above, so it must stay #4d9ebb even in the light theme. */}
               <div className="h-full bg-[#4d9ebb]" style={{ width: `${progress}%` }} />
             </div>
           )}
