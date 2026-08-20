@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth';
 import { applyUpdate, setupPwa } from '../lib/pwa';
 import { QuickAdd } from './QuickAdd';
 import { GlobalSearch, SearchTrigger } from './GlobalSearch';
+import { applyTheme, initialDark, persistTheme } from '../lib/theme';
 
 interface NavItem {
   to: string;
@@ -98,19 +99,26 @@ const SECONDARY: NavItem[] = [
   },
 ];
 
+// The class is already on the document by the time this mounts (lib/theme
+// applies it at import, so the pre-login screens are themed too) — the
+// hook only mirrors it into state and flips it. Persisting stays here, on
+// the explicit toggle: startup must not write a value the person never
+// chose, or "follow the system" would silently become sticky.
 function useTheme() {
-  const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem('hub.theme');
-    if (saved) return saved === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
+  const [dark, setDark] = useState(initialDark);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark);
-    localStorage.setItem('hub.theme', dark ? 'dark' : 'light');
+    applyTheme(dark);
   }, [dark]);
 
-  return { dark, toggle: () => setDark((v) => !v) };
+  return {
+    dark,
+    toggle: () => {
+      const next = !dark;
+      setDark(next);
+      persistTheme(next);
+    },
+  };
 }
 
 function ThemeIcon({ dark, className }: { dark: boolean; className: string }) {
