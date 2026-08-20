@@ -380,20 +380,30 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
 
     let body = normalizeWikiLinks(d.body_md ?? '');
     let titleFromTemplate: string | null = null;
+    let inheritedVisibility: 'private' | null = null;
 
     if (d.template_id) {
       // A template obeys the same visibility as a regular note: someone
       // else's private template can't be expanded even knowing its id
       const template = db
         .prepare(
-          `SELECT title, body_md FROM notes
+          `SELECT title, body_md, visibility FROM notes
             WHERE id = ? AND is_template = 1
               AND (visibility = 'shared' OR owner_id = ?)`,
         )
-        .get(d.template_id, userId ?? '') as { title: string; body_md: string } | undefined;
+        .get(d.template_id, userId ?? '') as
+        | { title: string; body_md: string; visibility: 'shared' | 'private' }
+        | undefined;
       if (!template) return reply.code(400).send({ error: 'Template not found' });
       body = applyPlaceholders(template.body_md, authorName, d.locale);
       titleFromTemplate = applyPlaceholders(template.title, authorName, d.locale);
+      // A template is private because its CONTENT is private — a journal
+      // structure, a medical log. Expanding it must not silently publish
+      // that content to the family: without an explicit choice in the
+      // request, the note inherits the template's visibility. (#50)
+      if (d.visibility === undefined && template.visibility === 'private') {
+        inheritedVisibility = 'private';
+      }
     }
 
     if (d.daily_date) {
@@ -426,7 +436,7 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
       title,
       body,
       d.folder_id ?? null,
-      d.visibility ?? 'shared',
+      d.visibility ?? inheritedVisibility ?? 'shared',
       userId,
       d.daily_date ?? null,
       d.is_template ? 1 : 0,
