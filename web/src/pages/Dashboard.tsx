@@ -1,7 +1,7 @@
 import { t } from '../lib/i18n';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, type Dashboard as DashboardData, type Task } from '../lib/api';
+import { api, ApiError, type Dashboard as DashboardData, type Task } from '../lib/api';
 import type { Occurrence } from '../lib/calendar';
 import { formatDate, timeOf } from '../lib/format';
 import { effectiveDate } from '../lib/tasks';
@@ -173,7 +173,17 @@ export function Dashboard() {
       api
         .get<DashboardData>('/dashboard')
         .then((d) => alive && setData(d))
-        .catch((e: Error) => alive && setError(e.message));
+        .catch((e: Error) => {
+          if (!alive) return;
+          // A transient failure is what the interval exists for — a kiosk
+          // that loses Wi-Fi for a minute must recover on its own. A 401
+          // is not transient: the session is gone, retrying only hammers
+          // the server (and re-runs the cache cleanup in api.ts) once a
+          // minute for as long as the dead tab stays open. Stop; the auth
+          // layer owns taking the person to the sign-in screen. (#58)
+          if (e instanceof ApiError && e.status === 401) clearInterval(timer);
+          setError(e.message);
+        });
 
     void load();
     // The kiosk stays open for days — refresh ourselves, no page reload.
