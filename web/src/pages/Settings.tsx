@@ -14,6 +14,87 @@ import { MailSection } from '../components/MailSection';
 import { TotpSection } from '../components/TotpSection';
 
 /**
+ * Own name and avatar colour, self-service (#64). Colour is the whole
+ * visual identity here — the avatar is a letter plus a colour — and
+ * asking the administrator to change your own was an odd asymmetry when
+ * password, Google, two-factor and devices are all self-service. The
+ * server allows exactly this pair on one's own account; role and the
+ * disable switch stay admin-only.
+ */
+function ProfileSection() {
+  const { user, refresh } = useAuth();
+  const [name, setName] = useState(user?.name ?? '');
+  const [color, setColor] = useState(user?.color ?? PALETTE[0]!);
+  const [status, setStatus] = useState<string | null>(null);
+
+  if (!user) return null;
+  const dirty = name.trim() !== user.name || color.toLowerCase() !== user.color.toLowerCase();
+
+  async function save() {
+    if (!user || !name.trim()) return;
+    setStatus(null);
+    try {
+      await api.patch(`/users/${user.id}`, { name: name.trim(), color });
+      await refresh();
+      setStatus(t('Saved'));
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : t('Could not save'));
+    }
+  }
+
+  return (
+    <section className="rounded-card border border-line bg-surface p-5">
+      <h2 className="eyebrow mb-3">{t('Profile')}</h2>
+
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium text-ink">{t('Name')}</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={onEnter(() => void save())}
+          className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+        />
+      </label>
+
+      <div className="mt-3">
+        <span className="mb-1.5 block text-sm font-medium text-ink">{t('Colour')}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The current colour joins the row even when it is not in the
+              stock palette (invited members got palette colours, but the
+              admin's default and custom picks may not be there) */}
+          {[...new Set([user.color, ...PALETTE])].map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={t('Colour {color}', { color: c })}
+              onClick={() => setColor(c)}
+              style={{ backgroundColor: c }}
+              className={`size-7 rounded-full transition-transform ${
+                color.toLowerCase() === c.toLowerCase()
+                  ? 'ring-2 ring-ink ring-offset-2 ring-offset-surface'
+                  : 'hover:scale-110'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={!dirty || !name.trim()}
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {t('Save')}
+        </button>
+        {status && <span className="text-sm text-muted">{status}</span>}
+      </div>
+    </section>
+  );
+}
+
+/**
  * The hub's custom colors on top of the stock palette. The list also grows
  * from the color pickers in entity dialogs; this is where it gets pruned.
  */
@@ -533,6 +614,10 @@ export function Settings() {
           </button>
         </div>
       </section>
+
+      <div className="mb-5 break-inside-avoid">
+        <ProfileSection />
+      </div>
 
       <div className="mb-5 break-inside-avoid">
         <PaletteSection />

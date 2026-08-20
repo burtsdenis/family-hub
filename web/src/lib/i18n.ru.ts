@@ -425,6 +425,7 @@ export const ru: Record<string, string> = {
   'Recorded, hide': 'Записал, скрыть',
   'Recurrence': 'Повторение',
   'Recurrence counts from the due date — set one': 'Повтор считается от срока — задайте дату',
+  'Profile': 'Профиль',
   'Recurring': 'Регулярные',
   'Recurring transaction': 'Регулярная операция',
   'Regular': 'Обычная',
