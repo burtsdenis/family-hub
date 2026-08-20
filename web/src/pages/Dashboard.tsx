@@ -20,7 +20,10 @@ const PRIORITY_LABEL: Record<Task['priority'], string> = {
   A task opens its card, an event the calendar at the right date, a note
   the note itself. Showing a list with nowhere to go is a dead end.
 */
-function TaskRow({ task, overdue }: { task: Task; overdue?: boolean }) {
+// showDate: whether a date renders at all; overdue: whether it's alarming.
+// Kept separate so "Next 7 days" can show a date without borrowing the
+// overdue colour — nothing in that list is overdue by definition.
+function TaskRow({ task, showDate, overdue }: { task: Task; showDate?: boolean; overdue?: boolean }) {
   return (
     <li className="border-b border-line last:border-0">
       <Link
@@ -37,8 +40,10 @@ function TaskRow({ task, overdue }: { task: Task; overdue?: boolean }) {
           {PRIORITY_LABEL.urgent}
         </span>
       )}
-        {overdue && effectiveDate(task) && (
-          <span className="font-mono text-xs text-urgent">{formatDate(effectiveDate(task)!)}</span>
+        {showDate && effectiveDate(task) && (
+          <span className={`font-mono text-xs ${overdue ? 'text-urgent' : 'text-muted'}`}>
+            {formatDate(effectiveDate(task)!)}
+          </span>
         )}
       </Link>
     </li>
@@ -218,7 +223,7 @@ export function Dashboard() {
           <Panel title={t('Overdue')} count={data.overdue.length}>
             <ul>
               {data.overdue.map((t) => (
-                <TaskRow key={t.id} task={t} overdue />
+                <TaskRow key={t.id} task={t} showDate overdue />
               ))}
             </ul>
           </Panel>
@@ -281,7 +286,7 @@ export function Dashboard() {
             ) : (
               <ul>
                 {data.upcoming.map((t) => (
-                  <TaskRow key={t.id} task={t} overdue />
+                  <TaskRow key={t.id} task={t} showDate />
                 ))}
               </ul>
             )}
