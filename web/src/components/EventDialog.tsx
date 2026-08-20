@@ -335,6 +335,7 @@ export function EventDialog({
                     <button
                       key={m.id}
                       type="button"
+                      data-chip
                       onClick={() =>
                         setDraft({
                           ...draft,

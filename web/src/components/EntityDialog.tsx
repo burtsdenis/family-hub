@@ -155,6 +155,7 @@ export function EntityDialog({
                 <button
                   key={color}
                   type="button"
+                  data-chip
                   aria-label={t('Colour {color}', { color })}
                   onClick={() => setDraft({ ...draft, color })}
                   style={{ backgroundColor: color }}
