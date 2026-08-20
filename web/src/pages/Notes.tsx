@@ -434,13 +434,6 @@ export function Notes() {
         >
           {t('All')}
         </button>
-        <button
-          type="button"
-          onClick={() => setFolderId('none')}
-          className={`${chip} ${folderId === 'none' ? chipOn : chipOff}`}
-        >
-          {t('No folder')}
-        </button>
         {folders.map((f) => (
           <span
             key={f.id}
@@ -755,7 +748,17 @@ export function Notes() {
           </div>
         ) : (
           <div className="hidden lg:block">
-            <Empty>{t('Pick a note on the left or create a new one.')}</Empty>
+            <Empty>
+              {t('Pick a note — or')}{' '}
+              <button
+                type="button"
+                onClick={() => void createNote()}
+                className="text-accent underline underline-offset-2"
+              >
+                {t('create a new one')}
+              </button>
+              .
+            </Empty>
           </div>
         )}
 
