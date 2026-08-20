@@ -241,7 +241,7 @@ export function Dashboard() {
           )}
         </Panel>
 
-        <Panel title={t('For today')} count={data.dueToday.length}>
+        <Panel title={t('Tasks for today')} count={data.dueToday.length}>
           {data.dueToday.length === 0 ? (
             <p className="px-4 pb-4 text-sm text-muted">
               {nothingToday ? t('Nothing planned for today.') : t('Everything for today is done.')}
