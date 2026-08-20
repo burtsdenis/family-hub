@@ -748,7 +748,17 @@ export function Notes() {
           </div>
         ) : (
           <div className="hidden lg:block">
-            <Empty>{t('Pick a note on the left or create a new one.')}</Empty>
+            <Empty>
+              {t('Pick a note — or')}{' '}
+              <button
+                type="button"
+                onClick={() => void createNote()}
+                className="text-accent underline underline-offset-2"
+              >
+                {t('create a new one')}
+              </button>
+              .
+            </Empty>
           </div>
         )}
 
