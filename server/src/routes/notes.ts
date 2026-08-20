@@ -113,22 +113,46 @@ function resolveIncoming(noteId: string, title: string): void {
 }
 
 /**
+ * The client names the locale for {{date}}/{{time}} (it is the only side
+ * that knows the interface language); anything absent or unformattable
+ * falls back to English — the source language, and what a self-hoster who
+ * never chose Russian must get. Intl throws RangeError on a malformed tag
+ * rather than falling back, hence the probe.
+ */
+function resolveLocale(locale: string | undefined): string {
+  if (!locale) return 'en-GB';
+  try {
+    new Intl.DateTimeFormat(locale);
+    return locale;
+  } catch {
+    return 'en-GB';
+  }
+}
+
+/**
  * Template placeholders. Expanded once, at note creation: after that it
  * is plain editable text. Live, recomputed values are deliberately absent
  * here — a note must mean the same thing a year later.
+ *
+ * The Russian placeholder KEYS ({{дата}}, {{время}}, {{автор}}) are
+ * backwards compatibility for pre-English-first templates and stay; only
+ * the output locale follows the request (#47).
  */
-export function applyPlaceholders(text: string, authorName: string): string {
+export function applyPlaceholders(text: string, authorName: string, locale?: string): string {
   const date = new Date();
+  const tag = resolveLocale(locale);
+  const longDate = new Intl.DateTimeFormat(tag, { dateStyle: 'long' }).format(date);
+  const shortTime = new Intl.DateTimeFormat(tag, { timeStyle: 'short' }).format(date);
   const values: Record<string, string> = {
-    дата: new Intl.DateTimeFormat('ru-RU', { dateStyle: 'long' }).format(date),
-    date: new Intl.DateTimeFormat('ru-RU', { dateStyle: 'long' }).format(date),
+    дата: longDate,
+    date: longDate,
     // By the local clock, like the date and time placeholders: toISOString()
     // would give the Greenwich date, and a note created at 00:30 would be
     // stamped with yesterday
     изо: today(),
     iso: today(),
-    время: new Intl.DateTimeFormat('ru-RU', { timeStyle: 'short' }).format(date),
-    time: new Intl.DateTimeFormat('ru-RU', { timeStyle: 'short' }).format(date),
+    время: shortTime,
+    time: shortTime,
     автор: authorName,
     author: authorName,
   };
@@ -178,6 +202,9 @@ const createInput = z.object({
   folder_id: z.string().uuid().nullable().optional(),
   visibility: z.enum(['shared', 'private']).optional(),
   template_id: z.string().uuid().optional(),
+  // BCP-47-ish tag for {{date}}/{{time}} expansion; validated leniently,
+  // resolveLocale() probes the rest
+  locale: z.string().regex(/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/).optional(),
   is_template: z.boolean().optional(),
   daily_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
@@ -365,8 +392,8 @@ export async function registerNoteRoutes(app: FastifyInstance): Promise<void> {
         )
         .get(d.template_id, userId ?? '') as { title: string; body_md: string } | undefined;
       if (!template) return reply.code(400).send({ error: 'Template not found' });
-      body = applyPlaceholders(template.body_md, authorName);
-      titleFromTemplate = applyPlaceholders(template.title, authorName);
+      body = applyPlaceholders(template.body_md, authorName, d.locale);
+      titleFromTemplate = applyPlaceholders(template.title, authorName, d.locale);
     }
 
     if (d.daily_date) {
