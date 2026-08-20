@@ -13,6 +13,37 @@ import { migrate } from './migrate.js';
 
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), 'migrations');
 
+const migrationFiles = (): string[] =>
+  readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
+
+/*
+  Applying a single migration to a database that already holds data — the
+  case an empty-database smoke test cannot reach, and the one that matters
+  for a real hub being upgraded.
+
+  Rather than re-implementing the runner (and drifting from how it wraps
+  each file in a transaction), the target and everything after it are
+  pre-recorded as applied so the real migrate() stops short; then the
+  target's row is removed and migrate() runs again, applying exactly it.
+  Pre-recording the tail as well keeps this correct when a 020 lands.
+*/
+function applyBefore(db: ReturnType<typeof openDatabase>, target: string): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      name       TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  const hold = db.prepare('INSERT INTO _migrations (name) VALUES (?)');
+  for (const file of migrationFiles().filter((f) => f >= target)) hold.run(file);
+  runWithDb(db, () => migrate());
+}
+
+function applyOnly(db: ReturnType<typeof openDatabase>, target: string): void {
+  db.prepare('DELETE FROM _migrations WHERE name = ?').run(target);
+  runWithDb(db, () => migrate());
+}
+
 describe('migrations', () => {
   it('all apply on an empty database and exactly once', () => {
     const db = openDatabase(':memory:');
@@ -60,6 +91,87 @@ describe('migrations', () => {
       .prepare('SELECT id FROM calendars WHERE id = ?')
       .get('00000000-0000-4000-8000-000000000201');
     expect(shared, 'missing the shared calendar').toBeTruthy();
+    db.close();
+  });
+
+  /*
+    019 drops attachments.task_id. Dropping a column rewrites the table, so
+    the risk is not "does the statement parse" — it is what happens to the
+    rows, the remaining foreign keys and the other indexes on a database
+    that is already in use. An empty-database run proves none of that.
+  */
+  it('019 drops attachments.task_id without disturbing existing rows', () => {
+    const db = openDatabase(':memory:');
+    const TARGET = '019_drop_attachment_task_id.sql';
+    applyBefore(db, TARGET);
+
+    const columnsOf = (table: string) =>
+      (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
+
+    // Precondition: the column is there to be dropped, or this test proves nothing
+    expect(columnsOf('attachments')).toContain('task_id');
+
+    // A hub in use: a note with two files, one of them carrying the legacy
+    // task_id — a real foreign key, so the row exercises the constraint the
+    // table rewrite has to preserve
+    const project = db.prepare('SELECT id FROM projects LIMIT 1').get() as { id: string };
+    db.prepare(
+      `INSERT INTO tasks (id, project_id, level, title, status, priority, position)
+       VALUES ('t1', ?, 0, 'Legacy task', 'todo', 'normal', 1)`,
+    ).run(project.id);
+    db.prepare(
+      `INSERT INTO notes (id, title, body_md, created_at, updated_at)
+       VALUES ('n1', 'Note', 'body', '2026-01-01', '2026-01-01')`,
+    ).run();
+    db.prepare(
+      `INSERT INTO attachments (id, filename, mime, size_bytes, storage_path, note_id, task_id, created_at)
+       VALUES ('a1', 'receipt.jpg', 'image/jpeg', 1234, '2026-01/x.jpg', 'n1', 't1', '2026-01-01')`,
+    ).run();
+    db.prepare(
+      `INSERT INTO attachments (id, filename, mime, size_bytes, storage_path, note_id, created_at)
+       VALUES ('a2', 'doc.pdf', 'application/pdf', 999, '2026-01/y.pdf', 'n1', '2026-01-01')`,
+    ).run();
+
+    const foreignKeysBefore = (
+      db.prepare(`SELECT count(*) AS n FROM pragma_foreign_key_list('attachments')`).get() as {
+        n: number;
+      }
+    ).n;
+
+    applyOnly(db, TARGET);
+
+    // The column and its index are gone
+    expect(columnsOf('attachments')).not.toContain('task_id');
+    const indexes = (
+      db
+        .prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'attachments'`)
+        .all() as { name: string }[]
+    ).map((r) => r.name);
+    expect(indexes).not.toContain('idx_attachments_task');
+
+    // Everything else survived the rewrite: rows, their values, the other
+    // indexes, the remaining foreign keys, and the task that was referenced
+    expect(
+      db.prepare('SELECT id, filename, note_id FROM attachments ORDER BY id').all(),
+    ).toEqual([
+      { id: 'a1', filename: 'receipt.jpg', note_id: 'n1' },
+      { id: 'a2', filename: 'doc.pdf', note_id: 'n1' },
+    ]);
+    expect(indexes).toContain('idx_attachments_note');
+    expect(indexes).toContain('idx_attachments_transaction');
+    expect(
+      (
+        db.prepare(`SELECT count(*) AS n FROM pragma_foreign_key_list('attachments')`).get() as {
+          n: number;
+        }
+      ).n,
+    ).toBe(foreignKeysBefore - 1);
+    expect(db.prepare(`SELECT id FROM tasks WHERE id = 't1'`).get()).toBeTruthy();
+
+    // And the chain is complete — nothing was left pending by the two-step run
+    expect(
+      (db.prepare('SELECT count(*) AS n FROM _migrations').get() as { n: number }).n,
+    ).toBe(migrationFiles().length);
     db.close();
   });
 });

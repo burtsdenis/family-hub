@@ -37,7 +37,6 @@ interface AttachmentRow {
   size_bytes: number;
   storage_path: string;
   note_id: string | null;
-  task_id: string | null;
   transaction_id: string | null;
 }
 
