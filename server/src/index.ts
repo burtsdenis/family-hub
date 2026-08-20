@@ -14,6 +14,13 @@ import { log, logLevel } from './lib/log.js';
 
 migrate();
 pruneSessions();
+// Boot-only pruning was enough while every deploy restarted the process,
+// but a home server can stay up for months — repeat daily so expiry and
+// the 30-day idle rule actually retire rows from the Devices list.
+// Nothing leaks either way (userForToken enforces expiry); this is about
+// the table and the list not growing stale. Same pattern as the attempt
+// and MFA sweeps in routes/auth.ts.
+setInterval(pruneSessions, 24 * 60 * 60_000).unref();
 
 // Production without Secure cookies is almost certainly a forgotten flag,
 // not intent: the session cookie would then travel over plaintext too
