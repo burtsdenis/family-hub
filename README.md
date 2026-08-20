@@ -1,5 +1,11 @@
 # Family Hub
 
+[![CI](https://img.shields.io/github/actions/workflow/status/burtsdenis/family-hub/ci.yml?branch=master&style=flat-square&labelColor=131c24)](https://github.com/burtsdenis/family-hub/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/burtsdenis/family-hub?style=flat-square&labelColor=131c24&color=1f6e8c)](https://github.com/burtsdenis/family-hub/releases)
+[![Image](https://img.shields.io/badge/ghcr.io-family--hub-1f6e8c?style=flat-square&labelColor=131c24&logo=docker&logoColor=white)](https://github.com/burtsdenis/family-hub/pkgs/container/family-hub)
+[![License](https://img.shields.io/github/license/burtsdenis/family-hub?style=flat-square&labelColor=131c24&color=1f6e8c)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/burtsdenis/family-hub?style=flat-square&labelColor=131c24&color=1f6e8c)](https://github.com/burtsdenis/family-hub/stargazers)
+
 A self-hosted family hub: tasks, notes, calendar and money in one place. Built for a household, not a corporation: one Docker container, one SQLite file, no external services required. Runs on a home machine over the local network or on a cheap VPS with a real domain.
 
 The core is complete and battle-tested by daily family use: accounts and sign-in (password and Google, with optional two-factor codes), projects and tasks with a kanban board, notes with attachments and wiki-links, a calendar with recurring events, a shared family mailbox that turns letters into tasks, full-text search, a dashboard, and a money section — accounts with balances, expenses, income, transfers, bank reconciliation, categories, budgets, recurring transactions, receipts. It installs to the home screen as an app and keeps working read-only when the Wi-Fi does not.
