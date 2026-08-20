@@ -1,4 +1,4 @@
-import { t } from '../lib/i18n';
+import { intlLocale, t } from '../lib/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -240,7 +240,9 @@ export function Notes() {
       folder_id:
         folderId && folderId !== 'none' && folderId !== 'templates' ? folderId : null,
       ...(inTemplates ? { is_template: true } : {}),
-      ...(templateId ? { template_id: templateId } : {}),
+      // The locale rides along only where placeholders expand — the server
+      // formats {{date}}/{{time}} in the interface language (#47)
+      ...(templateId ? { template_id: templateId, locale: intlLocale } : {}),
     });
     await loadNotes();
     if (inTemplates) await loadTemplates();
@@ -269,7 +271,7 @@ export function Notes() {
       const created = await api.post<Note>('/notes', {
         daily_date: date,
         title: date,
-        ...(template ? { template_id: template.id } : {}),
+        ...(template ? { template_id: template.id, locale: intlLocale } : {}),
       });
       await loadNotes();
       await openNote(created.id);

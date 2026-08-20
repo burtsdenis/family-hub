@@ -19,3 +19,23 @@ describe('excerptOf', () => {
     expect(excerptOf('я'.repeat(500))).toHaveLength(120);
   });
 });
+
+describe('applyPlaceholders', () => {
+  it('formats {{date}} in the requested locale, English without one', async () => {
+    const { applyPlaceholders } = await import('./notes.js');
+    const russian = applyPlaceholders('{{date}}', 'Alex', 'ru-RU');
+    const english = applyPlaceholders('{{date}}', 'Alex');
+    // Month names are the tell: Cyrillic in ru-RU, Latin otherwise.
+    // Exact strings would chase the clock; the alphabet does not.
+    expect(russian).toMatch(/[а-яё]/i);
+    expect(english).not.toMatch(/[а-яё]/i);
+    // The Russian placeholder KEYS keep working regardless of locale —
+    // they are data compatibility, not language choice
+    expect(applyPlaceholders('{{автор}}', 'Alex')).toBe('Alex');
+  });
+
+  it('survives a malformed locale tag instead of throwing', async () => {
+    const { applyPlaceholders } = await import('./notes.js');
+    expect(() => applyPlaceholders('{{date}}', 'Alex', 'not a tag')).not.toThrow();
+  });
+});
