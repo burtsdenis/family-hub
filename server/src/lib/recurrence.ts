@@ -121,11 +121,14 @@ export function expandOccurrences(
   if (!rec) return anchor >= from && anchor <= to ? [anchor] : [];
 
   const result: string[] = [];
-  // A ceiling on the step count: protection against "daily since 1990"
-  // and against a rule that somehow fails to move the date forward.
+  // A ceiling on the step count: protection against a rule that somehow
+  // fails to move the date forward. Thanks to the jump below it no longer
+  // doubles as a truncation of old series — iterations are proportional
+  // to the occurrences inside the window, not to the age of the series.
   const MAX_STEPS = 20_000;
 
-  for (let k = 0; k < MAX_STEPS; k++) {
+  const start = firstStepNear(anchor, rec, from);
+  for (let k = start; k < start + MAX_STEPS; k++) {
     const date = k === 0 ? anchor : occurrence(anchor, rec, k);
     if (!date) break;
     if (date > to) break;
@@ -135,4 +138,38 @@ export function expandOccurrences(
     }
   }
   return result;
+}
+
+function daysBetween(a: string, b: string): number {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}
+
+/**
+ * The step index at (or just before) the window start, so expansion is
+ * O(occurrences in the window) rather than O(age of the series) — a daily
+ * series anchored three years back used to burn ~1100 discarded
+ * iterations per calendar request (#62).
+ *
+ * DAILY and WEEKLY advance by a fixed day count, so the first step inside
+ * the window is exact: ceil(days / step). MONTHLY and YEARLY clamp the
+ * anchor day to each month's length, which makes an exact formula fiddly
+ * — a month-count estimate one step early is used instead, and the loop
+ * skips the at most one occurrence that lands before the window.
+ */
+function firstStepNear(anchor: string, rec: Recurrence, from: string): number {
+  if (from <= anchor) return 0;
+  switch (rec.freq) {
+    case 'DAILY':
+      return Math.ceil(daysBetween(anchor, from) / rec.interval);
+    case 'WEEKLY':
+      return Math.ceil(daysBetween(anchor, from) / (7 * rec.interval));
+    case 'MONTHLY':
+    case 'YEARLY': {
+      const months =
+        (Number(from.slice(0, 4)) - Number(anchor.slice(0, 4))) * 12 +
+        (Number(from.slice(5, 7)) - Number(anchor.slice(5, 7)));
+      const step = rec.freq === 'MONTHLY' ? rec.interval : 12 * rec.interval;
+      return Math.max(0, Math.floor(months / step) - 1);
+    }
+  }
 }
