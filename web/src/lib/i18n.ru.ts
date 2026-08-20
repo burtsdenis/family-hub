@@ -455,6 +455,7 @@ export const ru: Record<string, string> = {
   'Search notes': 'Поиск по заметкам',
   'Search tasks, notes, events and files': 'Искать по задачам, заметкам, событиям и файлам',
   'Server unavailable': 'Сервер недоступен',
+  'set aside': 'отложено',
   'Settings': 'Настройки',
   'Settings must be pairs of strings': 'Настройки должны быть парами строк',
   'Shared': 'Общий',

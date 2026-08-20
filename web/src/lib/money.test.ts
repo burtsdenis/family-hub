@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   describeRule,
   formatAmountInput,
+  groupByCurrency,
   normalizeRule,
   orderCategories,
   parseAmount,
+  type Account,
   type Category,
 } from './money';
 
@@ -116,5 +118,40 @@ describe('orderCategories', () => {
       'expense',
     );
     expect(ordered.map((o) => o.category.id)).toEqual(['car', 'fuel']);
+  });
+});
+
+describe('groupByCurrency', () => {
+  const acc = (over: Partial<Account>): Account =>
+    ({
+      id: 'x',
+      name: 'x',
+      kind: 'card',
+      currency: 'EUR',
+      color: '#000000',
+      shared: 1,
+      balance: 0,
+      checked_balance: null,
+      last_checked_on: null,
+      last_actual: null,
+      ...over,
+    }) as Account;
+
+  it('keeps savings out of the spendable total but visible as saved (#69)', () => {
+    const groups = groupByCurrency([
+      acc({ id: 'a', kind: 'card', balance: 245_990 }),
+      acc({ id: 'b', kind: 'cash', balance: 18_110 }),
+      acc({ id: 'c', kind: 'savings', balance: 125_000 }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.total).toBe(264_100);
+    expect(groups[0]!.saved).toBe(125_000);
+    // The account itself stays in the list — only the headline changes
+    expect(groups[0]!.items).toHaveLength(3);
+  });
+
+  it('a currency holding only savings shows zero available, not nothing', () => {
+    const groups = groupByCurrency([acc({ kind: 'savings', currency: 'RSD', balance: 500_000 })]);
+    expect(groups[0]).toMatchObject({ currency: 'RSD', total: 0, saved: 500_000 });
   });
 });
