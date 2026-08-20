@@ -133,8 +133,17 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply): Pr
   }
   touchSession(token!, req.ip);
 
-  // Until the password is changed, only the change endpoint is available
-  if (user.must_change_password && path !== '/api/auth/change-password' && path !== '/api/auth/me') {
+  // Until the password is changed, only the change endpoint is available —
+  // plus the way out. Signing out is not "doing something else with the
+  // account": a person parked on the change-password screen ("this is not
+  // my account", "later") must be able to leave, and the first sign-out
+  // button added to that screen would otherwise hit a 403 about passwords.
+  if (
+    user.must_change_password &&
+    path !== '/api/auth/change-password' &&
+    path !== '/api/auth/me' &&
+    path !== '/api/auth/logout'
+  ) {
     return reply.code(403).send({ error: 'Change your password first', code: 'must_change_password' });
   }
 
@@ -180,7 +189,7 @@ export function announceSetupIfEmpty(): void {
   ]);
 }
 
-/** Expired sessions are removed at startup so the table doesn't grow forever. */
+/** Expired sessions are removed at startup and once a day thereafter. */
 export function pruneSessions(): void {
   const now = new Date();
   db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(now.toISOString());
