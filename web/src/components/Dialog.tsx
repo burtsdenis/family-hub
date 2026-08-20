@@ -70,7 +70,8 @@ export const dialogPrimary =
 export const dialogGhost = 'px-2 py-2 text-sm text-muted hover:text-ink';
 export const dialogDanger =
   'rounded-lg border border-urgent px-4 py-2 text-sm font-medium text-urgent hover:bg-urgent/10';
-
+export const inlineDanger =
+  'text-muted underline underline-offset-2 hover:text-urgent';
 // ── Context ───────────────────────────────────────────────────────────────
 
 interface PromptOptions {
