@@ -125,7 +125,7 @@ export async function registerMailRoutes(app: FastifyInstance): Promise<void> {
     if (!requireAdmin(req, reply)) return;
     const parsed = z
       .object({
-        address: z.string().email().max(300),
+        address: z.string().email('Enter a valid email address').max(300),
         imap_host: z.string().min(1).max(300),
         imap_port: z.number().int().min(1).max(65535).default(993),
         smtp_host: z.string().min(1).max(300),
