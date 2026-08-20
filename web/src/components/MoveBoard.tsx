@@ -45,13 +45,13 @@ export function MoveBoard({ settings, onChange }: Props) {
   }
 
   return (
-    <section className="overflow-hidden rounded-card bg-[#131c24] text-[#e8eae5] shadow-sm">
-      <div className="grid divide-y divide-white/10 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] sm:divide-x sm:divide-y-0">
+    <section className="overflow-hidden rounded-card border border-line bg-surface shadow-sm">
+      <div className="grid divide-y divide-line sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] sm:divide-x sm:divide-y-0">
         {/* Countdown */}
         <div className="px-6 py-5">
-          <p className="eyebrow text-white/45!">{settings['move.label'] ?? t('The move')}</p>
+          <p className="eyebrow">{settings['move.label'] ?? t('The move')}</p>
           {days === null ? (
-            <p className="mt-3 text-sm text-white/60">
+            <p className="mt-3 text-sm text-muted">
               {t('The moving date is not set. Add it in Settings and a countdown will appear here.')}
             </p>
           ) : (
@@ -60,20 +60,20 @@ export function MoveBoard({ settings, onChange }: Props) {
                 <span className="font-display text-[3.25rem] leading-none font-bold tabular-nums">
                   {Math.abs(days)}
                 </span>
-                <span className="font-mono text-sm text-white/55">
+                <span className="font-mono text-sm text-muted">
                   {days >= 0
                     ? plural(days, 'day', 'days')
                     : t('{unit} ago', { unit: plural(Math.abs(days), 'day', 'days') })}
                 </span>
               </p>
-              <p className="mt-2 font-mono text-xs text-white/40">{formatDate(targetDate)}</p>
+              <p className="mt-2 font-mono text-xs text-muted">{formatDate(targetDate)}</p>
             </>
           )}
         </div>
 
         {/* Savings */}
         <div className="px-6 py-5">
-          <p className="eyebrow text-white/45!">{settings['savings.label'] ?? t('Saved so far')}</p>
+          <p className="eyebrow">{settings['savings.label'] ?? t('Saved so far')}</p>
 
           {editing ? (
             <div className="mt-2.5">
@@ -90,19 +90,19 @@ export function MoveBoard({ settings, onChange }: Props) {
                     if (e.key === 'Enter') void save();
                     if (e.key === 'Escape') setEditing(false);
                   }}
-                  className="w-36 rounded-md border border-white/25 bg-white/5 px-2.5 py-1.5 font-mono text-lg tabular-nums outline-none focus:border-white/60"
+                  className="w-36 rounded-md border border-line bg-surface-2 px-2.5 py-1.5 font-mono text-lg tabular-nums outline-none focus:border-accent"
                   aria-label={t('Amount in euros')}
                 />
                 <button
                   type="button"
                   onClick={() => void save()}
                   disabled={saving}
-                  className="rounded-md bg-white/15 px-3 py-1.5 text-sm hover:bg-white/25 disabled:opacity-50"
+                  className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {saving ? t('Saving') : t('Save')}
                 </button>
               </div>
-              {error && <p className="mt-2 text-xs text-[#d9a04f]">{error}</p>}
+              {error && <p className="mt-2 text-xs text-urgent">{error}</p>}
             </div>
           ) : (
             <button
@@ -118,14 +118,14 @@ export function MoveBoard({ settings, onChange }: Props) {
                 {formatEur(saved)}
               </span>
               {goal > 0 && (
-                <span className="ml-2 font-mono text-xs text-white/40">{t('of')} {formatEur(goal)}</span>
+                <span className="ml-2 font-mono text-xs text-muted">{t('of')} {formatEur(goal)}</span>
               )}
             </button>
           )}
 
           {progress !== null && !editing && (
-            <div className="mt-3.5 h-1 overflow-hidden rounded-full bg-white/12">
-              <div className="h-full bg-[#4d9ebb]" style={{ width: `${progress}%` }} />
+            <div className="mt-3.5 h-1 overflow-hidden rounded-full bg-surface-3">
+              <div className="h-full bg-accent" style={{ width: `${progress}%` }} />
             </div>
           )}
         </div>
