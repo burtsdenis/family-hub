@@ -1,5 +1,5 @@
 import { t } from '../lib/i18n';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   DndContext,
@@ -20,7 +20,11 @@ import {
   DEFAULT_LAYOUT,
   LAYOUT_KEY,
   WIDGET_DEFS,
+  boardUnits,
   normalizeLayout,
+  packBoard,
+  unitsFor,
+  type PackedBox,
   type WidgetId,
   type WidgetSize,
   type WidgetSlot,
@@ -512,39 +516,22 @@ function NotesPanel({ notes }: { notes: DashboardData['recentNotes'] }) {
   );
 }
 
-/**
- * Column spans for the 8-unit board. On md the board narrows to 4 units:
- * a half-row widget becomes a full row, a quarter a half. On phones the
- * grid is a single column and sizes stop mattering — only order does.
- */
-const SPAN: Record<WidgetSize, string> = {
-  2: 'md:col-span-2',
-  4: 'md:col-span-4',
-  8: 'md:col-span-4 xl:col-span-8',
-};
-
-/*
-  The vertical axis of the board is real, not one-row-per-widget: grid
-  rows are 4px tracks and every widget spans as many as its measured
-  height needs (the masonry emulation — CSS has no native one). Without
-  this a row is as tall as its tallest widget, and everything next to a
-  tall agenda floats on a lake of dead space no drag can fill.
-
-  The gap is baked into the span instead of row-gap: leftover span space
-  IS the gap, varying by at most ROW_UNIT-1 px — invisible at 4px.
-*/
-const ROW_UNIT = 4;
-const ROW_GAP = 20; // matches the board's gap-x-5
+/** The board's gap, px — lives in the packer's math, not in CSS. */
+const BOARD_GAP = 20;
 
 function SortableWidget({
   slot,
   editing,
+  box,
+  onHeight,
   onSize,
   onHide,
   children,
 }: {
   slot: WidgetSlot;
   editing: boolean;
+  box: PackedBox;
+  onHeight: (id: WidgetId, height: number) => void;
   onSize: (size: WidgetSize) => void;
   onHide: () => void;
   children: React.ReactNode;
@@ -559,25 +546,23 @@ function SortableWidget({
   const def = WIDGET_DEFS[slot.id];
 
   const innerRef = useRef<HTMLDivElement>(null);
-  const [span, setSpan] = useState(1);
   useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el) return;
-    const measure = () =>
-      setSpan(Math.max(1, Math.ceil((el.offsetHeight + ROW_GAP) / ROW_UNIT)));
+    const measure = () => onHeight(slot.id, el.offsetHeight);
     measure();
     // Content height is alive: the agenda grows as the week fills,
-    // the edit strip appears and disappears.
+    // the edit strip appears and disappears, the width changes on resize.
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [slot.id, onHeight]);
 
   return (
     <div
       ref={setNodeRef}
-      style={{ gridRowEnd: `span ${span}` }}
-      className={`${SPAN[slot.size]} ${isDragging ? 'opacity-40' : ''}`}
+      style={{ position: 'absolute', left: box.left, top: box.top, width: box.width }}
+      className={isDragging ? 'opacity-40' : ''}
     >
       <div
         ref={innerRef}
@@ -654,6 +639,25 @@ export function Dashboard() {
   );
   const [editing, setEditing] = useState(false);
   const [dragging, setDragging] = useState<WidgetId | null>(null);
+
+  // The packer needs the board's width and every widget's height; both
+  // are observed, so the board re-packs itself on resize and as content
+  // grows. A callback ref because the board mounts only after the data
+  // arrives — a plain ref would leave the first mount unobserved.
+  const [boardEl, setBoardEl] = useState<HTMLDivElement | null>(null);
+  const [boardWidth, setBoardWidth] = useState(0);
+  const [heights, setHeights] = useState<Partial<Record<WidgetId, number>>>({});
+  useLayoutEffect(() => {
+    if (!boardEl) return;
+    const measure = () => setBoardWidth(boardEl.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(boardEl);
+    return () => observer.disconnect();
+  }, [boardEl]);
+  const onHeight = useCallback((id: WidgetId, height: number) => {
+    setHeights((prev) => (prev[id] === height ? prev : { ...prev, [id]: height }));
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -768,8 +772,25 @@ export function Dashboard() {
     notes: <NotesPanel notes={data.recentNotes} />,
   };
 
-  const visible = layout.filter((s) => !s.hidden);
+  const visible = layout.filter(
+    (s) => !s.hidden && (editing || content[s.id] !== null),
+  );
   const hidden = layout.filter((s) => s.hidden);
+
+  // Recomputed every render on purpose: six items of pure arithmetic is
+  // cheaper than getting a memo's dependency list wrong.
+  const packed = packBoard(
+    visible.map((s) => ({
+      id: s.id,
+      units: unitsFor(s.size, boardUnits(boardWidth)),
+      // Before the first measurement any positive height keeps the
+      // packer sane; one layout-effect later the real one arrives.
+      height: heights[s.id] ?? 160,
+    })),
+    boardUnits(boardWidth),
+    boardWidth,
+    BOARD_GAP,
+  );
 
   return (
     <Page
@@ -818,37 +839,35 @@ export function Dashboard() {
           onDragCancel={() => setDragging(null)}
         >
           <SortableContext items={visible.map((s) => s.id)} strategy={() => null}>
-            {/* dense: anything that fits an earlier hole moves up into it —
-                horizontally and, thanks to the row-span masonry, vertically */}
-            <div
-              className="grid grid-flow-dense grid-cols-1 gap-x-5 md:grid-cols-4 xl:grid-cols-8"
-              style={{ gridAutoRows: `${ROW_UNIT}px` }}
-            >
-              {visible.map((slot) => {
-                const node = content[slot.id];
-                if (!editing && node === null) return null;
-                return (
-                  <SortableWidget
-                    key={slot.id}
-                    slot={slot}
-                    editing={editing}
-                    onSize={(size) =>
-                      updateLayout(layout.map((s) => (s.id === slot.id ? { ...s, size } : s)))
-                    }
-                    onHide={() =>
-                      updateLayout(
-                        layout.map((s) => (s.id === slot.id ? { ...s, hidden: true } : s)),
-                      )
-                    }
-                  >
-                    {node ?? (
-                      <div className="rounded-card border border-dashed border-line px-4 py-6 text-center text-sm text-muted">
-                        {t('Nothing here yet.')}
-                      </div>
-                    )}
-                  </SortableWidget>
-                );
-              })}
+            <div ref={setBoardEl} className="relative" style={{ height: packed.height }}>
+              {boardWidth > 0 &&
+                visible.map((slot) => {
+                  const box = packed.boxes.get(slot.id);
+                  if (!box) return null;
+                  return (
+                    <SortableWidget
+                      key={slot.id}
+                      slot={slot}
+                      editing={editing}
+                      box={box}
+                      onHeight={onHeight}
+                      onSize={(size) =>
+                        updateLayout(layout.map((s) => (s.id === slot.id ? { ...s, size } : s)))
+                      }
+                      onHide={() =>
+                        updateLayout(
+                          layout.map((s) => (s.id === slot.id ? { ...s, hidden: true } : s)),
+                        )
+                      }
+                    >
+                      {content[slot.id] ?? (
+                        <div className="rounded-card border border-dashed border-line px-4 py-6 text-center text-sm text-muted">
+                          {t('Nothing here yet.')}
+                        </div>
+                      )}
+                    </SortableWidget>
+                  );
+                })}
             </div>
           </SortableContext>
           <DragOverlay>
