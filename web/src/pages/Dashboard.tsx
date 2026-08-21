@@ -634,6 +634,7 @@ export function Dashboard() {
     normalizeLayout(loadLocal<unknown>(LAYOUT_KEY, null)),
   );
   const [editing, setEditing] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [dragging, setDragging] = useState<WidgetId | null>(null);
   // Where the dragged widget would land: the column under the pointer and
   // the widget it would push down (null = bottom of the stack).
@@ -672,6 +673,15 @@ export function Dashboard() {
 
   function onDragStart(event: DragStartEvent) {
     setDragging(event.active.id as WidgetId);
+  }
+
+  // Back onto the board, at the end of the list — gravity settles it at
+  // the bottom of its column, from where it can be dragged into place.
+  function addWidget(id: WidgetId) {
+    const slot = layout.find((s) => s.id === id);
+    if (!slot) return;
+    updateLayout([...layout.filter((s) => s.id !== id), { ...slot, hidden: false }]);
+    setAdding(false);
   }
 
   useEffect(() => {
@@ -863,7 +873,10 @@ export function Dashboard() {
             </button>
             <button
               type="button"
-              onClick={() => setEditing(false)}
+              onClick={() => {
+                setEditing(false);
+                setAdding(false);
+              }}
               className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
             >
               {t('Done')}
@@ -954,20 +967,39 @@ export function Dashboard() {
         </DndContext>
 
         {editing && hidden.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="eyebrow">{t('Hidden')}</span>
-            {hidden.map((slot) => (
+          <div className="rounded-card border border-dashed border-line">
+            {!adding ? (
               <button
-                key={slot.id}
                 type="button"
-                onClick={() =>
-                  updateLayout(layout.map((s) => (s.id === slot.id ? { ...s, hidden: false } : s)))
-                }
-                className="rounded-full border border-line bg-surface px-3 py-1 text-xs text-muted transition-colors hover:text-ink"
+                onClick={() => setAdding(true)}
+                className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm text-muted transition-colors hover:text-ink"
               >
-                + {WIDGET_DEFS[slot.id].title}
+                <svg
+                  viewBox="0 0 24 24"
+                  className="size-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                {t('Add widget')}
               </button>
-            ))}
+            ) : (
+              <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+                {hidden.map((slot) => (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    onClick={() => addWidget(slot.id)}
+                    className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-ink transition-colors hover:border-accent"
+                  >
+                    + {WIDGET_DEFS[slot.id].title}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
