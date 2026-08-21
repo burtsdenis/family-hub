@@ -45,6 +45,15 @@ function id(): string {
 }
 
 /** ISO date offset from today, local time — as everywhere in the hub. */
+/**
+ * A birthdate for the seeds: a past year wearing day(offset)'s month and
+ * day, so the template database (rebuilt daily) always has a birthday
+ * coming up and the age math stays honest.
+ */
+function birthdate(offset: number, year: number): string {
+  return `${year}${day(offset).slice(4)}`;
+}
+
 function day(offset: number): string {
   const base = new Date(`${today()}T00:00:00`);
   base.setDate(base.getDate() + offset);
@@ -167,6 +176,53 @@ export async function seedDemo(): Promise<void> {
        VALUES (?, '00000000-0000-4000-8000-000000000001', 0, 'Confirm parent-teacher evening', 'Reply to the school before Thursday', 'todo', 'normal', ?, ?, 8, ?)`,
     ).run(schoolTask, day(1), sam, alex);
     db.prepare('UPDATE mail_messages SET task_id = ? WHERE id = ?').run(schoolTask, school);
+
+    // ── Family profiles ──
+    // The visitor signs in as Alex, so the seeds are arranged to show
+    // both sides of the wishlist rule at once: Sam's list demonstrates
+    // reserving (one wish already taken by a guest through the public
+    // link — claimed_by_name with no account), while Alex's own list
+    // shows the owner's view, where the server hides every claim.
+    const alexBirthday = birthdate(6, 1988);
+    const samBirthday = birthdate(45, 1990);
+    db.prepare(
+      `INSERT INTO profiles (user_id, birthday, family_role) VALUES
+       (?, ?, 'father'),
+       (?, ?, 'mother')`,
+    ).run(alex, alexBirthday, sam, samBirthday);
+    // The derived birthday events, exactly as PATCH /api/profiles writes
+    // them (profiles.ts syncBirthdayEvent): profile_user_id is how the
+    // route finds them again when a visitor edits the date
+    db.prepare(
+      `INSERT INTO events (id, calendar_id, title, starts_at, ends_at, all_day,
+                           recurrence_rule, birth_year, profile_user_id, created_at, updated_at)
+       VALUES (?, ?, 'Alex', ?, ?, 1, 'FREQ=YEARLY', ?, ?, ?, ?),
+              (?, ?, 'Sam', ?, ?, 1, 'FREQ=YEARLY', ?, ?, ?, ?)`,
+    ).run(
+      id(), shared, alexBirthday, alexBirthday, 1988, alex, now(), now(),
+      id(), shared, samBirthday, samBirthday, 1990, sam, now(), now(),
+    );
+    db.prepare(
+      `INSERT INTO profile_entries (id, user_id, kind, label, value, position) VALUES
+       (?, ?, 'preference', 'Shoes', '44', 1),
+       (?, ?, 'preference', 'Coffee', 'flat white, no sugar', 2),
+       (?, ?, 'preference', 'Shoes', '38', 1),
+       (?, ?, 'preference', 'Tea', 'Earl Grey', 2),
+       (?, ?, 'preference', 'Flowers', 'tulips, never lilies', 3),
+       (?, ?, 'allergy', 'peanuts', NULL, 4)`,
+    ).run(id(), alex, id(), alex, id(), sam, id(), sam, id(), sam, id(), sam);
+    db.prepare(
+      `INSERT INTO wishes (id, user_id, title, url, claimed_by, claimed_by_name, claimed_at, position, created_at) VALUES
+       (?, ?, 'A proper espresso tamper', NULL, NULL, NULL, NULL, 1, ?),
+       (?, ?, 'Wool hiking socks', NULL, NULL, NULL, NULL, 2, ?),
+       (?, ?, 'Weekend at a spa', NULL, NULL, 'Grandma Vera', ?, 1, ?),
+       (?, ?, 'A very sharp kitchen knife', NULL, NULL, NULL, NULL, 2, ?)`,
+    ).run(
+      id(), alex, now(),
+      id(), alex, now(),
+      id(), sam, now(), now(),
+      id(), sam, now(),
+    );
 
     // ── Money ──
     const card = id();
