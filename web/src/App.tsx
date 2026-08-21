@@ -10,7 +10,7 @@ import { Calendar } from './pages/Calendar';
 import { Settings } from './pages/Settings';
 import { Money } from './pages/Money';
 import { Mail } from './pages/Mail';
-import { Family, FamilyProfile } from './pages/Family';
+import { Family } from './pages/Family';
 import { PublicWishlist } from './pages/PublicWishlist';
 
 function Gate() {
@@ -32,7 +32,7 @@ function Gate() {
         <Route path="money" element={<Money />} />
         <Route path="mail" element={<Mail />} />
         <Route path="family" element={<Family />} />
-        <Route path="family/:userId" element={<FamilyProfile />} />
+        <Route path="family/:userId" element={<Family />} />
         <Route path="settings" element={<Settings />} />
         {/* People management moved into Settings; old bookmarks land there */}
         <Route path="users" element={<Navigate to="/settings" replace />} />
