@@ -217,16 +217,24 @@ currency with the three heaviest categories (subcategories roll up into
 their parent, same as the Money summary). A widget with nothing to say
 renders nothing.
 
-**Customize** turns the board editable: every widget gets a strip to
-drag it anywhere — the column you drop it in is where it stays, while
-vertically widgets fall up like gravity, so holes close themselves.
-The strip also switches the widget's width (a quarter, a half or the
-whole row) and hides it; hidden widgets come back through "Add widget".
-While dragging, a dashed box shows the exact landing spot.
+![The Today board: the week's agenda beside the month and the month's spending](screenshots/dashboard.png)
 
-The layout is a per-device setting, like the calendar view: the hallway
-kiosk wants a big month at a glance, the phone wants the agenda first,
-and a shared setting would make them fight.
+**Customize** turns the board editable: every widget grows a strip with
+a handle to drag it anywhere. The column you drop it in is where it
+stays; vertically widgets fall up like gravity, so a hole left by
+something moved away closes itself. The same strip switches the
+widget's width — a quarter of the row, a half or the whole thing — and
+hides the widget; anything off the board comes back through the "Add
+widget" tile below. While dragging, a dashed box shows the exact spot
+the widget will land in, because the board packs the hypothetical
+layout for real rather than guessing.
+
+![Customize mode: every widget with its drag handle, width switch and hide button](screenshots/dashboard-customize.png)
+
+The layout is a per-device setting, like the calendar view and the
+language: the hallway kiosk wants a big month at a glance, the phone
+wants the agenda first, and a shared setting would make them fight.
+"Reset" restores the default arrangement.
 
 ## Interface
 
