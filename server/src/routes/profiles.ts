@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { db, id, now } from '../db/index.js';
@@ -27,10 +27,6 @@ const FAMILY_ROLES = ['mother', 'father', 'daughter', 'son', 'grandmother', 'gra
 const SHARED_CALENDAR_ID = '00000000-0000-4000-8000-000000000201';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
-
 /** Self or admin — the #64 boundary, reused verbatim. */
 function canEdit(req: FastifyRequest, userId: string): boolean {
   return req.user?.id === userId || req.user?.role === 'admin';
@@ -44,7 +40,7 @@ interface ProfileRow {
   user_id: string;
   birthday: string | null;
   family_role: string | null;
-  wishlist_share_hash: string | null;
+  wishlist_share_token: string | null;
   wishlist_share_created_at: string | null;
 }
 
@@ -148,8 +144,15 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
       ...user,
       birthday: profile?.birthday ?? null,
       family_role: profile?.family_role ?? null,
-      // The share link itself is never re-shown — only whether one exists
-      wishlist_shared: Boolean(profile?.wishlist_share_hash),
+      // The share path comes back to whoever manages sharing (self or
+      // admin) so the link stays copyable after a reload — stored
+      // plaintext on purpose, see migration 021. Other members get only
+      // the fact that a link exists.
+      wishlist_shared: Boolean(profile?.wishlist_share_token),
+      wishlist_share_path:
+        canEdit(req, userId) && profile?.wishlist_share_token
+          ? `/wish/${profile.wishlist_share_token}`
+          : null,
       entries,
       wishes: own
         ? stripClaims(wishes)
@@ -311,9 +314,8 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
     ensureProfile(userId);
     const token = randomBytes(24).toString('base64url');
     db.prepare(
-      'UPDATE profiles SET wishlist_share_hash = ?, wishlist_share_created_at = ? WHERE user_id = ?',
-    ).run(hashToken(token), now(), userId);
-    // The path is returned once, like an invite; the hash cannot be reversed
+      'UPDATE profiles SET wishlist_share_token = ?, wishlist_share_created_at = ? WHERE user_id = ?',
+    ).run(token, now(), userId);
     return reply.code(201).send({ path: `/wish/${token}` });
   });
 
@@ -321,7 +323,7 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
     const { userId } = z.object({ userId: z.string().uuid() }).parse(req.params);
     if (!canEdit(req, userId)) return forbid(reply);
     db.prepare(
-      'UPDATE profiles SET wishlist_share_hash = NULL, wishlist_share_created_at = NULL WHERE user_id = ?',
+      'UPDATE profiles SET wishlist_share_token = NULL, wishlist_share_created_at = NULL WHERE user_id = ?',
     ).run(userId);
     return { ok: true };
   });
@@ -344,9 +346,9 @@ export async function registerPublicWishlistRoutes(app: FastifyInstance): Promis
     const row = db
       .prepare(
         `SELECT p.user_id, u.name FROM profiles p JOIN users u ON u.id = p.user_id
-          WHERE p.wishlist_share_hash = ? AND u.disabled_at IS NULL`,
+          WHERE p.wishlist_share_token = ? AND u.disabled_at IS NULL`,
       )
-      .get(hashToken(token)) as { user_id: string; name: string } | undefined;
+      .get(token) as { user_id: string; name: string } | undefined;
     return row ?? null;
   }
 

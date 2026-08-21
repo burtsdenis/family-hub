@@ -54,11 +54,18 @@ import { log } from './lib/log.js';
   for diagnostics "which parameter came in" matters, not "with which value".
 */
 export function redactUrl(url: string): string {
-  const q = url.indexOf('?');
-  if (q === -1) return url;
-  const params = new URLSearchParams(url.slice(q + 1));
+  // The wishlist share token travels in the PATH, not the query — a
+  // rate-limited or mistyped request would otherwise write a live guest
+  // link into the log at warn level (invites dodge this only because
+  // their token is a query value).
+  const masked = url.replace(/^(\/api\/wishlist\/)[^/?]+/, '$1…');
+  const q = masked.indexOf('?');
+  if (q === -1) return masked;
+  const params = new URLSearchParams(masked.slice(q + 1));
   const names = [...new Set([...params.keys()])];
-  return names.length ? `${url.slice(0, q)}?${names.map((n) => `${n}=…`).join('&')}` : url.slice(0, q);
+  return names.length
+    ? `${masked.slice(0, q)}?${names.map((n) => `${n}=…`).join('&')}`
+    : masked.slice(0, q);
 }
 
 export async function buildApp(): Promise<FastifyInstance> {

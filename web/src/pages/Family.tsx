@@ -72,6 +72,8 @@ interface Wish {
 
 interface Profile extends Omit<Member, 'allergies'> {
   wishlist_shared: boolean;
+  /** Present only for self/admin — the copyable guest link, reload-proof. */
+  wishlist_share_path: string | null;
   entries: Entry[];
   wishes: Wish[];
 }
@@ -167,7 +169,6 @@ export function FamilyProfile() {
   const [prefValue, setPrefValue] = useState('');
   const [wishTitle, setWishTitle] = useState('');
   const [wishUrl, setWishUrl] = useState('');
-  const [shareLink, setShareLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const own = user?.id === userId;
@@ -501,22 +502,25 @@ export function FamilyProfile() {
           {/* The public link — the only thing here a guest ever sees */}
           {canEdit && (
             <div className="mt-4 border-t border-line pt-3 text-sm">
-              {shareLink ? (
+              {profile.wishlist_share_path ? (
+                /* The link stays copyable for as long as it lives — it comes
+                   with the profile, so a reload changes nothing (the token is
+                   stored plaintext for exactly this, see migration 021) */
                 <div className="flex flex-wrap items-center gap-2">
-                  <code className="rounded bg-surface-2 px-2 py-1 text-xs break-all">{shareLink}</code>
+                  <code className="rounded bg-surface-2 px-2 py-1 text-xs break-all">
+                    {`${window.location.origin}${profile.wishlist_share_path}`}
+                  </code>
                   <button
                     type="button"
                     onClick={() => {
-                      void navigator.clipboard.writeText(shareLink).then(() => setCopied(true));
+                      void navigator.clipboard
+                        .writeText(`${window.location.origin}${profile.wishlist_share_path}`)
+                        .then(() => setCopied(true));
                     }}
                     className={`${chip} ${chipOff} text-xs`}
                   >
                     {copied ? t('Copied') : t('Copy')}
                   </button>
-                </div>
-              ) : profile.wishlist_shared ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-muted">{t('Guest link is active')}</span>
                   <button
                     type="button"
                     onClick={() =>
@@ -530,16 +534,10 @@ export function FamilyProfile() {
               ) : (
                 <button
                   type="button"
-                  onClick={() =>
-                    void run(async () => {
-                      const res = await api.post<{ path: string }>(
-                        `/profiles/${userId}/wishlist-share`,
-                        {},
-                      );
-                      setShareLink(`${window.location.origin}${res.path}`);
-                      setCopied(false);
-                    })
-                  }
+                  onClick={() => {
+                    setCopied(false);
+                    void run(() => api.post(`/profiles/${userId}/wishlist-share`, {}));
+                  }}
                   className={`${chip} ${chipOff} text-xs`}
                 >
                   {t('Share with guests — a link without an account')}

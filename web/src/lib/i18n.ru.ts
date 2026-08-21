@@ -32,7 +32,6 @@ export const ru: Record<string, string> = {
   'Father': 'Папа',
   'Grandfather': 'Дедушка',
   'Grandmother': 'Бабушка',
-  'Guest link is active': 'Гостевая ссылка активна',
   'Guests see the wishes and can reserve; reservations are hidden from {name}.': 'Гости видят желания и могут бронировать; брони скрыты от {name}.',
   'link (optional)': 'ссылка (не обязательно)',
   'Mother': 'Мама',
