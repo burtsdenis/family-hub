@@ -4,6 +4,7 @@ import { api, type Task, type TaskMutation } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { PRIORITY_LABEL, effectiveDate, isClosed, isOverdue, today, type TaskNode } from '../lib/tasks';
 import { Empty } from './Page';
+import { reportFailure } from '../lib/failures';
 
 interface Props {
   nodes: TaskNode[];
@@ -43,25 +44,38 @@ function TaskItem({
   const canNest = node.level < 2;
 
   async function toggle() {
-    const res = await api.patch<TaskMutation>(`/tasks/${node.id}`, {
-      status: closed ? 'todo' : 'done',
-    });
-    onChanged(res.spawned);
+    // The checkbox is controlled by the task's status, so on failure it
+    // snaps back — without a message that reads as "the app ignored my
+    // tap" rather than "the save failed" (#85)
+    try {
+      const res = await api.patch<TaskMutation>(`/tasks/${node.id}`, {
+        status: closed ? 'todo' : 'done',
+      });
+      onChanged(res.spawned);
+    } catch (err) {
+      reportFailure(err instanceof Error ? err.message : t('Could not save'));
+    }
   }
 
   async function addChild() {
     const title = childTitle.trim();
     if (!title) return;
-    const created = await api.post<Task>('/tasks', {
-      project_id: node.project_id,
-      parent_id: node.id,
-      title,
-    });
-    setChildTitle('');
-    setAdding(false);
-    setExpanded(true);
-    onChanged();
-    onOpen(created);
+    try {
+      const created = await api.post<Task>('/tasks', {
+        project_id: node.project_id,
+        parent_id: node.id,
+        title,
+      });
+      setChildTitle('');
+      setAdding(false);
+      setExpanded(true);
+      onChanged();
+      onOpen(created);
+    } catch (err) {
+      // The typed title deliberately stays in the field — failing must not
+      // eat the person's words
+      reportFailure(err instanceof Error ? err.message : t('Could not add'));
+    }
   }
 
   return (

@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../lib/auth';
 import { applyUpdate, setupPwa } from '../lib/pwa';
+import { clearFailure, useFailure } from '../lib/failures';
 import { QuickAdd } from './QuickAdd';
 import { GlobalSearch, SearchTrigger } from './GlobalSearch';
 import { applyTheme, initialDark, persistTheme } from '../lib/theme';
@@ -159,6 +160,32 @@ function SignOutButton({ onClick }: { onClick: () => void }) {
 }
 
 /**
+ * "That did not save" — the shared surface for inline actions that have
+ * no dialog to put an error in (#85). Same visual language and position
+ * as the update toast below, urgent-toned. It stays until dismissed or
+ * replaced: an error that hides itself before it is read said nothing.
+ */
+function FailureToast() {
+  const failure = useFailure();
+  if (!failure) return null;
+  return (
+    <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 md:right-6 md:bottom-6 md:left-auto md:translate-x-0">
+      <div className="flex items-center gap-3 rounded-full border border-urgent/40 bg-surface py-2 pr-2 pl-4 shadow-xl">
+        <span className="text-sm text-ink">{failure.message}</span>
+        <button
+          type="button"
+          onClick={clearFailure}
+          aria-label={t('Close')}
+          className="grid size-7 place-items-center rounded-full text-muted hover:text-ink"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * "The hub was updated" — shown when a new service worker is waiting
  * (see lib/pwa.ts for why long-lived tabs need this at all). Sits above
  * the bottom bar on phones and in the corner on desktop.
@@ -288,6 +315,7 @@ export function AppShell() {
       </main>
 
       <QuickAdd onAdded={() => setRefreshKey((k) => k + 1)} />
+      <FailureToast />
       <UpdateToast />
 
       {/* The search modal lives at the shell root: inside the sidebar it

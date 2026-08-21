@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { Empty } from './Page';
 import { EntityDialog } from './EntityDialog';
 import { useDialogs } from './Dialog';
+import { reportFailure } from '../lib/failures';
 
 interface ManagedUser {
   id: string;
@@ -132,7 +133,12 @@ function InvitesBlock() {
               </span>
               <button
                 type="button"
-                onClick={() => void api.delete(`/invites/${i.id}`).then(load)}
+                onClick={() =>
+                  void api
+                    .delete(`/invites/${i.id}`)
+                    .then(load)
+                    .catch((err: Error) => reportFailure(err.message || t('Could not save')))
+                }
                 className="text-xs text-muted underline decoration-line hover:text-urgent"
               >
                 {t('Revoke')}
@@ -169,14 +175,22 @@ export function PeopleSection() {
       confirmLabel: t('Reset'),
     });
     if (!ok) return;
-    const res = await api.post<{ password: string }>(`/users/${user.id}/reset-password`, {});
-    setPassword(res.password);
-    await load();
+    try {
+      const res = await api.post<{ password: string }>(`/users/${user.id}/reset-password`, {});
+      setPassword(res.password);
+      await load();
+    } catch (err) {
+      reportFailure(err instanceof Error ? err.message : t('Could not save'));
+    }
   }
 
   async function toggle(user: ManagedUser) {
-    await api.post(`/users/${user.id}/toggle`, {});
-    await load();
+    try {
+      await api.post(`/users/${user.id}/toggle`, {});
+      await load();
+    } catch (err) {
+      reportFailure(err instanceof Error ? err.message : t('Could not save'));
+    }
   }
 
   return (
