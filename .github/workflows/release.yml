@@ -33,7 +33,10 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{version}}
+            # v-prefixed on purpose: the image tag should read the same as
+            # the git tag it was cut from. metadata-action strips the v by
+            # default, which quietly made v1.0.0 ship as 1.0.0.
+            type=semver,pattern=v{{version}}
             type=raw,value=latest
       - uses: docker/build-push-action@v6
         with:

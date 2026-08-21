@@ -94,4 +94,13 @@ Settings → About and the foot of the sidebar name the version and the commit t
 
 Both are visible only behind the sign-in screen. `/api/health` withholds the version from the public internet deliberately, and a line under the login box would have handed it to every scanner instead.
 
-Two things follow for whoever cuts a release: bump the version in all three `package.json` files along with the tag, or the interface will keep announcing the previous one — and keep `--build-arg BUILD_SHA=…` on any hand-rolled `docker build`, or the commit line simply disappears.
+A hand-rolled `docker build` should pass `--build-arg BUILD_SHA=…`; without it the commit line simply disappears.
+
+### Cutting a release
+
+1. Everything merged and the docs caught up — both are written in the same pull requests as the code, not gathered up afterwards.
+2. Bump the version in all three `package.json` files in that day's last pull request, before tagging. Settings → About and the sidebar read it, so a manifest left behind announces the wrong release.
+3. `git tag vX.Y.Z && git push origin vX.Y.Z`.
+4. The tag starts `release.yml`: a multi-arch image (amd64 + arm64) to GHCR, 6–9 minutes, most of it arm64 under emulation. The image carries the same `vX.Y.Z` as the git tag.
+5. Write the release page by hand — [v1.0.0](https://github.com/burtsdenis/family-hub/releases/tag/v1.0.0) is the shape: a title that names the release, what it means in a paragraph, a section per headline feature, and an **Upgrading** block naming the migrations that will run and the exact image to pull. Generated notes do not do that job.
+6. Close the milestone, if one is open.
