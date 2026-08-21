@@ -202,6 +202,32 @@ Auto-creation catches up at server startup: the machine may have slept through a
 
 Attached to a transaction with the same machinery as note attachments. The image is downscaled client-side to 1600 px on the long edge: a phone photo weighs megabytes, and all a receipt needs to show is the amount and the date.
 
+## The Today board
+
+The home screen is a board of widgets: the move board (countdown and
+savings), the agenda, a mini month, a money pulse, reminders and recent
+notes.
+
+The **agenda** is the week in one card — overdue, then today (events
+with times and tasks together), then only the days ahead that actually
+hold something. An empty day is silence, not an empty panel. The **mini
+month** marks days with dots in calendar colours; a day click opens the
+calendar there. The **money pulse** shows this month's spending per
+currency with the three heaviest categories (subcategories roll up into
+their parent, same as the Money summary). A widget with nothing to say
+renders nothing.
+
+**Customize** turns the board editable: every widget gets a strip to
+drag it anywhere — the column you drop it in is where it stays, while
+vertically widgets fall up like gravity, so holes close themselves.
+The strip also switches the widget's width (a quarter, a half or the
+whole row) and hides it; hidden widgets come back through "Add widget".
+While dragging, a dashed box shows the exact landing spot.
+
+The layout is a per-device setting, like the calendar view: the hallway
+kiosk wants a big month at a glance, the phone wants the agenda first,
+and a shared setting would make them fight.
+
 ## Interface
 
 <table>

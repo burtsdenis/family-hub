@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import { loadLocal as loadStored, saveLocal as saveStored } from './storage';
 
 /** The default calendar — the only one with an id known in advance (migration 006). */
 export const SHARED_CALENDAR_ID = '00000000-0000-4000-8000-000000000201';
@@ -77,18 +78,9 @@ export const REMIND_OPTIONS: { value: string; label: string }[] = [
  * these are different preferences of the same person, not one shared one.
  */
 export function loadLocal<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(`hub.calendar.${key}`);
-    return raw === null ? fallback : (JSON.parse(raw) as T);
-  } catch {
-    return fallback;
-  }
+  return loadStored(`hub.calendar.${key}`, fallback);
 }
 
 export function saveLocal(key: string, value: unknown): void {
-  try {
-    localStorage.setItem(`hub.calendar.${key}`, JSON.stringify(value));
-  } catch {
-    // Private browsing may forbid writes — no reason to crash
-  }
+  saveStored(`hub.calendar.${key}`, value);
 }
