@@ -6,13 +6,12 @@ import {
   DragOverlay,
   PointerSensor,
   TouchSensor,
-  pointerWithin,
+  useDraggable,
   useSensor,
   useSensors,
-  type DragEndEvent,
+  type DragMoveEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { api, ApiError, type Dashboard as DashboardData, type Task } from '../lib/api';
 import type { Occurrence } from '../lib/calendar';
 import { loadLocal, saveLocal } from '../lib/storage';
@@ -519,7 +518,7 @@ function NotesPanel({ notes }: { notes: DashboardData['recentNotes'] }) {
 /** The board's gap, px — lives in the packer's math, not in CSS. */
 const BOARD_GAP = 20;
 
-function SortableWidget({
+function BoardWidget({
   slot,
   editing,
   box,
@@ -536,10 +535,10 @@ function SortableWidget({
   onHide: () => void;
   children: React.ReactNode;
 }) {
-  // No sorting strategy transforms here: they assume equal-sized items
-  // and stretch a 2-unit widget across an 8-unit slot mid-drag. The
-  // reorder happens on drop; until then the hovered target shows a ring.
-  const { attributes, listeners, setNodeRef, isDragging, isOver } = useSortable({
+  // Free placement: no sortable machinery, no drop targets. The widget is
+  // only a drag source; where it lands is pure pointer geometry computed
+  // in onDragMove, previewed by the dashed box, committed on drop.
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: slot.id,
     disabled: !editing,
   });
@@ -564,10 +563,7 @@ function SortableWidget({
       style={{ position: 'absolute', left: box.left, top: box.top, width: box.width }}
       className={isDragging ? 'opacity-40' : ''}
     >
-      <div
-        ref={innerRef}
-        className={`rounded-card ${editing && isOver && !isDragging ? 'ring-2 ring-accent' : ''}`}
-      >
+      <div ref={innerRef} className="rounded-card">
       {editing && (
         // The strip is the drag handle: the widget below is inert while
         // editing, so its links cannot swallow the gesture.
@@ -639,6 +635,11 @@ export function Dashboard() {
   );
   const [editing, setEditing] = useState(false);
   const [dragging, setDragging] = useState<WidgetId | null>(null);
+  // Where the dragged widget would land: the column under the pointer and
+  // the widget it would push down (null = bottom of the stack).
+  const [dropTarget, setDropTarget] = useState<{ col: number; beforeId: WidgetId | null } | null>(
+    null,
+  );
 
   // The packer needs the board's width and every widget's height; both
   // are observed, so the board re-packs itself on resize and as content
@@ -671,20 +672,6 @@ export function Dashboard() {
 
   function onDragStart(event: DragStartEvent) {
     setDragging(event.active.id as WidgetId);
-  }
-
-  // Reorder only on drop. A live reorder looked nicer but oscillated:
-  // moving a widget changes the geometry, a different widget lands under
-  // the pointer, the order flips back — an endless setState loop that
-  // froze the page. The hovered target shows a ring instead (isOver).
-  function onDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    setDragging(null);
-    if (!over || active.id === over.id) return;
-    const from = layout.findIndex((s) => s.id === active.id);
-    const to = layout.findIndex((s) => s.id === over.id);
-    if (from < 0 || to < 0) return;
-    updateLayout(arrayMove(layout, from, to));
   }
 
   useEffect(() => {
@@ -777,20 +764,88 @@ export function Dashboard() {
   );
   const hidden = layout.filter((s) => s.hidden);
 
+  const totalUnits = boardUnits(boardWidth);
+  const colWidth = totalUnits > 0 ? (boardWidth - (totalUnits - 1) * BOARD_GAP) / totalUnits : 0;
+
   // Recomputed every render on purpose: six items of pure arithmetic is
   // cheaper than getting a memo's dependency list wrong.
-  const packed = packBoard(
-    visible.map((s) => ({
+  const toPackItems = (slots: WidgetSlot[]) =>
+    slots.map((s) => ({
       id: s.id,
-      units: unitsFor(s.size, boardUnits(boardWidth)),
+      units: unitsFor(s.size, totalUnits),
+      col: s.col,
       // Before the first measurement any positive height keeps the
       // packer sane; one layout-effect later the real one arrives.
       height: heights[s.id] ?? 160,
-    })),
-    boardUnits(boardWidth),
-    boardWidth,
-    BOARD_GAP,
-  );
+    }));
+  const packed = packBoard(toPackItems(visible), totalUnits, boardWidth, BOARD_GAP);
+
+  /**
+   * Free drag: the drop spot is pure pointer geometry — the column under
+   * the dragged card and the widget whose place it takes in that column's
+   * stack. No drop zones, no collision detection: those were tried and
+   * either oscillated (live reorder) or overrode the person's intent
+   * (nearest-target rules).
+   */
+  function targetFrom(event: DragMoveEvent): { col: number; beforeId: WidgetId | null } | null {
+    const translated = event.active.rect.current.translated;
+    if (!boardEl || !translated) return null;
+    const rect = boardEl.getBoundingClientRect();
+    const slot = layout.find((s) => s.id === event.active.id);
+    if (!slot) return null;
+    const units = unitsFor(slot.size, totalUnits);
+    const x = translated.left - rect.left;
+    const y = translated.top - rect.top;
+    const col = Math.max(0, Math.min(Math.round(x / (colWidth + BOARD_GAP)), totalUnits - units));
+    // Who gets pushed down: the first widget in the target window whose
+    // middle lies below the dragged card's top edge.
+    const below = visible
+      .filter((s) => s.id !== slot.id)
+      .map((s) => ({ id: s.id, box: packed.boxes.get(s.id) }))
+      .filter((e): e is { id: WidgetId; box: PackedBox } => e.box !== undefined)
+      .filter(({ box }) => box.col < col + units && box.col + box.units > col)
+      .sort((a, b) => a.box.top - b.box.top)
+      .find(({ id, box }) => box.top + (heights[id] ?? 160) / 2 > y);
+    return { col, beforeId: below?.id ?? null };
+  }
+
+  function onDragMove(event: DragMoveEvent) {
+    const target = targetFrom(event);
+    setDropTarget((prev) =>
+      prev?.col === target?.col && prev?.beforeId === target?.beforeId ? prev : target,
+    );
+  }
+
+  /** The layout as it will be if the drag ends now. */
+  function layoutWithDrop(): WidgetSlot[] | null {
+    if (!dragging || !dropTarget) return null;
+    const active = layout.find((s) => s.id === dragging);
+    if (!active) return null;
+    const rest = layout.filter((s) => s.id !== dragging);
+    const moved = { ...active, col: dropTarget.col };
+    const at = dropTarget.beforeId ? rest.findIndex((s) => s.id === dropTarget.beforeId) : -1;
+    if (at < 0) rest.push(moved);
+    else rest.splice(at, 0, moved);
+    return rest;
+  }
+
+  function onDragEnd() {
+    const next = layoutWithDrop();
+    setDragging(null);
+    setDropTarget(null);
+    if (next) updateLayout(next);
+  }
+
+  // The dashed box previews the exact landing spot: the hypothetical
+  // layout is packed for real, so what you see is what you drop.
+  const dropPreview = (() => {
+    const next = layoutWithDrop();
+    if (!next || !dragging) return null;
+    const nextVisible = next.filter((s) => !s.hidden && (editing || content[s.id] !== null));
+    return packBoard(toPackItems(nextVisible), totalUnits, boardWidth, BOARD_GAP).boxes.get(
+      dragging,
+    );
+  })();
 
   return (
     <Page
@@ -830,46 +885,55 @@ export function Dashboard() {
 
         <DndContext
           sensors={sensors}
-          // pointerWithin: the drop target is the widget under the pointer,
-          // nothing else — closestCenter kept "helpfully" picking a far
-          // neighbour when the pointer was over empty board.
-          collisionDetection={pointerWithin}
           onDragStart={onDragStart}
+          onDragMove={onDragMove}
           onDragEnd={onDragEnd}
-          onDragCancel={() => setDragging(null)}
+          onDragCancel={() => {
+            setDragging(null);
+            setDropTarget(null);
+          }}
         >
-          <SortableContext items={visible.map((s) => s.id)} strategy={() => null}>
-            <div ref={setBoardEl} className="relative" style={{ height: packed.height }}>
-              {boardWidth > 0 &&
-                visible.map((slot) => {
-                  const box = packed.boxes.get(slot.id);
-                  if (!box) return null;
-                  return (
-                    <SortableWidget
-                      key={slot.id}
-                      slot={slot}
-                      editing={editing}
-                      box={box}
-                      onHeight={onHeight}
-                      onSize={(size) =>
-                        updateLayout(layout.map((s) => (s.id === slot.id ? { ...s, size } : s)))
-                      }
-                      onHide={() =>
-                        updateLayout(
-                          layout.map((s) => (s.id === slot.id ? { ...s, hidden: true } : s)),
-                        )
-                      }
-                    >
-                      {content[slot.id] ?? (
-                        <div className="rounded-card border border-dashed border-line px-4 py-6 text-center text-sm text-muted">
-                          {t('Nothing here yet.')}
-                        </div>
-                      )}
-                    </SortableWidget>
-                  );
-                })}
-            </div>
-          </SortableContext>
+          <div ref={setBoardEl} className="relative" style={{ height: packed.height }}>
+            {boardWidth > 0 &&
+              visible.map((slot) => {
+                const box = packed.boxes.get(slot.id);
+                if (!box) return null;
+                return (
+                  <BoardWidget
+                    key={slot.id}
+                    slot={slot}
+                    editing={editing}
+                    box={box}
+                    onHeight={onHeight}
+                    onSize={(size) =>
+                      updateLayout(layout.map((s) => (s.id === slot.id ? { ...s, size } : s)))
+                    }
+                    onHide={() =>
+                      updateLayout(
+                        layout.map((s) => (s.id === slot.id ? { ...s, hidden: true } : s)),
+                      )
+                    }
+                  >
+                    {content[slot.id] ?? (
+                      <div className="rounded-card border border-dashed border-line px-4 py-6 text-center text-sm text-muted">
+                        {t('Nothing here yet.')}
+                      </div>
+                    )}
+                  </BoardWidget>
+                );
+              })}
+            {dragging && dropPreview && (
+              <div
+                className="pointer-events-none absolute rounded-card border-2 border-dashed border-accent bg-accent/5"
+                style={{
+                  left: dropPreview.left,
+                  top: dropPreview.top,
+                  width: dropPreview.width,
+                  height: heights[dragging] ?? 160,
+                }}
+              />
+            )}
+          </div>
           <DragOverlay>
             {dragging && (
               <div className="flex items-center gap-2 rounded-card border border-line bg-surface px-3 py-1.5 shadow-md">

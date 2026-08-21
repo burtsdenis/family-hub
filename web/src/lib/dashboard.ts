@@ -2,10 +2,10 @@ import { t } from './i18n';
 
 /**
  * The dashboard is a board of widgets on an 8-unit grid: a size-2 widget
- * takes a quarter of the row, 4 a half, 8 the whole row. Order and sizes
- * are the person's own, per device — the kiosk in the hallway and the
- * phone in the pocket want different boards, so the layout lives in
- * localStorage, not in shared settings.
+ * takes a quarter of the row, 4 a half, 8 the whole row. Position, order
+ * and sizes are the person's own, per device — the kiosk in the hallway
+ * and the phone in the pocket want different boards, so the layout lives
+ * in localStorage, not in shared settings.
  */
 export type WidgetId = 'move' | 'agenda' | 'month' | 'money' | 'soon' | 'notes';
 
@@ -14,6 +14,12 @@ export type WidgetSize = 2 | 4 | 8;
 export interface WidgetSlot {
   id: WidgetId;
   size: WidgetSize;
+  /**
+   * The left board unit the widget is anchored to (0–7). Vertical
+   * position is not stored: gravity computes it from the list order,
+   * so removing a widget never leaves a floating hole.
+   */
+  col: number;
   hidden: boolean;
 }
 
@@ -27,12 +33,12 @@ export const WIDGET_DEFS: Record<WidgetId, { title: string; sizes: WidgetSize[] 
 };
 
 export const DEFAULT_LAYOUT: WidgetSlot[] = [
-  { id: 'move', size: 8, hidden: false },
-  { id: 'agenda', size: 4, hidden: false },
-  { id: 'month', size: 2, hidden: false },
-  { id: 'money', size: 2, hidden: false },
-  { id: 'soon', size: 2, hidden: false },
-  { id: 'notes', size: 2, hidden: false },
+  { id: 'move', size: 8, col: 0, hidden: false },
+  { id: 'agenda', size: 4, col: 0, hidden: false },
+  { id: 'month', size: 2, col: 4, hidden: false },
+  { id: 'money', size: 2, col: 6, hidden: false },
+  { id: 'soon', size: 2, col: 4, hidden: false },
+  { id: 'notes', size: 2, col: 6, hidden: false },
 ];
 
 export const LAYOUT_KEY = 'hub.dashboard.layout';
@@ -40,21 +46,26 @@ export const LAYOUT_KEY = 'hub.dashboard.layout';
 /**
  * Whatever localStorage holds becomes a valid layout: unknown widgets are
  * dropped, duplicates collapse into the first, a size outside the
- * widget's range snaps to its default, and widgets missing from the
- * stored list (added in a later release) are appended with defaults.
+ * widget's range snaps to its default, a missing or absurd column falls
+ * back to the default's, and widgets missing from the stored list (added
+ * in a later release) are appended with defaults.
  */
 export function normalizeLayout(raw: unknown): WidgetSlot[] {
   const out: WidgetSlot[] = [];
   if (Array.isArray(raw)) {
     for (const item of raw) {
       if (!item || typeof item !== 'object') continue;
-      const { id, size, hidden } = item as Partial<WidgetSlot>;
+      const { id, size, col, hidden } = item as Partial<WidgetSlot>;
       if (!id || !(id in WIDGET_DEFS) || out.some((s) => s.id === id)) continue;
       const def = WIDGET_DEFS[id];
-      const fallback = DEFAULT_LAYOUT.find((s) => s.id === id)!.size;
+      const fallback = DEFAULT_LAYOUT.find((s) => s.id === id)!;
       out.push({
         id,
-        size: def.sizes.includes(size as WidgetSize) ? (size as WidgetSize) : fallback,
+        size: def.sizes.includes(size as WidgetSize) ? (size as WidgetSize) : fallback.size,
+        col:
+          typeof col === 'number' && Number.isInteger(col) && col >= 0 && col < 8
+            ? col
+            : fallback.col,
         hidden: hidden === true,
       });
     }
@@ -71,6 +82,8 @@ export interface PackItem {
   id: WidgetId;
   /** Width in board units (already clamped to the board's unit count). */
   units: number;
+  /** The left unit the widget is anchored to; clamped to the board here. */
+  col: number;
   /** Measured content height, px. */
   height: number;
 }
@@ -79,22 +92,21 @@ export interface PackedBox {
   left: number;
   top: number;
   width: number;
+  /** The clamped column the box ended up at — drag math reads it back. */
+  col: number;
+  units: number;
 }
 
 /**
- * The board's own packer. CSS dense placement was tried and lost: it is
- * greedy per item with no concept of a row, so column tops drifted apart
- * by whatever the content heights differed, and visible holes appeared
- * that no drag could fill.
+ * Gravity for explicitly placed widgets. Automatic packing (CSS dense,
+ * then a skyline with heuristics) was tried and lost: any inference rule
+ * eventually fights the person's intent. Now the column is the person's
+ * choice, stored per widget; the packer only does what physics would:
  *
- * The rules, applied in user order:
- * - a widget first tries to stack right under the previous one — the
- *   order reads as columns: "agenda, month, under it soon" — as long as
- *   that column has not yet caught up with the board's tallest one;
- * - otherwise it opens a new spot: the shallowest column window that
- *   fits its width (leftmost wins a tie), so space fills, not pools;
- * - bottoms within `snap` px of a deeper neighbour are pulled down to it,
- *   so the next band starts on one shared line and tops read as a row;
+ * - each widget falls straight up its column window until it rests on
+ *   whatever is already there (list order = stacking order);
+ * - bottoms within `snap` px of a deeper neighbour count as one line, so
+ *   the widgets resting on them start level and tops read as a row;
  * - the gap is part of the placement, not a CSS property.
  *
  * Pure math in, boxes out — testable without a browser.
@@ -114,47 +126,26 @@ export function packBoard(
   const lines: number[] = [];
   const boxes = new Map<WidgetId, PackedBox>();
 
-  let prevCol: number | null = null;
-
   for (const item of items) {
     const units = Math.max(1, Math.min(item.units, totalUnits));
-    let bestCol = -1;
-    let bestTop = Infinity;
+    const col = Math.max(0, Math.min(item.col, totalUnits - units));
 
-    // Stack under the previous widget while its column is still shorter
-    // than the board's tallest — that is what "put it under the month"
-    // means, even when an emptier column exists further right.
-    if (prevCol !== null && prevCol + units <= totalUnits) {
-      const top = Math.max(...depths.slice(prevCol, prevCol + units));
-      if (top < Math.max(...depths)) {
-        bestCol = prevCol;
-        bestTop = top;
-      }
-    }
-
-    if (bestCol < 0) {
-      for (let col = 0; col + units <= totalUnits; col++) {
-        const raw = Math.max(...depths.slice(col, col + units));
-        // Snap to the deepest line within reach — widgets whose neighbours
-        // above ended a few px lower still start on the same band line.
-        let top = raw;
-        for (const line of lines) if (line > top && line <= raw + snap) top = line;
-        if (top < bestTop - 0.5) {
-          bestTop = top;
-          bestCol = col;
-        }
-      }
-    }
+    const raw = Math.max(...depths.slice(col, col + units));
+    // Snap to the deepest line within reach — widgets whose neighbours
+    // above ended a few px lower still start on the same band line.
+    let top = raw;
+    for (const line of lines) if (line > top && line <= raw + snap) top = line;
 
     boxes.set(item.id, {
-      left: bestCol * (colWidth + gap),
-      top: bestTop,
+      left: col * (colWidth + gap),
+      top,
       width: units * colWidth + (units - 1) * gap,
+      col,
+      units,
     });
-    const bottom = bestTop + item.height + gap;
+    const bottom = top + item.height + gap;
     lines.push(bottom);
-    for (let col = bestCol; col < bestCol + units; col++) depths[col] = bottom;
-    prevCol = bestCol;
+    for (let c = col; c < col + units; c++) depths[c] = bottom;
   }
 
   const deepest = Math.max(0, ...depths);
