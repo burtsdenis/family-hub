@@ -105,8 +105,16 @@ npm run release            # what would happen, and nothing else
 npm run release -- minor   # patch | minor | major
 ```
 
-It refuses anything but a clean master that matches origin, then tags and pushes. Nothing is committed — deliberately: master takes pull requests only, and a version bump living in a file would mean a pull request and a CI wait every single day, which is how a daily ritual stops happening.
+It refuses anything but a clean master that matches origin, then tags, pushes, and writes the release page. Nothing is committed — deliberately: master takes pull requests only, and a version bump living in a file would mean a pull request and a CI wait every single day, which is how a daily ritual stops happening.
 
-Pushing the tag starts `release.yml`, which publishes the multi-arch image to GHCR and moves `latest`. That is what self-hosters install, so a long gap between tags means the `docker pull` in the README hands people something much older than the repository — the reason to keep the cadence tight rather than the reason to skip it.
+Pushing the tag starts `release.yml`, which publishes the multi-arch image to GHCR and moves `latest` (6–9 minutes, most of it arm64 under emulation). That image is what self-hosters install, so a long gap between tags means the `docker pull` in the README hands people something much older than the repository — the reason to keep the cadence tight rather than the reason to skip it.
+
+The page matters as much as the tag: the README's badge points at it, and a bare tag tells a visitor nothing. GitHub composes the notes from merged pull requests by default — the honest floor for a release nobody is going to write an essay about. A release that earns the essay gets one:
+
+```bash
+npm run release -- minor --title "v1.1.0 — the board you arrange" --notes notes.md
+```
+
+What a written page is for is visible in [v1.0.0](https://github.com/burtsdenis/family-hub/releases/tag/v1.0.0): what the release means in a paragraph, a section per headline feature, and an **Upgrading** block naming the migrations that will run and the exact image to pull.
 
 A hand-rolled `docker build` should pass both arguments; without them the interface falls back to the manifest version and prints no commit.
