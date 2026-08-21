@@ -20,6 +20,36 @@ interface Props {
   size?: number;
 }
 
+/**
+ * Splits a formatted money string into the currency unit and the number,
+ * for the two-line centre label. Null means "one line, do not split".
+ *
+ * The trap this guards (a production regression): the split used to cut
+ * at the FIRST whitespace, which is the currency boundary only in
+ * code-first locales ("RSD 378,264.09"). Russian formats the code LAST
+ * and separates thousands with the very same non-breaking space —
+ * "378\u00a0264,09\u00a0RSD" — so the first-space cut produced "378" over
+ * "264,09 RSD". The boundary cannot be told apart by the character; it
+ * can by the content: the unit is the non-numeric token, and it sits at
+ * whichever end the locale put it.
+ */
+export function splitCenterLabel(label: string): { unit: string; amount: string } | null {
+  const first = label.search(/\s/);
+  if (first === -1) return null;
+  const startsWithUnit = /^[^\d]/.test(label);
+  const endsWithUnit = /[^\d.,]$/.test(label);
+  if (startsWithUnit && !endsWithUnit) {
+    return { unit: label.slice(0, first), amount: label.slice(first + 1) };
+  }
+  if (endsWithUnit && !startsWithUnit) {
+    const last = label.length - 1 - [...label].reverse().join('').search(/\s/);
+    return { unit: label.slice(last + 1), amount: label.slice(0, last) };
+  }
+  // No unit to peel off (or one at both ends — nothing sane to do):
+  // keep the single line rather than guess
+  return null;
+}
+
 export function DonutChart({ segments, centerLabel, size = 132 }: Props) {
   const total = segments.reduce((sum, s) => sum + s.value, 0);
   if (total <= 0) return null;
@@ -77,10 +107,8 @@ export function DonutChart({ segments, centerLabel, size = 132 }: Props) {
           const hole = size - 2 * stroke;
           const fitted = (text: string, base: number) =>
             Math.min(base, (hole * 0.92) / (Math.max(text.length, 1) * 0.62));
-          // formatMoney separates code and amount with a non-breaking
-          // space — match any whitespace, not the plain one
-          const space = centerLabel.search(/\s/);
-          if (space === -1) {
+          const parts = splitCenterLabel(centerLabel);
+          if (!parts) {
             return (
               <text
                 x="50%"
@@ -94,8 +122,7 @@ export function DonutChart({ segments, centerLabel, size = 132 }: Props) {
               </text>
             );
           }
-          const unit = centerLabel.slice(0, space);
-          const amount = centerLabel.slice(space + 1);
+          const { unit, amount } = parts;
           const amountSize = fitted(amount, size * 0.095);
           return (
             <>
