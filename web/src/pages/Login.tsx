@@ -1,10 +1,27 @@
 import { lang, setLang, t } from '../lib/i18n';
+import { ISSUES_URL, REPO_URL } from '../lib/build';
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { onEnter } from '../lib/keys';
 
-function Frame({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
+/*
+  The sign-in screen is the one page a stranger can reach, so its footer
+  carries where-to-go and nothing else: no version, no build. The health
+  endpoint already refuses to tell the public internet which version this
+  is, and a line under the login box would have undone that.
+*/
+function Frame({
+  title,
+  hint,
+  note,
+  children,
+}: {
+  title: string;
+  hint: string;
+  note?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-surface-2 px-5">
       <div className="w-full max-w-sm">
@@ -16,15 +33,36 @@ function Frame({ title, hint, children }: { title: string; hint: string; childre
           <h1 className="eyebrow mb-5">{title}</h1>
           {children}
         </div>
-        <p className="mt-4 text-center text-xs text-muted">
-          <button
-            type="button"
-            onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
-            className="underline decoration-line underline-offset-2 hover:text-ink"
-          >
-            {lang === 'ru' ? 'English' : 'Русский'}
-          </button>
-        </p>
+        <div className="mt-4 space-y-2 text-center text-xs text-muted">
+          {note}
+          <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+            <button
+              type="button"
+              onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+              className="underline decoration-line underline-offset-2 hover:text-ink"
+            >
+              {lang === 'ru' ? 'English' : 'Русский'}
+            </button>
+            <span aria-hidden>·</span>
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-line underline-offset-2 hover:text-ink"
+            >
+              {t('Source code')}
+            </a>
+            <span aria-hidden>·</span>
+            <a
+              href={ISSUES_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-line underline-offset-2 hover:text-ink"
+            >
+              {t('Report a bug')}
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -128,7 +166,23 @@ export function Login() {
   // Demo: no password, the server hands everyone a personal sandbox at the press of a button
   if (demo) {
     return (
-      <Frame title={t('Demo')} hint={t('Family hub')}>
+      <Frame
+      title={t('Demo')}
+      hint={t('Family hub')}
+      note={
+        <p>
+          {t('Run your own: one Docker container, the data stays at home.')}{' '}
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline decoration-line underline-offset-2 hover:opacity-80"
+          >
+            {t('Get it on GitHub')}
+          </a>
+        </p>
+      }
+    >
         <p className="mb-5 text-sm text-muted">
           {t('This is a demo with sample data: you get your own private copy, so touch anything you like. After a couple idle hours it vanishes without a trace.')}
         </p>

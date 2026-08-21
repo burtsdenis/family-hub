@@ -46,7 +46,7 @@ jobs:
       - run: npm test
 
       - name: Build image
-        run: docker build -t family-hub:prod .
+        run: docker build --build-arg BUILD_SHA=${{ github.sha }} -t family-hub:prod .
 
       - name: SSH key and server address
         run: |

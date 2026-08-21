@@ -87,3 +87,11 @@ Deploying a public demo next to a production hub: [deploy-vps.md](deploy-vps.md)
 The frontend is a PWA: a service worker precaches the app shell and answers GET API reads NetworkFirst — fresh when online, the last snapshot when not. Nothing external is involved (the strict CSP allows no third-party scripts); workbox is bundled and self-hosted. Auth is uncached except the single `auth/me` read, without which an offline reload would strand the person on the sign-in screen; signing out — or any 401 — deletes the offline caches, so cached family data never outlives a session.
 
 The same worker solves the long-lived-tab problem: a kiosk that stays open for weeks runs whatever bundle it started with, because a SPA re-reads `index.html` only on full navigation. A deploy now produces a waiting worker, the client shows a "hub was updated" toast, and a tab idle for 15+ minutes reloads itself. The demo never registers the worker: sandboxes are per-visitor, browser caches are not.
+
+### Which build is running
+
+Settings → About and the foot of the sidebar name the version and the commit the bundle was built from. The version comes from the root `package.json` at build time; the commit arrives as the `BUILD_SHA` Docker build argument, because `.dockerignore` keeps `.git` out of the image. A build from source shows the version alone — a dev bundle has no commit worth quoting.
+
+Both are visible only behind the sign-in screen. `/api/health` withholds the version from the public internet deliberately, and a line under the login box would have handed it to every scanner instead.
+
+Two things follow for whoever cuts a release: bump the version in all three `package.json` files along with the tag, or the interface will keep announcing the previous one — and keep `--build-arg BUILD_SHA=…` on any hand-rolled `docker build`, or the commit line simply disappears.

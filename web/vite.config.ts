@@ -1,9 +1,27 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+/*
+  What the About block and the sidebar show. The version is the product's
+  own (the root manifest, bumped with the release tag); BUILD_SHA arrives
+  as a Docker build argument, because .git never enters the image.
+
+  Running from source leaves the commit empty and only the version shows —
+  a dev build has no commit worth quoting.
+*/
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+  version: string;
+};
+const BUILD_SHA = (process.env.BUILD_SHA ?? '').slice(0, 7);
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_SHA__: JSON.stringify(BUILD_SHA),
+  },
   plugins: [
     react(),
     tailwindcss(),
