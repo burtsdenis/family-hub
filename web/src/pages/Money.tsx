@@ -305,8 +305,17 @@ export function Money() {
               <section key={group.currency}>
                 <div className="mb-2 flex items-baseline justify-between">
                   <h2 className="eyebrow">{group.currency}</h2>
-                  <span className="font-display text-lg font-semibold text-ink">
-                    {formatMoney(group.total, group.currency)}
+                  <span className="flex items-baseline gap-3">
+                    {/* Set-aside money stays visible but out of the headline:
+                        the big number is what can actually be spent (#69) */}
+                    {group.saved > 0 && (
+                      <span className="text-xs text-muted">
+                        {formatMoney(group.saved, group.currency)} {t('set aside')}
+                      </span>
+                    )}
+                    <span className="font-display text-lg font-semibold text-ink">
+                      {formatMoney(group.total, group.currency)}
+                    </span>
                   </span>
                 </div>
 

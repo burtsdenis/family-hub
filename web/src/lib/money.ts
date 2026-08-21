@@ -203,8 +203,20 @@ export function monthBounds(anchor: string): { from: string; to: string } {
   return { from, to: last.toISOString().slice(0, 10) };
 }
 
-/** Accounts grouped by currency: no grand total without an exchange rate. */
-export function groupByCurrency(accounts: Account[]): { currency: string; total: number; items: Account[] }[] {
+/**
+ * Accounts grouped by currency: no grand total without an exchange rate.
+ *
+ * The headline total is what the family can actually spend, so a piggy
+ * bank does not count towards it (#69): money set aside is not money
+ * available, and adding it in overstated the number at the top of the
+ * Money page. The set-aside sum is returned separately rather than
+ * hidden — savings should stay visible, just not spendable. A savings
+ * account itself keeps behaving like any account: balance, transfers,
+ * reconciliation are untouched.
+ */
+export function groupByCurrency(
+  accounts: Account[],
+): { currency: string; total: number; saved: number; items: Account[] }[] {
   const map = new Map<string, Account[]>();
   for (const a of accounts) {
     const list = map.get(a.currency) ?? [];
@@ -214,7 +226,8 @@ export function groupByCurrency(accounts: Account[]): { currency: string; total:
   return [...map.entries()]
     .map(([currency, items]) => ({
       currency,
-      total: items.reduce((sum, a) => sum + a.balance, 0),
+      total: items.filter((a) => a.kind !== 'savings').reduce((sum, a) => sum + a.balance, 0),
+      saved: items.filter((a) => a.kind === 'savings').reduce((sum, a) => sum + a.balance, 0),
       items,
     }))
     .sort((a, b) => b.total - a.total);
