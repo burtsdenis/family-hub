@@ -194,6 +194,22 @@ describe('the public link', () => {
     expect(ownView).not.toHaveProperty('claimed_by_name');
   });
 
+  it('the link survives a reload: self and admin can re-copy, a plain member cannot', async () => {
+    // Fresh GETs, as after a page reload — no state carried from creation
+    const own = await hub.as(kateCookie, 'GET', `/api/profiles/${kateId}`);
+    expect(own.json<{ wishlist_share_path: string }>().wishlist_share_path).toBe(`/wish/${token}`);
+    const admin = await hub.as(aliceCookie, 'GET', `/api/profiles/${kateId}`);
+    expect(admin.json<{ wishlist_share_path: string }>().wishlist_share_path).toBe(`/wish/${token}`);
+    // A plain member (bob is an admin by harness design) does not manage
+    // Kate's sharing — they get the fact a link exists, never the link
+    const mia = joinMember('mia');
+    const plain = await hub.as(mia.cookie, 'GET', `/api/profiles/${kateId}`);
+    expect(plain.json<{ wishlist_shared: boolean; wishlist_share_path: string | null }>()).toMatchObject({
+      wishlist_shared: true,
+      wishlist_share_path: null,
+    });
+  });
+
   it('a wrong token is 404, a revoked link dies', async () => {
     const wrong = await hub.app.inject({ method: 'GET', url: '/api/wishlist/definitely-not-a-token-1234' });
     expect(wrong.statusCode).toBe(404);
