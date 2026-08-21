@@ -24,6 +24,7 @@ import { registerAuthRoutes } from './routes/auth.js';
 import { registerGoogleRoutes } from './routes/google.js';
 import { registerSetupRoutes } from './routes/setup.js';
 import { registerUserRoutes } from './routes/users.js';
+import { registerProfileRoutes, registerPublicWishlistRoutes } from './routes/profiles.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerTaskRoutes } from './routes/tasks.js';
 import { registerNoteRoutes } from './routes/notes.js';
@@ -238,6 +239,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerGoogleRoutes(app);
   await registerSetupRoutes(app);
   await registerUserRoutes(app);
+  await registerProfileRoutes(app);
+  await registerPublicWishlistRoutes(app);
   await registerProjectRoutes(app);
   await registerTaskRoutes(app);
   await registerNoteRoutes(app);

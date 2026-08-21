@@ -10,6 +10,8 @@ import { Calendar } from './pages/Calendar';
 import { Settings } from './pages/Settings';
 import { Money } from './pages/Money';
 import { Mail } from './pages/Mail';
+import { Family, FamilyProfile } from './pages/Family';
+import { PublicWishlist } from './pages/PublicWishlist';
 
 function Gate() {
   const { user, loading, mustChangePassword } = useAuth();
@@ -29,6 +31,8 @@ function Gate() {
         <Route path="notes" element={<Notes />} />
         <Route path="money" element={<Money />} />
         <Route path="mail" element={<Mail />} />
+        <Route path="family" element={<Family />} />
+        <Route path="family/:userId" element={<FamilyProfile />} />
         <Route path="settings" element={<Settings />} />
         {/* People management moved into Settings; old bookmarks land there */}
         <Route path="users" element={<Navigate to="/settings" replace />} />
@@ -42,7 +46,12 @@ export function App() {
     <BrowserRouter>
       <AuthProvider>
         <DialogProvider>
-          <Gate />
+          <Routes>
+            {/* The guest wishlist lives OUTSIDE the auth gate: it is the
+                hub's only page for people without an account (#68) */}
+            <Route path="/wish/:token" element={<PublicWishlist />} />
+            <Route path="*" element={<Gate />} />
+          </Routes>
         </DialogProvider>
       </AuthProvider>
     </BrowserRouter>
