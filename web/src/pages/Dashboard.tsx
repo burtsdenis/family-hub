@@ -1,16 +1,15 @@
 import { t } from '../lib/i18n';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   DndContext,
   DragOverlay,
-  MeasuringStrategy,
   PointerSensor,
   TouchSensor,
-  closestCenter,
+  pointerWithin,
   useSensor,
   useSensors,
-  type DragOverEvent,
+  type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
@@ -524,6 +523,19 @@ const SPAN: Record<WidgetSize, string> = {
   8: 'md:col-span-4 xl:col-span-8',
 };
 
+/*
+  The vertical axis of the board is real, not one-row-per-widget: grid
+  rows are 4px tracks and every widget spans as many as its measured
+  height needs (the masonry emulation — CSS has no native one). Without
+  this a row is as tall as its tallest widget, and everything next to a
+  tall agenda floats on a lake of dead space no drag can fill.
+
+  The gap is baked into the span instead of row-gap: leftover span space
+  IS the gap, varying by at most ROW_UNIT-1 px — invisible at 4px.
+*/
+const ROW_UNIT = 4;
+const ROW_GAP = 20; // matches the board's gap-x-5
+
 function SortableWidget({
   slot,
   editing,
@@ -538,20 +550,39 @@ function SortableWidget({
   children: React.ReactNode;
 }) {
   // No sorting strategy transforms here: they assume equal-sized items
-  // and stretch a 2-unit widget across an 8-unit slot mid-drag. Instead
-  // the real array is reordered on dragOver and the grid reflows with
-  // true widths; the element under the pointer just dims.
-  const { attributes, listeners, setNodeRef, isDragging } = useSortable({
+  // and stretch a 2-unit widget across an 8-unit slot mid-drag. The
+  // reorder happens on drop; until then the hovered target shows a ring.
+  const { attributes, listeners, setNodeRef, isDragging, isOver } = useSortable({
     id: slot.id,
     disabled: !editing,
   });
   const def = WIDGET_DEFS[slot.id];
 
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [span, setSpan] = useState(1);
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    const measure = () =>
+      setSpan(Math.max(1, Math.ceil((el.offsetHeight + ROW_GAP) / ROW_UNIT)));
+    measure();
+    // Content height is alive: the agenda grows as the week fills,
+    // the edit strip appears and disappears.
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div
       ref={setNodeRef}
+      style={{ gridRowEnd: `span ${span}` }}
       className={`${SPAN[slot.size]} ${isDragging ? 'opacity-40' : ''}`}
     >
+      <div
+        ref={innerRef}
+        className={`rounded-card ${editing && isOver && !isDragging ? 'ring-2 ring-accent' : ''}`}
+      >
       {editing && (
         // The strip is the drag handle: the widget below is inert while
         // editing, so its links cannot swallow the gesture.
@@ -607,6 +638,7 @@ function SortableWidget({
         </div>
       )}
       <div className={editing ? 'pointer-events-none select-none' : ''}>{children}</div>
+      </div>
     </div>
   );
 }
@@ -637,15 +669,17 @@ export function Dashboard() {
     setDragging(event.active.id as WidgetId);
   }
 
-  // Reordering happens live, on every hover over a sibling: the grid
-  // reflows with the widgets' real spans, which is the whole preview.
-  // dragEnd only has to drop the ghost.
-  function onDragOver(event: DragOverEvent) {
+  // Reorder only on drop. A live reorder looked nicer but oscillated:
+  // moving a widget changes the geometry, a different widget lands under
+  // the pointer, the order flips back — an endless setState loop that
+  // froze the page. The hovered target shows a ring instead (isOver).
+  function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
+    setDragging(null);
     if (!over || active.id === over.id) return;
     const from = layout.findIndex((s) => s.id === active.id);
     const to = layout.findIndex((s) => s.id === over.id);
-    if (from < 0 || to < 0 || from === to) return;
+    if (from < 0 || to < 0) return;
     updateLayout(arrayMove(layout, from, to));
   }
 
@@ -775,19 +809,21 @@ export function Dashboard() {
 
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
-          // Live reordering moves the droppables around — their rects must
-          // be re-measured mid-drag or collisions hit stale positions.
-          measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+          // pointerWithin: the drop target is the widget under the pointer,
+          // nothing else — closestCenter kept "helpfully" picking a far
+          // neighbour when the pointer was over empty board.
+          collisionDetection={pointerWithin}
           onDragStart={onDragStart}
-          onDragOver={onDragOver}
-          onDragEnd={() => setDragging(null)}
+          onDragEnd={onDragEnd}
           onDragCancel={() => setDragging(null)}
         >
           <SortableContext items={visible.map((s) => s.id)} strategy={() => null}>
-            {/* dense: a widget that fits an earlier hole moves up into it,
-                so a 2-unit gap in a row does not stay a dead spot */}
-            <div className="grid grid-flow-dense grid-cols-1 items-start gap-5 md:grid-cols-4 xl:grid-cols-8">
+            {/* dense: anything that fits an earlier hole moves up into it —
+                horizontally and, thanks to the row-span masonry, vertically */}
+            <div
+              className="grid grid-flow-dense grid-cols-1 gap-x-5 md:grid-cols-4 xl:grid-cols-8"
+              style={{ gridAutoRows: `${ROW_UNIT}px` }}
+            >
               {visible.map((slot) => {
                 const node = content[slot.id];
                 if (!editing && node === null) return null;
