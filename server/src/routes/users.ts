@@ -23,8 +23,13 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
   // recovery, not creation.
 
   app.patch('/api/users/:id', (req, reply) => {
-    if (!requireAdmin(req, reply)) return;
     const { id: userId } = z.object({ id: z.string().uuid() }).parse(req.params);
+    // Name and colour are personal identity, not system management: a
+    // member edits their own, the administrator can edit anyone's (a kid
+    // without a device is set up by the parent). This route accepts
+    // nothing else — role and the disable switch have their own
+    // admin-only endpoints, so self-service here widens nothing. (#64)
+    if (req.user?.id !== userId && !requireAdmin(req, reply)) return;
     const parsed = z
       .object({
         name: z.string().min(1).max(100).optional(),
