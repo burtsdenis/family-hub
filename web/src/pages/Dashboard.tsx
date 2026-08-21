@@ -175,7 +175,7 @@ function QuickActions() {
   );
 }
 
-/** A group divider inside the agenda: «Сегодня · 21 августа», «Просрочено»… */
+/** A group divider inside the agenda: "Today · 21 August", "Overdue"… */
 function GroupHeader({
   label,
   date,
@@ -221,7 +221,7 @@ function Agenda({
   const nothingToday = data.dueToday.length === 0 && data.todayEvents.length === 0;
 
   return (
-    <section className="self-start overflow-hidden rounded-card border border-line bg-surface">
+    <section className="overflow-hidden rounded-card border border-line bg-surface">
       {data.overdue.length > 0 && (
         <>
           <GroupHeader label={t('Overdue')} count={data.overdue.length} alarm />
@@ -564,61 +564,61 @@ function BoardWidget({
       className={isDragging ? 'opacity-40' : ''}
     >
       <div ref={innerRef} className="rounded-card">
-      {editing && (
-        // The strip is the drag handle: the widget below is inert while
-        // editing, so its links cannot swallow the gesture.
-        <div
-          className="mb-2 flex cursor-grab touch-none items-center gap-2 rounded-card border border-dashed border-line bg-surface-2 px-3 py-1.5 active:cursor-grabbing"
-          {...attributes}
-          {...listeners}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="size-4 shrink-0 text-muted"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
+        {editing && (
+          // The strip is the drag handle: the widget below is inert while
+          // editing, so its links cannot swallow the gesture.
+          <div
+            className="mb-2 flex cursor-grab touch-none items-center gap-2 rounded-card border border-dashed border-line bg-surface-2 px-3 py-1.5 active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
           >
-            <path d="M4 9h16M4 15h16" />
-          </svg>
-          <span className="eyebrow">{def.title}</span>
-          <span className="ml-auto flex items-center gap-1">
-            {def.sizes.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => onSize(s)}
-                title={`${s}/8`}
-                className={`rounded px-1.5 py-0.5 font-mono text-xs tabular-nums transition-colors ${
-                  s === slot.size ? 'bg-accent text-white' : 'text-muted hover:bg-surface-3'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={onHide}
-              aria-label={t('Hide')}
-              className="ml-1 rounded p-1 text-muted transition-colors hover:bg-surface-3 hover:text-ink"
+            <svg
+              viewBox="0 0 24 24"
+              className="size-4 shrink-0 text-muted"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
             >
-              <svg
-                viewBox="0 0 24 24"
-                className="size-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <path d="M4 9h16M4 15h16" />
+            </svg>
+            <span className="eyebrow">{def.title}</span>
+            <span className="ml-auto flex items-center gap-1">
+              {def.sizes.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => onSize(s)}
+                  title={`${s}/8`}
+                  className={`rounded px-1.5 py-0.5 font-mono text-xs tabular-nums transition-colors ${
+                    s === slot.size ? 'bg-accent text-white' : 'text-muted hover:bg-surface-3'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={onHide}
+                aria-label={t('Hide')}
+                className="ml-1 rounded p-1 text-muted transition-colors hover:bg-surface-3 hover:text-ink"
               >
-                <path d="M3 3l18 18M10.6 5.1A9.8 9.8 0 0 1 12 5c7 0 10 7 10 7a17.4 17.4 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3 7 10 7c1.4 0 2.7-.3 3.8-.8" />
-              </svg>
-            </button>
-          </span>
-        </div>
-      )}
-      <div className={editing ? 'pointer-events-none select-none' : ''}>{children}</div>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="size-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 3l18 18M10.6 5.1A9.8 9.8 0 0 1 12 5c7 0 10 7 10 7a17.4 17.4 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3 7 10 7c1.4 0 2.7-.3 3.8-.8" />
+                </svg>
+              </button>
+            </span>
+          </div>
+        )}
+        <div className={editing ? 'pointer-events-none select-none' : ''}>{children}</div>
       </div>
     </div>
   );
@@ -769,13 +769,14 @@ export function Dashboard() {
     notes: <NotesPanel notes={data.recentNotes} />,
   };
 
-  const visible = layout.filter(
-    (s) => !s.hidden && (editing || content[s.id] !== null),
-  );
+  // On the board: not hidden, and either it has something to show or the
+  // board is being edited (an empty widget must stay arrangeable).
+  const onBoard = (s: WidgetSlot) => !s.hidden && (editing || content[s.id] !== null);
+  const visible = layout.filter(onBoard);
   const hidden = layout.filter((s) => s.hidden);
 
   const totalUnits = boardUnits(boardWidth);
-  const colWidth = totalUnits > 0 ? (boardWidth - (totalUnits - 1) * BOARD_GAP) / totalUnits : 0;
+  const colWidth = (boardWidth - (totalUnits - 1) * BOARD_GAP) / totalUnits;
 
   // Recomputed every render on purpose: six items of pure arithmetic is
   // cheaper than getting a memo's dependency list wrong.
@@ -851,8 +852,7 @@ export function Dashboard() {
   const dropPreview = (() => {
     const next = layoutWithDrop();
     if (!next || !dragging) return null;
-    const nextVisible = next.filter((s) => !s.hidden && (editing || content[s.id] !== null));
-    return packBoard(toPackItems(nextVisible), totalUnits, boardWidth, BOARD_GAP).boxes.get(
+    return packBoard(toPackItems(next.filter(onBoard)), totalUnits, boardWidth, BOARD_GAP).boxes.get(
       dragging,
     );
   })();
