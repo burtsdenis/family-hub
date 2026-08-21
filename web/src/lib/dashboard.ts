@@ -87,9 +87,12 @@ export interface PackedBox {
  * by whatever the content heights differed, and visible holes appeared
  * that no drag could fill.
  *
- * The rules are three, in user order:
- * - a widget goes into the shallowest column window that fits its width
- *   (leftmost wins a tie), so space fills instead of pooling;
+ * The rules, applied in user order:
+ * - a widget first tries to stack right under the previous one — the
+ *   order reads as columns: "agenda, month, under it soon" — as long as
+ *   that column has not yet caught up with the board's tallest one;
+ * - otherwise it opens a new spot: the shallowest column window that
+ *   fits its width (leftmost wins a tie), so space fills, not pools;
  * - bottoms within `snap` px of a deeper neighbour are pulled down to it,
  *   so the next band starts on one shared line and tops read as a row;
  * - the gap is part of the placement, not a CSS property.
@@ -111,21 +114,38 @@ export function packBoard(
   const lines: number[] = [];
   const boxes = new Map<WidgetId, PackedBox>();
 
+  let prevCol: number | null = null;
+
   for (const item of items) {
     const units = Math.max(1, Math.min(item.units, totalUnits));
-    let bestCol = 0;
+    let bestCol = -1;
     let bestTop = Infinity;
-    for (let col = 0; col + units <= totalUnits; col++) {
-      const raw = Math.max(...depths.slice(col, col + units));
-      // Snap to the deepest line within reach — widgets whose neighbours
-      // above ended a few px lower still start on the same band line.
-      let top = raw;
-      for (const line of lines) if (line > top && line <= raw + snap) top = line;
-      if (top < bestTop - 0.5) {
+
+    // Stack under the previous widget while its column is still shorter
+    // than the board's tallest — that is what "put it under the month"
+    // means, even when an emptier column exists further right.
+    if (prevCol !== null && prevCol + units <= totalUnits) {
+      const top = Math.max(...depths.slice(prevCol, prevCol + units));
+      if (top < Math.max(...depths)) {
+        bestCol = prevCol;
         bestTop = top;
-        bestCol = col;
       }
     }
+
+    if (bestCol < 0) {
+      for (let col = 0; col + units <= totalUnits; col++) {
+        const raw = Math.max(...depths.slice(col, col + units));
+        // Snap to the deepest line within reach — widgets whose neighbours
+        // above ended a few px lower still start on the same band line.
+        let top = raw;
+        for (const line of lines) if (line > top && line <= raw + snap) top = line;
+        if (top < bestTop - 0.5) {
+          bestTop = top;
+          bestCol = col;
+        }
+      }
+    }
+
     boxes.set(item.id, {
       left: bestCol * (colWidth + gap),
       top: bestTop,
@@ -134,6 +154,7 @@ export function packBoard(
     const bottom = bestTop + item.height + gap;
     lines.push(bottom);
     for (let col = bestCol; col < bestCol + units; col++) depths[col] = bottom;
+    prevCol = bestCol;
   }
 
   const deepest = Math.max(0, ...depths);

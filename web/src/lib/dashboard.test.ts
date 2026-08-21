@@ -66,8 +66,25 @@ describe('packBoard', () => {
   });
 
   it('snaps near-equal bottoms so the next band starts on one line', () => {
-    // Heights differ by less than the snap window — the widgets below
-    // must all start at the deepest of the three bottoms.
+    // Heights differ by less than the snap window — the band below must
+    // start at the deepest of the three bottoms.
+    const { boxes } = pack([
+      { id: 'move', units: 4, height: 215 },
+      { id: 'money', units: 2, height: 230 },
+      { id: 'notes', units: 2, height: 225 },
+      { id: 'agenda', units: 4, height: 500 },
+      { id: 'month', units: 2, height: 280 },
+    ]);
+    const band = 230 + 20;
+    expect(boxes.get('agenda')!.top).toBe(band);
+    expect(boxes.get('month')!.top).toBe(band);
+  });
+
+  it('stacks a widget under the previous one while the anchor column is taller', () => {
+    // The order is the column: month right of the tall agenda, soon
+    // directly under the month — even though the column further right
+    // (under notes) is emptier. This is what dragging "under the month"
+    // means; a shallowest-first rule would steal the widget to the right.
     const { boxes } = pack([
       { id: 'move', units: 4, height: 215 },
       { id: 'money', units: 2, height: 230 },
@@ -76,27 +93,29 @@ describe('packBoard', () => {
       { id: 'month', units: 2, height: 280 },
       { id: 'soon', units: 2, height: 90 },
     ]);
-    const band = 230 + 20;
-    expect(boxes.get('agenda')!.top).toBe(band);
-    expect(boxes.get('month')!.top).toBe(band);
-    expect(boxes.get('soon')!.top).toBe(band);
+    expect(boxes.get('soon')!.left).toBe(boxes.get('month')!.left);
+    expect(boxes.get('soon')!.top).toBe(250 + 280 + 20);
   });
 
-  it('packs a later widget under a short one instead of below the tall band', () => {
-    // agenda is tall on the left; month and soon fill the right side and
-    // soon lands beside/under them, never floating past the agenda.
+  it('keeps stacking one column until it catches the tall anchor, then opens a new one', () => {
     const { boxes, height } = pack([
       { id: 'agenda', units: 4, height: 700 },
       { id: 'month', units: 2, height: 280 },
       { id: 'soon', units: 2, height: 90 },
       { id: 'money', units: 2, height: 180 },
+      { id: 'notes', units: 2, height: 300 },
     ]);
+    // month opens the column beside the agenda; soon and money follow it
     expect(boxes.get('month')!.top).toBe(0);
-    expect(boxes.get('soon')!.top).toBe(0);
-    // money goes under soon (shallowest column), not below the agenda
-    expect(boxes.get('money')!.top).toBe(90 + 20);
-    expect(boxes.get('money')!.left).toBe(boxes.get('soon')!.left);
-    expect(height).toBe(700);
+    expect(boxes.get('soon')!.top).toBe(300);
+    expect(boxes.get('money')!.top).toBe(410);
+    expect(boxes.get('soon')!.left).toBe(boxes.get('month')!.left);
+    expect(boxes.get('money')!.left).toBe(boxes.get('month')!.left);
+    // the column has now reached 610+? no: money bottom 410+180+20=610 <
+    // 720, notes would make it 930 — still stacks (the check is the top,
+    // not the bottom), and the board grows with it
+    expect(boxes.get('notes')!.left).toBe(boxes.get('month')!.left);
+    expect(height).toBe(610 + 300);
   });
 
   it('a widget wider than what remains goes below the shallowest columns', () => {
