@@ -324,12 +324,15 @@ export function AppShell() {
               and this is the cheapest way to tell those apart — and the two
               links worth having within reach. Settings → About repeats it
               for phones, where this sidebar does not exist. */}
-          <div className="px-2 font-mono text-[0.625rem] text-muted">
-            <p title={BUILD_SHA ? `${VERSION} · ${BUILD_SHA}` : VERSION}>
+          <div className="px-2 text-muted">
+            <p
+              className="font-mono text-xs"
+              title={BUILD_SHA ? `${VERSION} · ${BUILD_SHA}` : VERSION}
+            >
               v{VERSION}
               {BUILD_SHA && <span className="ml-1.5 opacity-70">{BUILD_SHA}</span>}
             </p>
-            <span className="mt-1 flex flex-col items-start gap-0.5">
+            <span className="mt-1.5 flex flex-col items-start gap-1 text-sm">
               <a
                 href={REPO_URL}
                 target="_blank"
