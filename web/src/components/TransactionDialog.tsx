@@ -11,6 +11,7 @@ import {
 } from './Dialog';
 import { onEnter } from '../lib/keys';
 import { clearBlankOnBlur } from '../lib/forms';
+import { CategoryChips } from './CategoryChips';
 import { shrinkAll } from '../lib/image';
 import {
   TX_KIND_LABEL,
@@ -302,31 +303,12 @@ export function TransactionDialog({
                 {t('No categories of this kind yet — create them on the Money page.')}
               </p>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {visibleCategories.map(({ category: c, depth }) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    data-chip
-                    onClick={() =>
-                      setDraft({ ...draft, category_id: draft.category_id === c.id ? '' : c.id })
-                    }
-                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                      draft.category_id === c.id
-                        ? 'border-accent bg-accent-soft text-accent'
-                        : 'border-line text-muted hover:text-ink'
-                    }`}
-                  >
-                    <span
-                      className="size-2 rounded-full"
-                      style={{ backgroundColor: c.color }}
-                      aria-hidden
-                    />
-                    {depth === 1 && <span aria-hidden>↳</span>}
-                    {c.name}
-                  </button>
-                ))}
-              </div>
+              <CategoryChips
+                categories={categories}
+                kind={kind}
+                value={draft.category_id}
+                onChange={(id) => setDraft({ ...draft, category_id: id })}
+              />
             )}
           </div>
         )}

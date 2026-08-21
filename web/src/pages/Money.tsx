@@ -7,6 +7,7 @@ import { EntityDialog, PALETTE } from '../components/EntityDialog';
 import { TransactionDialog } from '../components/TransactionDialog';
 import { Empty, Page } from '../components/Page';
 import { BudgetsPanel } from '../components/BudgetsPanel';
+import { CategoryChips } from '../components/CategoryChips';
 import { DonutChart } from '../components/DonutChart';
 import { DuePanel, RecurringPanel, type DueItem } from '../components/RecurringPanel';
 import { onEnter } from '../lib/keys';
@@ -136,7 +137,6 @@ export function Money() {
     setParams({}, { replace: true });
   }, [params, setParams]);
 
-  const expenseCategories = orderCategories(categories, 'expense');
   const groups = useMemo(() => groupByCurrency(accounts ?? []), [accounts]);
 
   async function quickAdd() {
@@ -427,31 +427,24 @@ export function Money() {
               </button>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {expenseCategories.map(({ category: c, depth }) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setQuickCategory(quickCategory === c.id ? '' : c.id)}
-                  className={`${chip} flex items-center gap-2 ${
-                    quickCategory === c.id ? chipOn : chipOff
-                  }`}
-                >
-                  <span className="size-2 rounded-full" style={{ backgroundColor: c.color }} aria-hidden />
-                  {depth === 1 && <span aria-hidden>↳</span>}
-                  {c.name}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setCategoryParent('');
-                  setCreatingCategoryKind('expense');
-                }}
-                className={`${chip} border-dashed border-line text-muted hover:text-ink`}
+            <div className="mt-3">
+              <CategoryChips
+                categories={categories}
+                kind="expense"
+                value={quickCategory}
+                onChange={setQuickCategory}
               >
-                {t('+ category')}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryParent('');
+                    setCreatingCategoryKind('expense');
+                  }}
+                  className={`${chip} border-dashed border-line text-muted hover:text-ink`}
+                >
+                  {t('+ category')}
+                </button>
+              </CategoryChips>
             </div>
             <p className="mt-2 text-xs text-muted">
               {t('The date is today. For a transfer, income or another date use the “Transaction” button.')}
