@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react';
 import { api, type HouseholdMember, type Project } from '../lib/api';
 import { REMIND_OPTIONS, calendarName, type Calendar, type Occurrence } from '../lib/calendar';
 import { RECURRENCE_OPTIONS } from '../lib/tasks';
-import { dialogKeys, onEnter } from '../lib/keys';
+import { onEnter } from '../lib/keys';
 import { clearBlankOnBlur } from '../lib/forms';
 import { timeOf } from '../lib/format';
-import { useDialogs } from './Dialog';
+import { dialogGhost, Modal, useDialogs } from './Dialog';
 
 const field =
   'w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent';
@@ -75,16 +75,6 @@ export function EventDialog({
       .catch(() => {});
   }, [occurrence]);
 
-  // No dependency list: the subscription is refreshed on every render,
-  // so save always sees the current draft
-  useEffect(() => {
-    const onKey = dialogKeys(() => {
-      if (!busy) void save();
-    }, onClose);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
-
   function payload() {
     return {
       calendar_id: draft.calendar_id,
@@ -145,18 +135,60 @@ export function EventDialog({
     onClose();
   }
 
+  /*
+    Through Modal, like every other dialog (#84): the hand-rolled shell
+    here is where the dialog defects kept landing — no way to close a new
+    event on a phone (#83), no scroll lock (#71). Cancel comes with the
+    footer convention; the inline onSubmit closure re-subscribes Modal's
+    key handler every render, so save always sees the current draft —
+    exactly what the old no-dependency-list effect did.
+  */
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto px-5 py-12">
-      <button
-        type="button"
-        aria-label={t('Close')}
-        onClick={onClose}
-        className="fixed inset-0 bg-black/40"
-      />
+    <Modal
+      title={editing ? t('Event') : t('New event')}
+      width="max-w-lg"
+      onClose={onClose}
+      onSubmit={() => {
+        if (!busy) void save();
+      }}
+      footer={
+        <div className="flex w-full flex-wrap items-center gap-3">
+          {editing && occurrence.is_recurring && (
+            <button
+              type="button"
+              onClick={() => void removeOne()}
+              className="text-sm text-muted underline underline-offset-2 hover:text-ink"
+            >
+              {t('Skip this occurrence')}
+            </button>
+          )}
+          {editing && (
+            <button
+              type="button"
+              onClick={() => void removeAll()}
+              className="text-sm text-muted underline underline-offset-2 hover:text-urgent"
+            >
+              {occurrence.is_recurring ? t('Delete series') : t('Delete')}
+            </button>
+          )}
 
-      <div className="relative w-full max-w-lg rounded-card border border-line bg-surface p-5 shadow-xl">
-        <h2 className="eyebrow mb-4">{editing ? t('Event') : t('New event')}</h2>
-
+          {/* The always-present way out (#83): on a phone the backdrop
+              shrinks to slivers once the panel scrolls, and a new event
+              used to leave Save alone in this row */}
+          <button type="button" onClick={onClose} className={`ml-auto ${dialogGhost}`}>
+            {t('Cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={busy}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? t('Saving') : t('Save')}
+          </button>
+        </div>
+      }
+    >
         <div className="space-y-4">
           <label className="block">
             <span className={label}>{t('Title')}</span>
@@ -335,6 +367,7 @@ export function EventDialog({
                     <button
                       key={m.id}
                       type="button"
+                      data-chip
                       onClick={() =>
                         setDraft({
                           ...draft,
@@ -367,37 +400,6 @@ export function EventDialog({
 
           {error && <p className="text-sm text-urgent">{error}</p>}
         </div>
-
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          {editing && occurrence.is_recurring && (
-            <button
-              type="button"
-              onClick={() => void removeOne()}
-              className="text-sm text-muted underline underline-offset-2 hover:text-ink"
-            >
-              {t('Skip this occurrence')}
-            </button>
-          )}
-          {editing && (
-            <button
-              type="button"
-              onClick={() => void removeAll()}
-              className="text-sm text-muted underline underline-offset-2 hover:text-urgent"
-            >
-              {occurrence.is_recurring ? t('Delete series') : t('Delete')}
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={busy}
-            className="ml-auto rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-          >
-            {busy ? t('Saving') : t('Save')}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

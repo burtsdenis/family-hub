@@ -1,5 +1,17 @@
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
+
+/*
+  Any validation failure without an authored message falls back to zod's
+  own vocabulary — "Required", "Invalid", "Invalid email" — which the
+  client cannot translate: it translates server strings by exact match
+  against a dictionary of authored sentences. The app's forms rarely hit
+  these (fields initialise to '' and always send the key), but the API
+  surface does, and so will the first form that omits a key. One error
+  map catches all ~100 unauthored field definitions at once; messages
+  written at the schema (.min(1, '…')) still win over it. (#86)
+*/
+z.setErrorMap(() => ({ message: 'Check the fields' }));
 import fastifyStatic from '@fastify/static';
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';

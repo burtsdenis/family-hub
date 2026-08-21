@@ -1,4 +1,4 @@
-import { t } from '../lib/i18n';
+import { intlLocale, t } from '../lib/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -7,7 +7,6 @@ import { onEnter } from '../lib/keys';
 import { clearBlankOnBlur } from '../lib/forms';
 import { formatStamp } from '../lib/format';
 import { useLatest } from '../lib/latest';
-import { today } from '../lib/tasks';
 import { Empty, Page } from '../components/Page';
 import { Editor, type UploadedFile } from '../components/Editor';
 import { EntityDialog } from '../components/EntityDialog';
@@ -240,7 +239,9 @@ export function Notes() {
       folder_id:
         folderId && folderId !== 'none' && folderId !== 'templates' ? folderId : null,
       ...(inTemplates ? { is_template: true } : {}),
-      ...(templateId ? { template_id: templateId } : {}),
+      // The locale rides along only where placeholders expand — the server
+      // formats {{date}}/{{time}} in the interface language (#47)
+      ...(templateId ? { template_id: templateId, locale: intlLocale } : {}),
     });
     await loadNotes();
     if (inTemplates) await loadTemplates();
@@ -255,25 +256,6 @@ export function Notes() {
     setNote({ ...note, is_template: next ? 1 : 0 });
     await loadNotes();
     await loadTemplates();
-  }
-
-  async function openDaily() {
-    const date = today();
-    try {
-      const daily = await api.get<Note>(`/notes/daily/${date}`);
-      await openNote(daily.id);
-    } catch {
-      // The daily template is looked up by its title in the data, not by
-      // the UI language: 'Day' on fresh DBs, 'День' on pre-translation ones
-      const template = templates.find((tpl) => tpl.title === 'Day' || tpl.title === 'День');
-      const created = await api.post<Note>('/notes', {
-        daily_date: date,
-        title: date,
-        ...(template ? { template_id: template.id } : {}),
-      });
-      await loadNotes();
-      await openNote(created.id);
-    }
   }
 
   const reloadFolders = useCallback(async () => {
@@ -409,13 +391,10 @@ export function Notes() {
       eyebrow={t('Things to remember')}
       action={
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void openDaily()}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-muted hover:text-ink"
-          >
-            {t('Today')}
-          </button>
+          {/* The "Today" daily-note button lived here; removed in #77 —
+              the label read as a filter, the household does not use daily
+              notes, and it looked like a duplicate of the Day template
+              chip. The daily_date machinery stays in the schema, dormant. */}
           <button
             type="button"
             onClick={() => void createNote()}
