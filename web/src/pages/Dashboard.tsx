@@ -966,7 +966,9 @@ export function Dashboard() {
           </DragOverlay>
         </DndContext>
 
-        {editing && hidden.length > 0 && (
+        {/* Always present while editing: a button that only appears once
+            something can be added is a button nobody finds. */}
+        {editing && (
           <div className="rounded-card border border-dashed border-line">
             {!adding ? (
               <button
@@ -986,7 +988,7 @@ export function Dashboard() {
                 </svg>
                 {t('Add widget')}
               </button>
-            ) : (
+            ) : hidden.length > 0 ? (
               <div className="flex flex-wrap items-center gap-2 px-4 py-3">
                 {hidden.map((slot) => (
                   <button
@@ -999,6 +1001,10 @@ export function Dashboard() {
                   </button>
                 ))}
               </div>
+            ) : (
+              <p className="px-4 py-3 text-center text-sm text-muted">
+                {t('All widgets are already on the board.')}
+              </p>
             )}
           </div>
         )}

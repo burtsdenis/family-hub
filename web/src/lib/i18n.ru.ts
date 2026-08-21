@@ -118,6 +118,7 @@ export const ru: Record<string, string> = {
   'All assignees': 'Все исполнители',
   'all day': 'весь день',
   'All day': 'Весь день',
+  'All widgets are already on the board.': 'Все виджеты уже на доске.',
   'All projects': 'Все проекты',
   'Amount': 'Сумма',
   'Amount in euros': 'Сумма в евро',
