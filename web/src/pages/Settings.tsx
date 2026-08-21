@@ -1,4 +1,5 @@
 import { lang, setLang, t } from '../lib/i18n';
+import { BUILD_SHA, ISSUES_URL, REPO_URL, VERSION } from '../lib/build';
 import { formatStamp, setWeekStart, weekStart } from '../lib/format';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
@@ -649,6 +650,32 @@ export function Settings() {
           </p>
         </section>
       )}
+
+      <section className="mb-5 break-inside-avoid rounded-card border border-line bg-surface p-5">
+        <h2 className="eyebrow mb-4">{t('About')}</h2>
+        <p className="font-mono text-sm text-ink">Family Hub v{VERSION}</p>
+        {BUILD_SHA && (
+          <p className="mt-1 font-mono text-xs text-muted">{t('Build {sha}', { sha: BUILD_SHA })}</p>
+        )}
+        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline decoration-line underline-offset-2 hover:opacity-80"
+          >
+            {t('Source code')}
+          </a>
+          <a
+            href={ISSUES_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline decoration-line underline-offset-2 hover:opacity-80"
+          >
+            {t('Report a bug')}
+          </a>
+        </div>
+      </section>
 
       </div>
 

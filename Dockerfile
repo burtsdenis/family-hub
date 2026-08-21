@@ -12,6 +12,12 @@ COPY web/package.json ./web/
 RUN npm ci
 
 COPY . .
+
+# The About block quotes the commit it was built from — the fastest answer
+# to "did my update actually land". .dockerignore keeps .git out, so the
+# value has to be handed in.
+ARG BUILD_SHA=""
+ENV BUILD_SHA=$BUILD_SHA
 RUN npm run build
 
 RUN npm prune --omit=dev

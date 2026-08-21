@@ -1,4 +1,5 @@
 import { t } from '../lib/i18n';
+import { BUILD_SHA, VERSION } from '../lib/build';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../lib/auth';
@@ -318,6 +319,17 @@ export function AppShell() {
           <div className="px-2">
             <SignOutButton onClick={() => void logout()} />
           </div>
+          {/* Which build is on screen. A stale bundle in a long-lived tab
+              looks exactly like a fix that never deployed — this is the
+              cheapest way to tell those apart. Settings → About has the
+              same line with the links. */}
+          <p
+            className="px-2 font-mono text-[0.625rem] text-muted"
+            title={BUILD_SHA ? `${VERSION} · ${BUILD_SHA}` : VERSION}
+          >
+            v{VERSION}
+            {BUILD_SHA && <span className="ml-1.5 opacity-70">{BUILD_SHA}</span>}
+          </p>
         </div>
       </aside>
 

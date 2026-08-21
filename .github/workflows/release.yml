@@ -38,6 +38,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
+          build-args: BUILD_SHA=${{ github.sha }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
