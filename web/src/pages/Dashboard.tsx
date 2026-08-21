@@ -3,17 +3,20 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   DndContext,
+  DragOverlay,
+  MeasuringStrategy,
   PointerSensor,
   TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
-  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
-import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { api, ApiError, type Dashboard as DashboardData, type Task } from '../lib/api';
-import { loadLocal, saveLocal, type Occurrence } from '../lib/calendar';
+import type { Occurrence } from '../lib/calendar';
+import { loadLocal, saveLocal } from '../lib/storage';
 import {
   DEFAULT_LAYOUT,
   LAYOUT_KEY,
@@ -534,7 +537,11 @@ function SortableWidget({
   onHide: () => void;
   children: React.ReactNode;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  // No sorting strategy transforms here: they assume equal-sized items
+  // and stretch a 2-unit widget across an 8-unit slot mid-drag. Instead
+  // the real array is reordered on dragOver and the grid reflows with
+  // true widths; the element under the pointer just dims.
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({
     id: slot.id,
     disabled: !editing,
   });
@@ -543,8 +550,7 @@ function SortableWidget({
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`${SPAN[slot.size]} ${isDragging ? 'relative z-10 opacity-40' : ''}`}
+      className={`${SPAN[slot.size]} ${isDragging ? 'opacity-40' : ''}`}
     >
       {editing && (
         // The strip is the drag handle: the widget below is inert while
@@ -615,6 +621,7 @@ export function Dashboard() {
     normalizeLayout(loadLocal<unknown>(LAYOUT_KEY, null)),
   );
   const [editing, setEditing] = useState(false);
+  const [dragging, setDragging] = useState<WidgetId | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -626,12 +633,19 @@ export function Dashboard() {
     saveLocal(LAYOUT_KEY, next);
   }
 
-  function onDragEnd(event: DragEndEvent) {
+  function onDragStart(event: DragStartEvent) {
+    setDragging(event.active.id as WidgetId);
+  }
+
+  // Reordering happens live, on every hover over a sibling: the grid
+  // reflows with the widgets' real spans, which is the whole preview.
+  // dragEnd only has to drop the ghost.
+  function onDragOver(event: DragOverEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const from = layout.findIndex((s) => s.id === active.id);
     const to = layout.findIndex((s) => s.id === over.id);
-    if (from < 0 || to < 0) return;
+    if (from < 0 || to < 0 || from === to) return;
     updateLayout(arrayMove(layout, from, to));
   }
 
@@ -759,9 +773,21 @@ export function Dashboard() {
       <div className="space-y-5">
         <QuickActions />
 
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-          <SortableContext items={visible.map((s) => s.id)} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-4 xl:grid-cols-8">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          // Live reordering moves the droppables around — their rects must
+          // be re-measured mid-drag or collisions hit stale positions.
+          measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragEnd={() => setDragging(null)}
+          onDragCancel={() => setDragging(null)}
+        >
+          <SortableContext items={visible.map((s) => s.id)} strategy={() => null}>
+            {/* dense: a widget that fits an earlier hole moves up into it,
+                so a 2-unit gap in a row does not stay a dead spot */}
+            <div className="grid grid-flow-dense grid-cols-1 items-start gap-5 md:grid-cols-4 xl:grid-cols-8">
               {visible.map((slot) => {
                 const node = content[slot.id];
                 if (!editing && node === null) return null;
@@ -789,6 +815,23 @@ export function Dashboard() {
               })}
             </div>
           </SortableContext>
+          <DragOverlay>
+            {dragging && (
+              <div className="flex items-center gap-2 rounded-card border border-line bg-surface px-3 py-1.5 shadow-md">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="size-4 shrink-0 text-muted"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                >
+                  <path d="M4 9h16M4 15h16" />
+                </svg>
+                <span className="eyebrow">{WIDGET_DEFS[dragging].title}</span>
+              </div>
+            )}
+          </DragOverlay>
         </DndContext>
 
         {editing && hidden.length > 0 && (
