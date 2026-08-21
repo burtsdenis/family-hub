@@ -10,7 +10,12 @@
   and a Mac already has one. Set CHROME to point elsewhere.
 
     DEMO_MODE=true DATA_DIR=~/.family-hub-demo npm run dev   # in one terminal
-    node scripts/screenshots.mjs                             # in another
+    npm run screenshots                                      # in another
+
+  BASE_URL points it at any demo, including the deployed one — which is
+  what to use after a release, so the images show what actually shipped:
+
+    BASE_URL=https://demo.zgmndv.com npm run screenshots
 
   Both themes are written when --both is passed; by default only the dark
   one, which is what the README uses.
@@ -36,6 +41,17 @@ const SCALE = 2;
  */
 const SHOTS = [
   { name: 'dashboard', path: '/' },
+  {
+    name: 'dashboard-customize',
+    path: '/',
+    // The board's edit mode: drag handles, width switches, hide buttons —
+    // the part prose explains worst. Entering it persists nothing, so the
+    // screens shot after this one are unaffected.
+    async prepare(page) {
+      await page.getByRole('button', { name: /customize/i }).click();
+      await page.waitForTimeout(300);
+    },
+  },
   { name: 'tasks', path: '/tasks' },
   { name: 'calendar', path: '/calendar' },
   { name: 'money', path: '/money' },
