@@ -1,8 +1,28 @@
 import { t } from '../lib/i18n';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { api, ApiError, type Dashboard as DashboardData, type Task } from '../lib/api';
-import type { Occurrence } from '../lib/calendar';
+import { loadLocal, saveLocal, type Occurrence } from '../lib/calendar';
+import {
+  DEFAULT_LAYOUT,
+  LAYOUT_KEY,
+  WIDGET_DEFS,
+  normalizeLayout,
+  type WidgetId,
+  type WidgetSize,
+  type WidgetSlot,
+} from '../lib/dashboard';
 import {
   WEEKDAYS_SHORT,
   addDays,
@@ -442,12 +462,178 @@ function SidePanel({
   );
 }
 
+function SoonPanel({ items }: { items: Occurrence[] }) {
+  return (
+    <SidePanel title={t('Soon')} count={items.length}>
+      <ul>
+        {items.map((o) => (
+          <li key={o.id} className="border-b border-line last:border-0">
+            <Link
+              to={`/calendar?date=${o.date}`}
+              className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-2"
+            >
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={{ backgroundColor: o.calendar_color }}
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate text-sm text-ink">{o.title}</span>
+              <span className="font-mono text-xs text-urgent">{formatDate(o.date)}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </SidePanel>
+  );
+}
+
+function NotesPanel({ notes }: { notes: DashboardData['recentNotes'] }) {
+  return (
+    <SidePanel title={t('Recent notes')}>
+      {notes.length === 0 ? (
+        <p className="px-4 pb-3 text-sm text-muted">{t('No notes yet.')}</p>
+      ) : (
+        <ul>
+          {notes.map((n) => (
+            <li key={n.id} className="border-b border-line last:border-0">
+              <Link
+                to={`/notes?open=${n.id}`}
+                className="block truncate px-4 py-2.5 text-sm text-ink transition-colors hover:bg-surface-2"
+              >
+                {n.title}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SidePanel>
+  );
+}
+
+/**
+ * Column spans for the 8-unit board. On md the board narrows to 4 units:
+ * a half-row widget becomes a full row, a quarter a half. On phones the
+ * grid is a single column and sizes stop mattering — only order does.
+ */
+const SPAN: Record<WidgetSize, string> = {
+  2: 'md:col-span-2',
+  4: 'md:col-span-4',
+  8: 'md:col-span-4 xl:col-span-8',
+};
+
+function SortableWidget({
+  slot,
+  editing,
+  onSize,
+  onHide,
+  children,
+}: {
+  slot: WidgetSlot;
+  editing: boolean;
+  onSize: (size: WidgetSize) => void;
+  onHide: () => void;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: slot.id,
+    disabled: !editing,
+  });
+  const def = WIDGET_DEFS[slot.id];
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`${SPAN[slot.size]} ${isDragging ? 'relative z-10 opacity-40' : ''}`}
+    >
+      {editing && (
+        // The strip is the drag handle: the widget below is inert while
+        // editing, so its links cannot swallow the gesture.
+        <div
+          className="mb-2 flex cursor-grab touch-none items-center gap-2 rounded-card border border-dashed border-line bg-surface-2 px-3 py-1.5 active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="size-4 shrink-0 text-muted"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          >
+            <path d="M4 9h16M4 15h16" />
+          </svg>
+          <span className="eyebrow">{def.title}</span>
+          <span className="ml-auto flex items-center gap-1">
+            {def.sizes.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onSize(s)}
+                title={`${s}/8`}
+                className={`rounded px-1.5 py-0.5 font-mono text-xs tabular-nums transition-colors ${
+                  s === slot.size ? 'bg-accent text-white' : 'text-muted hover:bg-surface-3'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={onHide}
+              aria-label={t('Hide')}
+              className="ml-1 rounded p-1 text-muted transition-colors hover:bg-surface-3 hover:text-ink"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="size-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 3l18 18M10.6 5.1A9.8 9.8 0 0 1 12 5c7 0 10 7 10 7a17.4 17.4 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3 7 10 7c1.4 0 2.7-.3 3.8-.8" />
+              </svg>
+            </button>
+          </span>
+        </div>
+      )}
+      <div className={editing ? 'pointer-events-none select-none' : ''}>{children}</div>
+    </div>
+  );
+}
+
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [monthEvents, setMonthEvents] = useState<Occurrence[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [layout, setLayout] = useState<WidgetSlot[]>(() =>
+    normalizeLayout(loadLocal<unknown>(LAYOUT_KEY, null)),
+  );
+  const [editing, setEditing] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
+  );
+
+  function updateLayout(next: WidgetSlot[]) {
+    setLayout(next);
+    saveLocal(LAYOUT_KEY, next);
+  }
+
+  function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const from = layout.findIndex((s) => s.id === active.id);
+    const to = layout.findIndex((s) => s.id === over.id);
+    if (from < 0 || to < 0) return;
+    updateLayout(arrayMove(layout, from, to));
+  }
 
   useEffect(() => {
     let alive = true;
@@ -514,74 +700,114 @@ export function Dashboard() {
     );
   }
 
+  const soon = data.reminders.filter((o) => o.date > addDays(data.today, 7));
+
+  // A widget with nothing to say renders nothing — unless the board is
+  // being edited: then every widget must be visible to be arrangeable.
+  const content: Record<WidgetId, React.ReactNode | null> = {
+    move: (
+      <MoveBoard
+        settings={data.settings}
+        onChange={(patch) =>
+          setData((d) => (d ? { ...d, settings: { ...d.settings, ...patch } } : d))
+        }
+      />
+    ),
+    agenda: <Agenda data={data} monthEvents={monthEvents} today={data.today} />,
+    month: <MiniMonth today={data.today} occurrences={monthEvents} />,
+    money: summary ? <MoneyMonth summary={summary} categories={categories} /> : null,
+    soon: soon.length > 0 ? <SoonPanel items={soon} /> : null,
+    notes: <NotesPanel notes={data.recentNotes} />,
+  };
+
+  const visible = layout.filter((s) => !s.hidden);
+  const hidden = layout.filter((s) => s.hidden);
+
   return (
-    <Page title={t('Today')} eyebrow={formatDate(data.today)}>
+    <Page
+      title={t('Today')}
+      eyebrow={formatDate(data.today)}
+      action={
+        editing ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => updateLayout(DEFAULT_LAYOUT.map((s) => ({ ...s })))}
+              className="rounded-md border border-line px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink"
+            >
+              {t('Reset')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+            >
+              {t('Done')}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="rounded-md border border-line px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink"
+          >
+            {t('Customize')}
+          </button>
+        )
+      }
+    >
       <div className="space-y-5">
         <QuickActions />
 
-        <MoveBoard
-          settings={data.settings}
-          onChange={(patch) =>
-            setData((d) => (d ? { ...d, settings: { ...d.settings, ...patch } } : d))
-          }
-        />
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={visible.map((s) => s.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-4 xl:grid-cols-8">
+              {visible.map((slot) => {
+                const node = content[slot.id];
+                if (!editing && node === null) return null;
+                return (
+                  <SortableWidget
+                    key={slot.id}
+                    slot={slot}
+                    editing={editing}
+                    onSize={(size) =>
+                      updateLayout(layout.map((s) => (s.id === slot.id ? { ...s, size } : s)))
+                    }
+                    onHide={() =>
+                      updateLayout(
+                        layout.map((s) => (s.id === slot.id ? { ...s, hidden: true } : s)),
+                      )
+                    }
+                  >
+                    {node ?? (
+                      <div className="rounded-card border border-dashed border-line px-4 py-6 text-center text-sm text-muted">
+                        {t('Nothing here yet.')}
+                      </div>
+                    )}
+                  </SortableWidget>
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
 
-        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-          <Agenda data={data} monthEvents={monthEvents} today={data.today} />
-
-          <div className="space-y-5">
-            <MiniMonth today={data.today} occurrences={monthEvents} />
-
-            {summary && <MoneyMonth summary={summary} categories={categories} />}
-
-            {data.reminders.filter((o) => o.date > addDays(data.today, 7)).length > 0 && (
-              <SidePanel
-                title={t('Soon')}
-                count={data.reminders.filter((o) => o.date > addDays(data.today, 7)).length}
+        {editing && hidden.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="eyebrow">{t('Hidden')}</span>
+            {hidden.map((slot) => (
+              <button
+                key={slot.id}
+                type="button"
+                onClick={() =>
+                  updateLayout(layout.map((s) => (s.id === slot.id ? { ...s, hidden: false } : s)))
+                }
+                className="rounded-full border border-line bg-surface px-3 py-1 text-xs text-muted transition-colors hover:text-ink"
               >
-                <ul>
-                  {data.reminders
-                    .filter((o) => o.date > addDays(data.today, 7))
-                    .map((o) => (
-                      <li key={o.id} className="border-b border-line last:border-0">
-                        <Link
-                          to={`/calendar?date=${o.date}`}
-                          className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-2"
-                        >
-                          <span
-                            className="size-2 shrink-0 rounded-full"
-                            style={{ backgroundColor: o.calendar_color }}
-                            aria-hidden
-                          />
-                          <span className="min-w-0 flex-1 truncate text-sm text-ink">{o.title}</span>
-                          <span className="font-mono text-xs text-urgent">{formatDate(o.date)}</span>
-                        </Link>
-                      </li>
-                    ))}
-                </ul>
-              </SidePanel>
-            )}
-
-            <SidePanel title={t('Recent notes')}>
-              {data.recentNotes.length === 0 ? (
-                <p className="px-4 pb-3 text-sm text-muted">{t('No notes yet.')}</p>
-              ) : (
-                <ul>
-                  {data.recentNotes.map((n) => (
-                    <li key={n.id} className="border-b border-line last:border-0">
-                      <Link
-                        to={`/notes?open=${n.id}`}
-                        className="block truncate px-4 py-2.5 text-sm text-ink transition-colors hover:bg-surface-2"
-                      >
-                        {n.title}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </SidePanel>
+                + {WIDGET_DEFS[slot.id].title}
+              </button>
+            ))}
           </div>
-        </div>
+        )}
       </div>
     </Page>
   );
