@@ -23,6 +23,7 @@ import {
   orderCategories,
   parseAmount,
   type Account,
+  type AccountKind,
   type Category,
   type Summary,
   type Transaction,
@@ -58,6 +59,15 @@ export function Money() {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [newCurrency, setNewCurrency] = useState('EUR');
+  /*
+    Account kind, for both dialogs. Separate state for the same reason the
+    currency and the category parent are: EntityDialog is generic and knows
+    nothing about accounts. Until now neither dialog sent `kind` at all, so
+    every account created in the interface was a card and a piggy bank was
+    reachable only by calling the API by hand.
+  */
+  const [newKind, setNewKind] = useState<AccountKind>('card');
+  const [editKind, setEditKind] = useState<AccountKind>('card');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [creatingCategoryKind, setCreatingCategoryKind] = useState<'expense' | 'income' | null>(
     null,
@@ -344,7 +354,10 @@ export function Money() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => setEditingAccount(a)}
+                            onClick={() => {
+                              setEditKind(a.kind);
+                              setEditingAccount(a);
+                            }}
                             aria-label={t('Configure account {name}', { name: a.name })}
                             className="text-muted opacity-60 hover:opacity-100"
                           >
@@ -863,6 +876,7 @@ export function Money() {
             await api.post('/accounts', {
               name: draft.name,
               currency: newCurrency,
+              kind: newKind,
               color: draft.color,
               shared: !draft.flag,
             });
@@ -870,6 +884,31 @@ export function Money() {
           }}
           onClose={() => setCreatingAccount(false)}
         >
+          <div className="mb-3">
+            <span className="mb-1.5 block text-sm font-medium text-ink">{t('Kind')}</span>
+            <div className="flex flex-wrap gap-2">
+              {(['card', 'cash', 'savings'] as AccountKind[]).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  data-chip
+                  onClick={() => setNewKind(k)}
+                  className={`${chip} ${newKind === k ? chipOn : chipOff}`}
+                >
+                  {ACCOUNT_KIND_LABEL[k]}
+                </button>
+              ))}
+            </div>
+            {/* Says what the choice changes — otherwise "Piggy bank" reads as
+                decoration rather than as the thing that keeps it out of the
+                spendable total */}
+            {newKind === 'savings' && (
+              <p className="mt-1.5 text-xs text-muted">
+                {t('Money here is set aside: it stays out of the spendable total.')}
+              </p>
+            )}
+          </div>
+
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-ink">{t('Currency')}</span>
             <div className="flex flex-wrap gap-2">
@@ -910,6 +949,7 @@ export function Money() {
           onSave={async (draft) => {
             await api.patch(`/accounts/${editingAccount.id}`, {
               name: draft.name,
+              kind: editKind,
               color: draft.color,
               shared: !draft.flag,
             });
@@ -924,7 +964,32 @@ export function Money() {
             await load();
           }}
           onClose={() => setEditingAccount(null)}
-        />
+        >
+          {/* Editable after the fact on purpose: a card becomes the holiday
+              stash months later, and the alternative is deleting an account
+              that already carries history */}
+          <div>
+            <span className="mb-1.5 block text-sm font-medium text-ink">{t('Kind')}</span>
+            <div className="flex flex-wrap gap-2">
+              {(['card', 'cash', 'savings'] as AccountKind[]).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  data-chip
+                  onClick={() => setEditKind(k)}
+                  className={`${chip} ${editKind === k ? chipOn : chipOff}`}
+                >
+                  {ACCOUNT_KIND_LABEL[k]}
+                </button>
+              ))}
+            </div>
+            {editKind === 'savings' && (
+              <p className="mt-1.5 text-xs text-muted">
+                {t('Money here is set aside: it stays out of the spendable total.')}
+              </p>
+            )}
+          </div>
+        </EntityDialog>
       )}
 
       {creatingCategoryKind && (
