@@ -104,60 +104,90 @@ const chipOff = 'border-line text-muted hover:text-ink';
 const field =
   'rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent';
 
-// ── The family list ─────────────────────────────────────────────────────
+// ── The screen: who we are, and one of us ───────────────────────────────
+
+function MemberCard({ member, active }: { member: Member; active: boolean }) {
+  return (
+    <Link
+      to={`/family/${member.id}`}
+      className={`block rounded-card border bg-surface p-4 transition-colors ${
+        active ? 'border-accent' : 'border-line hover:border-accent'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <Avatar name={member.name} color={member.color} />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-ink">{member.name}</p>
+          {member.family_role && (
+            <p className="text-xs text-muted">{FAMILY_ROLE_LABEL[member.family_role]}</p>
+          )}
+        </div>
+      </div>
+      {member.birthday && (
+        <p className="mt-3 text-sm text-muted">
+          🎂 {formatDate(member.birthday)} ·{' '}
+          {member.birthday <= today() ? ageOf(member.birthday) : '—'}
+        </p>
+      )}
+      {/* The emergency line: allergies are readable from the list,
+          not a click away */}
+      {member.allergies.length > 0 && (
+        <p className="mt-2 rounded-lg border border-urgent/40 bg-urgent/10 px-2.5 py-1.5 text-xs text-ink">
+          ⚠ {t('Allergies')}: {member.allergies.join(', ')}
+        </p>
+      )}
+    </Link>
+  );
+}
 
 export function Family() {
+  const { userId } = useParams<{ userId: string }>();
   const [members, setMembers] = useState<Member[] | null>(null);
 
-  useEffect(() => {
-    void api.get<Member[]>('/profiles').then(setMembers).catch(() => setMembers([]));
-  }, []);
+  const loadMembers = useCallback(
+    () => api.get<Member[]>('/profiles').then(setMembers).catch(() => setMembers([])),
+    [],
+  );
 
+  useEffect(() => {
+    void loadMembers();
+  }, [loadMembers]);
+
+  /*
+    Master-detail rather than two pages. The household stays on screen
+    while one profile is open, so comparing two people — or checking a
+    second child's allergies — is one click instead of a round trip
+    through the list. A phone has room for one pane, and shows whichever
+    the URL asks for.
+  */
   return (
     <Page title={t('Family')} eyebrow={t('Who we are')}>
-      {members === null ? (
-        <div className="h-40 animate-pulse rounded-card bg-surface-3" />
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {members.map((m) => (
-            <Link
-              key={m.id}
-              to={`/family/${m.id}`}
-              className="rounded-card border border-line bg-surface p-4 transition-colors hover:border-accent"
-            >
-              <div className="flex items-center gap-3">
-                <Avatar name={m.name} color={m.color} />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-ink">{m.name}</p>
-                  {m.family_role && (
-                    <p className="text-xs text-muted">{FAMILY_ROLE_LABEL[m.family_role]}</p>
-                  )}
-                </div>
-              </div>
-              {m.birthday && (
-                <p className="mt-3 text-sm text-muted">
-                  🎂 {formatDate(m.birthday)} · {m.birthday <= today() ? ageOf(m.birthday) : '—'}
-                </p>
-              )}
-              {/* The emergency line: allergies are readable from the list,
-                  not a click away */}
-              {m.allergies.length > 0 && (
-                <p className="mt-2 rounded-lg border border-urgent/40 bg-urgent/10 px-2.5 py-1.5 text-xs text-ink">
-                  ⚠ {t('Allergies')}: {m.allergies.join(', ')}
-                </p>
-              )}
-            </Link>
-          ))}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
+        <div className={`space-y-3 ${userId ? 'hidden lg:block' : ''}`}>
+          {members === null ? (
+            <div className="h-40 animate-pulse rounded-card bg-surface-3" />
+          ) : (
+            members.map((m) => <MemberCard key={m.id} member={m} active={m.id === userId} />)
+          )}
         </div>
-      )}
+
+        <div className={userId ? '' : 'hidden lg:block'}>
+          {userId ? (
+            // Remounting on the id resets the add-forms: a half-typed
+            // allergy must not follow you to the next person
+            <MemberDetail key={userId} userId={userId} onChanged={loadMembers} />
+          ) : (
+            <Empty>{t('Pick someone to see their profile.')}</Empty>
+          )}
+        </div>
+      </div>
     </Page>
   );
 }
 
 // ── One profile ─────────────────────────────────────────────────────────
 
-export function FamilyProfile() {
-  const { userId } = useParams<{ userId: string }>();
+function MemberDetail({ userId, onChanged }: { userId: string; onChanged: () => void }) {
   const { user } = useAuth();
   const dialogs = useDialogs();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -175,7 +205,6 @@ export function FamilyProfile() {
   const canEdit = own || user?.role === 'admin';
 
   const load = useCallback(() => {
-    if (!userId) return Promise.resolve();
     return api
       .get<Profile>(`/profiles/${userId}`)
       .then(setProfile)
@@ -194,364 +223,354 @@ export function FamilyProfile() {
     try {
       await action();
       await load();
+      // Allergies, role and birthday are printed on the list cards too
+      onChanged();
     } catch (err) {
       reportFailure(err instanceof Error ? err.message : t('Could not save'));
     }
   }
 
-  if (missing) {
-    return (
-      <Page title={t('Family')}>
-        <Empty>{t('Member not found')}</Empty>
-      </Page>
-    );
-  }
-  if (!profile) {
-    return (
-      <Page title={t('Family')}>
-        <div className="h-40 animate-pulse rounded-card bg-surface-3" />
-      </Page>
-    );
-  }
+  if (missing) return <Empty>{t('Member not found')}</Empty>;
+  if (!profile) return <div className="h-40 animate-pulse rounded-card bg-surface-3" />;
 
   const allergies = profile.entries.filter((e) => e.kind === 'allergy');
   const preferences = profile.entries.filter((e) => e.kind === 'preference');
 
   return (
-    <Page title={profile.name} eyebrow={t('Family')}>
-      <div className="space-y-5">
-        <Link to="/family" className="text-sm text-muted hover:text-ink">
-          ← {t('All of us')}
-        </Link>
-        {/* Header: who this is */}
-        <section className="rounded-card border border-line bg-surface p-5">
-          <div className="flex flex-wrap items-center gap-4">
-            <Avatar name={profile.name} color={profile.color} size="size-14 text-xl" />
-            <div className="min-w-0 flex-1">
-              <p className="font-display text-lg font-semibold text-ink">{profile.name}</p>
-              {profile.birthday && (
-                <p className="text-sm text-muted">
-                  🎂 {formatDate(profile.birthday)} ·{' '}
-                  {t('{n} years old', { n: ageOf(profile.birthday) })}
-                </p>
-              )}
-            </div>
+    <div className="space-y-5">
+      {/* Only a phone needs the way back — on a wide screen the list
+          never went anywhere */}
+      <Link to="/family" className="inline-block text-sm text-muted hover:text-ink lg:hidden">
+        ← {t('All of us')}
+      </Link>
+      {/* Header: who this is */}
+      <section className="rounded-card border border-line bg-surface p-5">
+        <div className="flex flex-wrap items-center gap-4">
+          <Avatar name={profile.name} color={profile.color} size="size-14 text-xl" />
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-lg font-semibold text-ink">{profile.name}</p>
+            {profile.birthday && (
+              <p className="text-sm text-muted">
+                🎂 {formatDate(profile.birthday)} ·{' '}
+                {t('{n} years old', { n: ageOf(profile.birthday) })}
+              </p>
+            )}
           </div>
+        </div>
 
-          {canEdit && (
-            <div className="mt-4 space-y-3">
-              <div>
-                <span className="mb-1.5 block text-xs text-muted">{t('Family role')}</span>
-                <div className="flex flex-wrap gap-2">
-                  {FAMILY_ROLES.map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      data-chip
-                      onClick={() =>
-                        void run(() =>
-                          api.patch(`/profiles/${userId}`, {
-                            family_role: profile.family_role === r ? null : r,
-                          }),
-                        )
-                      }
-                      className={`${chip} ${profile.family_role === r ? chipOn : chipOff}`}
-                    >
-                      {FAMILY_ROLE_LABEL[r]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <label className="block">
-                <span className="mb-1.5 block text-xs text-muted">
-                  {t('Birthday')} — {t('appears in the shared calendar with the age')}
-                </span>
-                <input
-                  type="date"
-                  value={profile.birthday ?? ''}
-                  onChange={(e) =>
-                    void run(() =>
-                      api.patch(`/profiles/${userId}`, { birthday: e.target.value || null }),
-                    )
-                  }
-                  className={field}
-                />
-              </label>
-            </div>
-          )}
-          {!canEdit && profile.family_role && (
-            <p className="mt-3 text-sm text-muted">{FAMILY_ROLE_LABEL[profile.family_role]}</p>
-          )}
-        </section>
-
-        {/* Allergies — first and loud: the block a babysitter must find */}
-        <section className="rounded-card border border-urgent/40 bg-surface p-5">
-          <h2 className="eyebrow mb-3">{t('Allergies and medical notes')}</h2>
-          {allergies.length === 0 && (
-            <p className="text-sm text-muted">{t('None known — good.')}</p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {allergies.map((a) => (
-              <span
-                key={a.id}
-                className="flex items-center gap-2 rounded-full border border-urgent/40 bg-urgent/10 px-3 py-1.5 text-sm text-ink"
-              >
-                {a.label}
-                {canEdit && (
+        {canEdit && (
+          <div className="mt-4 space-y-3">
+            <div>
+              <span className="mb-1.5 block text-xs text-muted">{t('Family role')}</span>
+              <div className="flex flex-wrap gap-2">
+                {FAMILY_ROLES.map((r) => (
                   <button
+                    key={r}
                     type="button"
+                    data-chip
                     onClick={() =>
-                      void run(() => api.delete(`/profiles/${userId}/entries/${a.id}`))
+                      void run(() =>
+                        api.patch(`/profiles/${userId}`, {
+                          family_role: profile.family_role === r ? null : r,
+                        }),
+                      )
                     }
-                    aria-label={t('Remove {name}', { name: a.label })}
-                    className="text-muted hover:text-urgent"
+                    className={`${chip} ${profile.family_role === r ? chipOn : chipOff}`}
                   >
-                    ✕
+                    {FAMILY_ROLE_LABEL[r]}
                   </button>
+                ))}
+              </div>
+            </div>
+            <label className="block">
+              <span className="mb-1.5 block text-xs text-muted">
+                {t('Birthday')} — {t('appears in the shared calendar with the age')}
+              </span>
+              <input
+                type="date"
+                value={profile.birthday ?? ''}
+                onChange={(e) =>
+                  void run(() =>
+                    api.patch(`/profiles/${userId}`, { birthday: e.target.value || null }),
+                  )
+                }
+                className={field}
+              />
+            </label>
+          </div>
+        )}
+        {!canEdit && profile.family_role && (
+          <p className="mt-3 text-sm text-muted">{FAMILY_ROLE_LABEL[profile.family_role]}</p>
+        )}
+      </section>
+
+      {/* Allergies — first and loud: the block a babysitter must find */}
+      <section className="rounded-card border border-urgent/40 bg-surface p-5">
+        <h2 className="eyebrow mb-3">{t('Allergies and medical notes')}</h2>
+        {allergies.length === 0 && (
+          <p className="text-sm text-muted">{t('None known — good.')}</p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {allergies.map((a) => (
+            <span
+              key={a.id}
+              className="flex items-center gap-2 rounded-full border border-urgent/40 bg-urgent/10 px-3 py-1.5 text-sm text-ink"
+            >
+              {a.label}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void run(() => api.delete(`/profiles/${userId}/entries/${a.id}`))
+                  }
+                  aria-label={t('Remove {name}', { name: a.label })}
+                  className="text-muted hover:text-urgent"
+                >
+                  ✕
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+        {canEdit && (
+          <div className="mt-3 flex gap-2">
+            <input
+              value={newAllergy}
+              onChange={(e) => setNewAllergy(e.target.value)}
+              onKeyDown={onEnter(() => {
+                if (!newAllergy.trim()) return;
+                void run(() =>
+                  api.post(`/profiles/${userId}/entries`, {
+                    kind: 'allergy',
+                    label: newAllergy.trim(),
+                  }),
+                ).then(() => setNewAllergy(''));
+              })}
+              placeholder={t('e.g. nuts, penicillin')}
+              className={`${field} w-56`}
+            />
+          </div>
+        )}
+      </section>
+
+      {/* Preferences — label/value pairs, scannable in a shop */}
+      <section className="rounded-card border border-line bg-surface p-5">
+        <h2 className="eyebrow mb-3">{t('Preferences')}</h2>
+        {preferences.length === 0 && (
+          <p className="text-sm text-muted">
+            {t('Sizes, favourite tea, the things you need in a shop and never remember.')}
+          </p>
+        )}
+        <ul className="space-y-1.5">
+          {preferences.map((p) => (
+            <li key={p.id} className="group flex items-baseline gap-2 text-sm">
+              <span className="text-muted">{p.label}</span>
+              <span className="flex-1 border-b border-dotted border-line" aria-hidden />
+              <span className="text-ink">{p.value}</span>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void run(() => api.delete(`/profiles/${userId}/entries/${p.id}`))
+                  }
+                  aria-label={t('Remove {name}', { name: p.label })}
+                  className="text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-urgent"
+                >
+                  ✕
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+        {canEdit && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <input
+              value={prefLabel}
+              onChange={(e) => setPrefLabel(e.target.value)}
+              placeholder={t('Shoes')}
+              className={`${field} w-36`}
+            />
+            <input
+              value={prefValue}
+              onChange={(e) => setPrefValue(e.target.value)}
+              onKeyDown={onEnter(() => {
+                if (!prefLabel.trim()) return;
+                void run(() =>
+                  api.post(`/profiles/${userId}/entries`, {
+                    kind: 'preference',
+                    label: prefLabel.trim(),
+                    value: prefValue.trim() || null,
+                  }),
+                ).then(() => {
+                  setPrefLabel('');
+                  setPrefValue('');
+                });
+              })}
+              placeholder="38"
+              className={`${field} w-36`}
+            />
+            <span className="self-center text-xs text-muted">{t('Enter adds')}</span>
+          </div>
+        )}
+      </section>
+
+      {/* Wishlist */}
+      <section className="rounded-card border border-line bg-surface p-5">
+        <h2 className="eyebrow mb-3">{t('Wishlist')}</h2>
+        {profile.wishes.length === 0 && (
+          <p className="text-sm text-muted">
+            {own ? t('Wish for something — the family is watching.') : t('Nothing wished for yet.')}
+          </p>
+        )}
+        <ul className="space-y-2">
+          {profile.wishes.map((w) => (
+            <li key={w.id} className="flex items-center gap-3 text-sm">
+              <span className="min-w-0 flex-1">
+                {w.url ? (
+                  <a
+                    href={w.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-accent underline underline-offset-2"
+                  >
+                    {w.title}
+                  </a>
+                ) : (
+                  <span className="text-ink">{w.title}</span>
                 )}
               </span>
-            ))}
-          </div>
-          {canEdit && (
-            <div className="mt-3 flex gap-2">
-              <input
-                value={newAllergy}
-                onChange={(e) => setNewAllergy(e.target.value)}
-                onKeyDown={onEnter(() => {
-                  if (!newAllergy.trim()) return;
-                  void run(() =>
-                    api.post(`/profiles/${userId}/entries`, {
-                      kind: 'allergy',
-                      label: newAllergy.trim(),
-                    }),
-                  ).then(() => setNewAllergy(''));
-                })}
-                placeholder={t('e.g. nuts, penicillin')}
-                className={`${field} w-56`}
-              />
-            </div>
-          )}
-        </section>
-
-        {/* Preferences — label/value pairs, scannable in a shop */}
-        <section className="rounded-card border border-line bg-surface p-5">
-          <h2 className="eyebrow mb-3">{t('Preferences')}</h2>
-          {preferences.length === 0 && (
-            <p className="text-sm text-muted">
-              {t('Sizes, favourite tea, the things you need in a shop and never remember.')}
-            </p>
-          )}
-          <ul className="space-y-1.5">
-            {preferences.map((p) => (
-              <li key={p.id} className="group flex items-baseline gap-2 text-sm">
-                <span className="text-muted">{p.label}</span>
-                <span className="flex-1 border-b border-dotted border-line" aria-hidden />
-                <span className="text-ink">{p.value}</span>
-                {canEdit && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void run(() => api.delete(`/profiles/${userId}/entries/${p.id}`))
-                    }
-                    aria-label={t('Remove {name}', { name: p.label })}
-                    className="text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-urgent"
-                  >
-                    ✕
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-          {canEdit && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <input
-                value={prefLabel}
-                onChange={(e) => setPrefLabel(e.target.value)}
-                placeholder={t('Shoes')}
-                className={`${field} w-36`}
-              />
-              <input
-                value={prefValue}
-                onChange={(e) => setPrefValue(e.target.value)}
-                onKeyDown={onEnter(() => {
-                  if (!prefLabel.trim()) return;
-                  void run(() =>
-                    api.post(`/profiles/${userId}/entries`, {
-                      kind: 'preference',
-                      label: prefLabel.trim(),
-                      value: prefValue.trim() || null,
-                    }),
-                  ).then(() => {
-                    setPrefLabel('');
-                    setPrefValue('');
-                  });
-                })}
-                placeholder="38"
-                className={`${field} w-36`}
-              />
-              <span className="self-center text-xs text-muted">{t('Enter adds')}</span>
-            </div>
-          )}
-        </section>
-
-        {/* Wishlist */}
-        <section className="rounded-card border border-line bg-surface p-5">
-          <h2 className="eyebrow mb-3">{t('Wishlist')}</h2>
-          {profile.wishes.length === 0 && (
-            <p className="text-sm text-muted">
-              {own ? t('Wish for something — the family is watching.') : t('Nothing wished for yet.')}
-            </p>
-          )}
-          <ul className="space-y-2">
-            {profile.wishes.map((w) => (
-              <li key={w.id} className="flex items-center gap-3 text-sm">
-                <span className="min-w-0 flex-1">
-                  {w.url ? (
-                    <a
-                      href={w.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-accent underline underline-offset-2"
-                    >
-                      {w.title}
-                    </a>
-                  ) : (
-                    <span className="text-ink">{w.title}</span>
-                  )}
-                </span>
-                {/* The claim column exists only on someone else's list —
-                    the server never sends claim fields to the owner */}
-                {!own &&
-                  (w.claimed ? (
-                    w.claimed_by_me ? (
-                      <button
-                        type="button"
-                        onClick={() => void run(() => api.delete(`/wishes/${w.id}/claim`))}
-                        className="shrink-0 text-xs text-accent underline underline-offset-2"
-                      >
-                        {t('Reserved by you — release')}
-                      </button>
-                    ) : (
-                      <span className="shrink-0 text-xs text-muted">
-                        {t('Reserved: {name}', { name: w.claimed_by_name ?? '' })}
-                      </span>
-                    )
-                  ) : (
+              {/* The claim column exists only on someone else's list —
+                  the server never sends claim fields to the owner */}
+              {!own &&
+                (w.claimed ? (
+                  w.claimed_by_me ? (
                     <button
                       type="button"
-                      onClick={() => void run(() => api.post(`/wishes/${w.id}/claim`, {}))}
-                      className={`${chip} ${chipOff} shrink-0 text-xs`}
+                      onClick={() => void run(() => api.delete(`/wishes/${w.id}/claim`))}
+                      className="shrink-0 text-xs text-accent underline underline-offset-2"
                     >
-                      {t('Reserve')}
+                      {t('Reserved by you — release')}
                     </button>
-                  ))}
-                {canEdit && (
+                  ) : (
+                    <span className="shrink-0 text-xs text-muted">
+                      {t('Reserved: {name}', { name: w.claimed_by_name ?? '' })}
+                    </span>
+                  )
+                ) : (
                   <button
                     type="button"
-                    onClick={() =>
-                      void dialogs
-                        .confirm({
-                          title: t('Delete wish'),
-                          message: w.title,
-                          confirmLabel: t('Delete'),
-                          danger: true,
-                        })
-                        .then((ok) => {
-                          if (ok) void run(() => api.delete(`/profiles/${userId}/wishes/${w.id}`));
-                        })
-                    }
-                    aria-label={t('Remove {name}', { name: w.title })}
-                    className="shrink-0 text-muted hover:text-urgent"
+                    onClick={() => void run(() => api.post(`/wishes/${w.id}/claim`, {}))}
+                    className={`${chip} ${chipOff} shrink-0 text-xs`}
                   >
-                    ✕
+                    {t('Reserve')}
                   </button>
-                )}
-              </li>
-            ))}
-          </ul>
+                ))}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void dialogs
+                      .confirm({
+                        title: t('Delete wish'),
+                        message: w.title,
+                        confirmLabel: t('Delete'),
+                        danger: true,
+                      })
+                      .then((ok) => {
+                        if (ok) void run(() => api.delete(`/profiles/${userId}/wishes/${w.id}`));
+                      })
+                  }
+                  aria-label={t('Remove {name}', { name: w.title })}
+                  className="shrink-0 text-muted hover:text-urgent"
+                >
+                  ✕
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
 
-          {canEdit && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <input
-                value={wishTitle}
-                onChange={(e) => setWishTitle(e.target.value)}
-                placeholder={t('A red bicycle')}
-                className={`${field} w-56`}
-              />
-              <input
-                value={wishUrl}
-                onChange={(e) => setWishUrl(e.target.value)}
-                onKeyDown={onEnter(() => {
-                  if (!wishTitle.trim()) return;
-                  void run(() =>
-                    api.post(`/profiles/${userId}/wishes`, {
-                      title: wishTitle.trim(),
-                      url: wishUrl.trim() || null,
-                    }),
-                  ).then(() => {
-                    setWishTitle('');
-                    setWishUrl('');
-                  });
-                })}
-                placeholder={t('link (optional)')}
-                className={`${field} w-56`}
-              />
-            </div>
-          )}
+        {canEdit && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <input
+              value={wishTitle}
+              onChange={(e) => setWishTitle(e.target.value)}
+              placeholder={t('A red bicycle')}
+              className={`${field} w-56`}
+            />
+            <input
+              value={wishUrl}
+              onChange={(e) => setWishUrl(e.target.value)}
+              onKeyDown={onEnter(() => {
+                if (!wishTitle.trim()) return;
+                void run(() =>
+                  api.post(`/profiles/${userId}/wishes`, {
+                    title: wishTitle.trim(),
+                    url: wishUrl.trim() || null,
+                  }),
+                ).then(() => {
+                  setWishTitle('');
+                  setWishUrl('');
+                });
+              })}
+              placeholder={t('link (optional)')}
+              className={`${field} w-56`}
+            />
+          </div>
+        )}
 
-          {/* The public link — the only thing here a guest ever sees */}
-          {canEdit && (
-            <div className="mt-4 border-t border-line pt-3 text-sm">
-              {profile.wishlist_share_path ? (
-                /* The link stays copyable for as long as it lives — it comes
-                   with the profile, so a reload changes nothing (the token is
-                   stored plaintext for exactly this, see migration 021) */
-                <div className="flex flex-wrap items-center gap-2">
-                  <code className="rounded bg-surface-2 px-2 py-1 text-xs break-all">
-                    {`${window.location.origin}${profile.wishlist_share_path}`}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void navigator.clipboard
-                        .writeText(`${window.location.origin}${profile.wishlist_share_path}`)
-                        .then(() => setCopied(true));
-                    }}
-                    className={`${chip} ${chipOff} text-xs`}
-                  >
-                    {copied ? t('Copied') : t('Copy')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void run(() => api.delete(`/profiles/${userId}/wishlist-share`))
-                    }
-                    className="text-xs text-muted underline underline-offset-2 hover:text-urgent"
-                  >
-                    {t('Revoke')}
-                  </button>
-                </div>
-              ) : (
+        {/* The public link — the only thing here a guest ever sees */}
+        {canEdit && (
+          <div className="mt-4 border-t border-line pt-3 text-sm">
+            {profile.wishlist_share_path ? (
+              /* The link stays copyable for as long as it lives — it comes
+                 with the profile, so a reload changes nothing (the token is
+                 stored plaintext for exactly this, see migration 021) */
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="rounded bg-surface-2 px-2 py-1 text-xs break-all">
+                  {`${window.location.origin}${profile.wishlist_share_path}`}
+                </code>
                 <button
                   type="button"
                   onClick={() => {
-                    setCopied(false);
-                    void run(() => api.post(`/profiles/${userId}/wishlist-share`, {}));
+                    void navigator.clipboard
+                      .writeText(`${window.location.origin}${profile.wishlist_share_path}`)
+                      .then(() => setCopied(true));
                   }}
                   className={`${chip} ${chipOff} text-xs`}
                 >
-                  {t('Share with guests — a link without an account')}
+                  {copied ? t('Copied') : t('Copy')}
                 </button>
-              )}
-              <p className="mt-2 text-xs text-muted">
-                {t('Guests see the wishes and can reserve; reservations are hidden from {name}.', {
-                  name: profile.name,
-                })}
-              </p>
-            </div>
-          )}
-        </section>
-      </div>
-    </Page>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void run(() => api.delete(`/profiles/${userId}/wishlist-share`))
+                  }
+                  className="text-xs text-muted underline underline-offset-2 hover:text-urgent"
+                >
+                  {t('Revoke')}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setCopied(false);
+                  void run(() => api.post(`/profiles/${userId}/wishlist-share`, {}));
+                }}
+                className={`${chip} ${chipOff} text-xs`}
+              >
+                {t('Share with guests — a link without an account')}
+              </button>
+            )}
+            <p className="mt-2 text-xs text-muted">
+              {t('Guests see the wishes and can reserve; reservations are hidden from {name}.', {
+                name: profile.name,
+              })}
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
   );
 }

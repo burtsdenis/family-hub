@@ -456,6 +456,7 @@ export const ru: Record<string, string> = {
   'Personal': 'Личный',
   'Personal account': 'Личный счёт',
   'Pick a note — or': 'Выберите заметку — или',
+  'Pick someone to see their profile.': 'Выберите, чей профиль открыть.',
   'Piggy bank': 'Копилка',
   'Place': 'Место',
   'Placeholders expand when a note is created:': 'Подстановки раскроются при создании заметки:',
