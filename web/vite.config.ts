@@ -5,21 +5,28 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 /*
-  What the About block and the sidebar show. The version is the product's
-  own (the root manifest, bumped with the release tag); BUILD_SHA arrives
-  as a Docker build argument, because .git never enters the image.
+  What the About block and the sidebar show.
 
-  Running from source leaves the commit empty and only the version shows —
-  a dev build has no commit worth quoting.
+  BUILD_VERSION comes from `git describe --tags` (or the tag itself on a
+  release build), so it is derived rather than remembered: on a tag it
+  reads 1.1.0, and twelve commits later 1.1.0-12-gabc1234, which is the
+  literal truth about a continuously deployed hub. The manifest version
+  is only the fallback for a build with no git and no argument — a
+  tarball, or a plain `npm run build` — and it will drift, which is
+  exactly why nothing important depends on it.
+
+  BUILD_SHA is separate because .git never enters the image and the
+  commit is worth having even when the version already implies it.
 */
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
   version: string;
 };
 const BUILD_SHA = (process.env.BUILD_SHA ?? '').slice(0, 7);
+const BUILD_VERSION = (process.env.BUILD_VERSION ?? '').replace(/^v/, '') || pkg.version;
 
 export default defineConfig({
   define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_VERSION__: JSON.stringify(BUILD_VERSION),
     __BUILD_SHA__: JSON.stringify(BUILD_SHA),
   },
   plugins: [

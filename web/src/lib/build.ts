@@ -17,6 +17,13 @@ export const VERSION = __APP_VERSION__;
 export const BUILD_SHA = __BUILD_SHA__;
 
 /**
+ * The commit, unless the version already names it. `git describe` ends a
+ * between-releases version in -g<sha>, and printing that sha again beside
+ * it says nothing twice.
+ */
+export const EXTRA_SHA = BUILD_SHA && !VERSION.includes(BUILD_SHA) ? BUILD_SHA : '';
+
+/**
  * Upstream, not the running host: a fork's bug reports still belong with
  * the project, and a self-hoster reading these links wants the source
  * they installed from.

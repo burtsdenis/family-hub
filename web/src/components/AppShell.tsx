@@ -1,5 +1,5 @@
 import { t } from '../lib/i18n';
-import { BUILD_SHA, ISSUES_URL, REPO_URL, VERSION } from '../lib/build';
+import { EXTRA_SHA, ISSUES_URL, REPO_URL, VERSION } from '../lib/build';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../lib/auth';
@@ -325,12 +325,9 @@ export function AppShell() {
               links worth having within reach. Settings → About repeats it
               for phones, where this sidebar does not exist. */}
           <div className="px-2 text-muted">
-            <p
-              className="font-mono text-xs"
-              title={BUILD_SHA ? `${VERSION} · ${BUILD_SHA}` : VERSION}
-            >
+            <p className="font-mono text-xs">
               v{VERSION}
-              {BUILD_SHA && <span className="ml-1.5 opacity-70">{BUILD_SHA}</span>}
+              {EXTRA_SHA && <span className="ml-1.5 opacity-70">{EXTRA_SHA}</span>}
             </p>
             <span className="mt-1.5 flex flex-col items-start gap-1 text-sm">
               <a

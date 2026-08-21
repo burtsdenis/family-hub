@@ -18,6 +18,8 @@ COPY . .
 # value has to be handed in.
 ARG BUILD_SHA=""
 ENV BUILD_SHA=$BUILD_SHA
+ARG BUILD_VERSION=""
+ENV BUILD_VERSION=$BUILD_VERSION
 RUN npm run build
 
 RUN npm prune --omit=dev

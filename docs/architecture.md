@@ -90,8 +90,23 @@ The same worker solves the long-lived-tab problem: a kiosk that stays open for w
 
 ### Which build is running
 
-Settings → About and the foot of the sidebar name the version and the commit the bundle was built from. The version comes from the root `package.json` at build time; the commit arrives as the `BUILD_SHA` Docker build argument, because `.dockerignore` keeps `.git` out of the image. A build from source shows the version alone — a dev bundle has no commit worth quoting.
+Settings → About and the foot of the sidebar name the build. Both arrive as Docker build arguments, because `.dockerignore` keeps `.git` out of the image: `BUILD_SHA` is the commit, and `BUILD_VERSION` is `git describe --tags` — the tag itself on a release build, and `1.1.0-12-gabc1234` twelve commits later. That second form is the literal truth about a hub that deploys on every push, and it is derived rather than remembered, which matters: the manifest version sat at `0.1.0` through the whole of v1.0.0 because bumping it was somebody's job. Now nothing important depends on it; it is only the fallback for a build with no git and no argument.
+
+The interface prints the commit separately only when the version does not already end in it, so a between-releases build says its commit once.
 
 Both are visible only behind the sign-in screen. `/api/health` withholds the version from the public internet deliberately, and a line under the login box would have handed it to every scanner instead.
 
-Two things follow for whoever cuts a release: bump the version in all three `package.json` files along with the tag, or the interface will keep announcing the previous one — and keep `--build-arg BUILD_SHA=…` on any hand-rolled `docker build`, or the commit line simply disappears.
+### Cutting a release
+
+Development is reactive and ships daily, so the ritual is one command:
+
+```bash
+npm run release            # what would happen, and nothing else
+npm run release -- minor   # patch | minor | major
+```
+
+It refuses anything but a clean master that matches origin, then tags and pushes. Nothing is committed — deliberately: master takes pull requests only, and a version bump living in a file would mean a pull request and a CI wait every single day, which is how a daily ritual stops happening.
+
+Pushing the tag starts `release.yml`, which publishes the multi-arch image to GHCR and moves `latest`. That is what self-hosters install, so a long gap between tags means the `docker pull` in the README hands people something much older than the repository — the reason to keep the cadence tight rather than the reason to skip it.
+
+A hand-rolled `docker build` should pass both arguments; without them the interface falls back to the manifest version and prints no commit.

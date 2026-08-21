@@ -34,6 +34,9 @@ jobs:
       DEPLOY: ${{ secrets.DEPLOY_USER || 'root' }}@${{ secrets.DEPLOY_HOST }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # git describe names the build; a shallow clone has no tags to describe
+          fetch-depth: 0
 
       # Deploying code that fails types or tests is pointless; ci.yml runs
       # the same checks in parallel, these gate the deploy itself.
@@ -46,7 +49,11 @@ jobs:
       - run: npm test
 
       - name: Build image
-        run: docker build --build-arg BUILD_SHA=${{ github.sha }} -t family-hub:prod .
+        run: |
+          docker build \
+            --build-arg BUILD_SHA=${{ github.sha }} \
+            --build-arg BUILD_VERSION="$(git describe --tags --always)" \
+            -t family-hub:prod .
 
       - name: SSH key and server address
         run: |

@@ -17,6 +17,7 @@
     "import": "node scripts/import.mjs",
     "admin:reset": "node scripts/admin-reset.mjs",
     "screenshots": "node scripts/screenshots.mjs",
+    "release": "node scripts/release.mjs",
     "test": "npm run test --workspace=server && npm run test --workspace=web",
     "lint": "eslint server/src web/src scripts"
   },

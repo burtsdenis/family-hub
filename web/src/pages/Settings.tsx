@@ -1,5 +1,5 @@
 import { lang, setLang, t } from '../lib/i18n';
-import { BUILD_SHA, ISSUES_URL, REPO_URL, VERSION } from '../lib/build';
+import { EXTRA_SHA, ISSUES_URL, REPO_URL, VERSION } from '../lib/build';
 import { formatStamp, setWeekStart, weekStart } from '../lib/format';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
@@ -654,8 +654,8 @@ export function Settings() {
       <section className="mb-5 break-inside-avoid rounded-card border border-line bg-surface p-5">
         <h2 className="eyebrow mb-4">{t('About')}</h2>
         <p className="font-mono text-sm text-ink">Family Hub v{VERSION}</p>
-        {BUILD_SHA && (
-          <p className="mt-1 font-mono text-xs text-muted">{t('Build {sha}', { sha: BUILD_SHA })}</p>
+        {EXTRA_SHA && (
+          <p className="mt-1 font-mono text-xs text-muted">{t('Build {sha}', { sha: EXTRA_SHA })}</p>
         )}
         <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
           <a
