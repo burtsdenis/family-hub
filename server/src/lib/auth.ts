@@ -125,6 +125,12 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply): Pr
   if (!req.url.startsWith('/api')) return;
   const path = req.url.split('?')[0] ?? '';
   if (PUBLIC_PATHS.has(path)) return;
+  // The public wishlist (#68) — the hub's only anonymous content surface.
+  // Token-addressed: the path carries an unguessable token stored hashed,
+  // the routes reveal one first name and wish titles, nothing else, under
+  // a login-strength rate limit. Everything under this prefix is designed
+  // for strangers; nothing else is.
+  if (path.startsWith('/api/wishlist/')) return;
 
   const token = req.cookies[SESSION_COOKIE];
   const user = token ? userForToken(token) : null;

@@ -114,6 +114,16 @@ Reload" toast appears; a tab that has been idle for a while (the
 kitchen kiosk) reloads by itself. The demo runs without the service
 worker — sandboxes are per-visitor, browser caches are not.
 
+## Family
+
+A page per family member holding the things a household knows about each other and otherwise keeps in someone's head: birthday, a family role, preferences, allergies, a wishlist. A profile belongs to an account; you edit your own, and the administrator can maintain anyone's — a kid without a device is looked after by the parent.
+
+**Allergies are on the family list itself**, not behind a click: they exist to be findable in a hurry by whoever is cooking. **Preferences** are label–value pairs ("Shoes — 38"), scannable in a shop. The **birthday** saved on a profile derives a yearly event in the shared calendar, age included — the profile owns the date, the calendar entry follows it.
+
+The **wishlist** keeps its surprise on the server: the owner is never sent what is reserved — not a flag, not a name — the same way a personal account's transfers are masked. Other family members see who reserved what and can reserve with one click.
+
+A wishlist can also be shared with guests — grandparents without an account — by an unguessable link, revocable at any time and stored hashed like an invite. The guest page is the hub's only anonymous surface and shows the bare minimum: the first name, the wishes, and a "reserved" flag with no names, so two guests don't buy the same gift and a stranger with the link learns nothing about the family. Guests reserve by typing their name; the family sees that name inside the hub, the owner still sees nothing. One honest limitation: the owner opening their own guest link will see the "reserved" flags — that is shaking the gift box, and no server can prevent it.
+
 ## Mail
 
 ![Mail: the shared household inbox, one click from letter to task](screenshots/mail.png)
