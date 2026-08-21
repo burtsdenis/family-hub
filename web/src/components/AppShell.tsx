@@ -1,5 +1,5 @@
 import { t } from '../lib/i18n';
-import { BUILD_SHA, VERSION } from '../lib/build';
+import { BUILD_SHA, ISSUES_URL, REPO_URL, VERSION } from '../lib/build';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../lib/auth';
@@ -319,17 +319,35 @@ export function AppShell() {
           <div className="px-2">
             <SignOutButton onClick={() => void logout()} />
           </div>
-          {/* Which build is on screen. A stale bundle in a long-lived tab
-              looks exactly like a fix that never deployed — this is the
-              cheapest way to tell those apart. Settings → About has the
-              same line with the links. */}
-          <p
-            className="px-2 font-mono text-[0.625rem] text-muted"
-            title={BUILD_SHA ? `${VERSION} · ${BUILD_SHA}` : VERSION}
-          >
-            v{VERSION}
-            {BUILD_SHA && <span className="ml-1.5 opacity-70">{BUILD_SHA}</span>}
-          </p>
+          {/* The app's footer. Which build is on screen — a stale bundle in
+              a long-lived tab looks exactly like a fix that never deployed,
+              and this is the cheapest way to tell those apart — and the two
+              links worth having within reach. Settings → About repeats it
+              for phones, where this sidebar does not exist. */}
+          <div className="px-2 font-mono text-[0.625rem] text-muted">
+            <p title={BUILD_SHA ? `${VERSION} · ${BUILD_SHA}` : VERSION}>
+              v{VERSION}
+              {BUILD_SHA && <span className="ml-1.5 opacity-70">{BUILD_SHA}</span>}
+            </p>
+            <span className="mt-1 flex flex-col items-start gap-0.5">
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-line underline-offset-2 hover:text-ink"
+              >
+                {t('Source code')}
+              </a>
+              <a
+                href={ISSUES_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-line underline-offset-2 hover:text-ink"
+              >
+                {t('Report a bug')}
+              </a>
+            </span>
+          </div>
         </div>
       </aside>
 
