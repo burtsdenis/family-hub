@@ -17,12 +17,13 @@ function amount(settings: Record<string, string>, key: string): number {
 }
 
 /**
- * The money half exists once there is a target to reach: the saved
- * amount is typed on the board itself, and a family that only wants a
- * countdown should not have to look at a zero.
+ * The target is the switch for the money half: no target, no bar and no
+ * amount, however much was saved towards the last goal. Anything else
+ * makes "zero — the goal is only a countdown" a lie, because the saved
+ * amount would keep the half alive on its own.
  */
 function hasMoney(settings: Record<string, string>): boolean {
-  return amount(settings, 'goal.target') > 0 || amount(settings, 'goal.saved') > 0;
+  return amount(settings, 'goal.target') > 0;
 }
 
 /** An unset goal is no widget at all, not an empty card asking to be filled. */
@@ -81,7 +82,7 @@ export function GoalBoard({ settings, onChange }: Props) {
   }
 
   return (
-    <section className="group relative overflow-hidden rounded-card border border-line bg-surface shadow-sm">
+    <section className="group @container relative overflow-hidden rounded-card border border-line bg-surface shadow-sm">
       {/* The goal is the one widget with something to configure, and the
           settings page is where its fields live. Quiet until the pointer
           is on the card — and always there on a touch screen, which has
@@ -105,18 +106,21 @@ export function GoalBoard({ settings, onChange }: Props) {
           <path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M18 6l-1.6 1.6M7.6 16.4 6 18M18 18l-1.6-1.6M7.6 7.6 6 6" />
         </svg>
       </Link>
+      {/* Container queries, not viewport ones: the same card is a quarter
+          of the row on the kiosk and the whole of it on a phone, and only
+          its own width says whether the two halves fit side by side. */}
       <div
         className={`grid divide-y divide-line ${
           showCountdown && showMoney
-            ? 'sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] sm:divide-x sm:divide-y-0'
+            ? '@lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] @lg:divide-x @lg:divide-y-0'
             : ''
         }`}
       >
         {showCountdown && (
-          <div className="px-6 py-5">
+          <div className="px-5 py-4 @sm:px-6 @sm:py-5">
             <p className="eyebrow">{settings['goal.title'] || t('Goal')}</p>
             <p className="mt-2 flex items-baseline gap-2.5">
-              <span className="font-display text-[3.25rem] leading-none font-bold tabular-nums">
+              <span className="font-display text-[2.5rem] leading-none font-bold tabular-nums @sm:text-[3.25rem]">
                 {Math.abs(days)}
               </span>
               <span className="font-mono text-sm text-muted">
@@ -130,7 +134,7 @@ export function GoalBoard({ settings, onChange }: Props) {
         )}
 
         {showMoney && (
-          <div className="px-6 py-5">
+          <div className="px-5 py-4 @sm:px-6 @sm:py-5">
             {/* Without a countdown the money side is the whole card, so it
                 carries the goal's name; beside one it is just a caption. */}
             <p className="eyebrow">
@@ -180,7 +184,7 @@ export function GoalBoard({ settings, onChange }: Props) {
                 className="mt-2 block text-left"
                 aria-label={t('Edit the saved amount')}
               >
-                <span className="font-display text-[2.5rem] leading-none font-bold tabular-nums">
+                <span className="font-display text-[1.75rem] leading-none font-bold tabular-nums @sm:text-[2.5rem]">
                   {formatMoney(saved, currency)}
                 </span>
                 {target > 0 && (

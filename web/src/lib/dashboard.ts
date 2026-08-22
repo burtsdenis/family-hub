@@ -24,7 +24,7 @@ export interface WidgetSlot {
 }
 
 export const WIDGET_DEFS: Record<WidgetId, { title: string; sizes: WidgetSize[] }> = {
-  goal: { title: t('Goal'), sizes: [4, 8] },
+  goal: { title: t('Goal'), sizes: [2, 4, 8] },
   agenda: { title: t('Agenda'), sizes: [4, 8] },
   month: { title: t('Month'), sizes: [2, 4] },
   money: { title: t('Money'), sizes: [2, 4] },
