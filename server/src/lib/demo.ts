@@ -268,11 +268,29 @@ export async function seedDemo(): Promise<void> {
        (?, ?, 'EUR', NULL, 15000)`,
     ).run(id(), groceries, id(), eatingOut);
 
+    /*
+      The recurring rules are also what the balance widget lives on, so
+      the sample family has one of each case it can show: money arriving
+      soon, a bill already due and waiting to be confirmed (the one the
+      widget lets a visitor tick off), and a bill still ahead.
+
+      The salary rule starts in the future on purpose. Anchored in the
+      past it would leave months of unconfirmed pay days behind it — the
+      sandbox is rebuilt daily and nobody ever confirms them — and the
+      demo would open on stale bookkeeping instead of on next week.
+    */
     db.prepare(
       `INSERT INTO recurring_transactions (id, title, kind, start_on, recurrence_rule, account_id, amount, category_id, auto_create, active) VALUES
        (?, 'Rent', 'expense', ?, 'FREQ=MONTHLY;INTERVAL=1', ?, 95000, ?, 1, 1),
-       (?, 'Salary', 'income', ?, 'FREQ=MONTHLY;INTERVAL=1', ?, 210000, ?, 0, 1)`,
-    ).run(id(), day(-40), card, household, id(), day(-40), card, salary);
+       (?, 'Salary', 'income', ?, 'FREQ=MONTHLY;INTERVAL=1', ?, 210000, ?, 0, 1),
+       (?, 'Water bill', 'expense', ?, 'FREQ=MONTHLY;INTERVAL=1', ?, 3450, ?, 0, 1),
+       (?, 'Internet', 'expense', ?, 'FREQ=MONTHLY;INTERVAL=1', ?, 3000, ?, 0, 1)`,
+    ).run(
+      id(), day(-40), card, household,
+      id(), day(5), card, salary,
+      id(), day(-3), card, household,
+      id(), day(2), card, household,
+    );
 
     // ── Dashboard ──
     db.prepare(
