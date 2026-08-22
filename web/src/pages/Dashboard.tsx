@@ -15,6 +15,7 @@ import {
 import { api, ApiError, type Dashboard as DashboardData, type Task } from '../lib/api';
 import type { Occurrence } from '../lib/calendar';
 import { loadLocal, saveLocal } from '../lib/storage';
+import { reportFailure } from '../lib/failures';
 import {
   DEFAULT_LAYOUT,
   LAYOUT_KEY,
@@ -668,6 +669,25 @@ export function Dashboard() {
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
   );
 
+  /*
+    A bill posted from the balance widget changes two widgets at once:
+    the balance it left and this month's spending it joined. Refetching
+    both is cheaper than teaching the widget to patch its own numbers,
+    and it cannot drift from what the server would have said.
+  */
+  const refreshMoney = useCallback(() => {
+    const bounds = monthBounds(today());
+    void Promise.all([
+      api.get<Outlook>('/money/outlook'),
+      api.get<Summary>(`/money/summary?from=${bounds.from}&to=${bounds.to}`),
+    ])
+      .then(([out, sum]) => {
+        setOutlook(out);
+        setSummary(sum);
+      })
+      .catch((err: Error) => reportFailure(err.message || t('Could not save')));
+  }, []);
+
   function updateLayout(next: WidgetSlot[]) {
     setLayout(next);
     saveLocal(LAYOUT_KEY, next);
@@ -769,7 +789,9 @@ export function Dashboard() {
     agenda: <Agenda data={data} monthEvents={monthEvents} today={data.today} />,
     month: <MiniMonth today={data.today} occurrences={monthEvents} />,
     balance:
-      outlook && outlook.currencies.length > 0 ? <BalancePanel outlook={outlook} /> : null,
+      outlook && outlook.currencies.length > 0 ? (
+        <BalancePanel outlook={outlook} onPosted={refreshMoney} />
+      ) : null,
     money: summary ? <MoneyMonth summary={summary} categories={categories} /> : null,
     soon: soon.length > 0 ? <SoonPanel items={soon} /> : null,
     notes: <NotesPanel notes={data.recentNotes} />,

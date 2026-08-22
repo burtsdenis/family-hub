@@ -230,7 +230,11 @@ them. One block per currency, nothing converted; a piggy bank stays out
 of it, and so does a transfer that only moves money between spendable
 accounts. The window opens a week back — a late salary and an unpaid
 bill are still ahead of you, while older unconfirmed occurrences belong
-to the pending list in Money. The **money pulse** shows this month's spending per
+to the pending list in Money. A payment whose day has come can be ticked
+off right there — one click posts it at the planned amount, the same
+confirmation the pending list does; an amount that turned out different
+is a trip to Money. The remainder does not move when a bill is posted:
+the money leaves the balance and the list at once. The **money pulse** shows this month's spending per
 currency with the three heaviest categories (subcategories roll up into
 their parent, same as the Money summary). A widget with nothing to say
 renders nothing.
