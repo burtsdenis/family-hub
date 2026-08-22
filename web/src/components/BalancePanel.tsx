@@ -15,7 +15,7 @@ function CheckIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="size-3.5"
+      className="size-3"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -97,27 +97,28 @@ function CurrencyBlock({
 
       {row.bills.length > 0 && (
         <>
-          <ul className="mt-2.5 space-y-0.5">
+          {/* Two lines per bill, task-row sized: title and amount at
+              text-sm, the date underneath. One text-xs line holding a
+              title, a date, an amount and a check mark could only fit by
+              shrinking and still collided in a 2-unit tile. */}
+          <ul className="mt-2 space-y-0.5">
             {shown.map((b) => {
               // Only a bill whose date has arrived can be posted: confirming
               // one that has not happened yet would take the money out of
               // the balance days before it actually leaves.
               const payable = b.date <= today;
-              const line = (
+              const body = (
                 <>
-                  <span className="min-w-0 truncate text-ink">{b.title}</span>
-                  <span className="flex shrink-0 items-baseline gap-2 font-mono tabular-nums">
-                    <span className={payable ? 'text-accent' : 'text-muted'}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-ink">{b.title}</span>
+                    <span
+                      className={`block font-mono text-xs ${payable ? 'text-accent' : 'text-muted'}`}
+                    >
                       {formatDate(b.date)}
                     </span>
-                    <span className="text-ink">−{formatMoney(b.amount, row.currency)}</span>
-                    <span className="w-3.5 self-center text-accent">
-                      {payable && (
-                        <span className="opacity-0 transition-opacity group-hover/bill:opacity-100 [@media(hover:none)]:opacity-100">
-                          <CheckIcon />
-                        </span>
-                      )}
-                    </span>
+                  </span>
+                  <span className="shrink-0 font-mono text-sm tabular-nums text-ink">
+                    −{formatMoney(b.amount, row.currency)}
                   </span>
                 </>
               );
@@ -129,20 +130,31 @@ function CurrencyBlock({
                       onClick={() => void post(b)}
                       disabled={posting === billKey(b)}
                       title={t('Post')}
-                      className="group/bill -mx-1.5 flex w-full items-baseline justify-between gap-3 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-surface-2 disabled:opacity-50"
+                      className="group/bill -mx-2 flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
                     >
-                      {line}
+                      {/* The hub's tick-off affordance: an empty circle
+                          that shows its check under the pointer (always,
+                          where there is no pointer to hover with) */}
+                      <span className="grid size-4.5 shrink-0 place-items-center rounded-full border border-accent text-accent">
+                        <span className="opacity-0 transition-opacity group-hover/bill:opacity-100 [@media(hover:none)]:opacity-100">
+                          <CheckIcon />
+                        </span>
+                      </span>
+                      {body}
                     </button>
                   ) : (
-                    <div className="-mx-1.5 flex items-baseline justify-between gap-3 px-1.5 py-1 text-xs">
-                      {line}
+                    <div className="-mx-2 flex items-center gap-2.5 px-2 py-1.5">
+                      <span className="grid size-4.5 shrink-0 place-items-center" aria-hidden>
+                        <span className="size-1.5 rounded-full bg-surface-3" />
+                      </span>
+                      {body}
                     </div>
                   )}
                 </li>
               );
             })}
             {hidden > 0 && (
-              <li className="px-0 pt-1 text-xs text-muted">
+              <li className="pt-1 pl-7 text-xs text-muted">
                 {t('more')} {hidden}
               </li>
             )}
