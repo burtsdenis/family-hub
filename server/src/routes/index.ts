@@ -249,8 +249,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     */
     const dueToday = db
       .prepare(
-        `SELECT t.*, p.title AS project_title, p.color AS project_color
+        `SELECT t.*, p.title AS project_title, p.color AS project_color,
+                u.name AS assignee_name, u.color AS assignee_color
            FROM tasks t JOIN projects p ON p.id = t.project_id
+           LEFT JOIN users u ON u.id = t.assignee_id
           WHERE coalesce(t.expected_date, t.due_date) = ?
             AND t.status NOT IN ('done','cancelled')
           ORDER BY t.priority DESC`,
@@ -259,8 +261,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
     const overdue = db
       .prepare(
-        `SELECT t.*, p.title AS project_title, p.color AS project_color
+        `SELECT t.*, p.title AS project_title, p.color AS project_color,
+                u.name AS assignee_name, u.color AS assignee_color
            FROM tasks t JOIN projects p ON p.id = t.project_id
+           LEFT JOIN users u ON u.id = t.assignee_id
           WHERE coalesce(t.expected_date, t.due_date) < ?
             AND t.status NOT IN ('done','cancelled')
           ORDER BY coalesce(t.expected_date, t.due_date)`,
@@ -269,8 +273,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
     const upcoming = db
       .prepare(
-        `SELECT t.*, p.title AS project_title, p.color AS project_color
+        `SELECT t.*, p.title AS project_title, p.color AS project_color,
+                u.name AS assignee_name, u.color AS assignee_color
            FROM tasks t JOIN projects p ON p.id = t.project_id
+           LEFT JOIN users u ON u.id = t.assignee_id
           WHERE coalesce(t.expected_date, t.due_date) > ?
             AND coalesce(t.expected_date, t.due_date) <= date(?, '+7 days')
             AND t.status NOT IN ('done','cancelled')

@@ -13,7 +13,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { api, ApiError, type Dashboard as DashboardData, type Task } from '../lib/api';
-import type { Occurrence } from '../lib/calendar';
+import { calendarName, type Occurrence } from '../lib/calendar';
 import { loadLocal, saveLocal } from '../lib/storage';
 import { reportFailure } from '../lib/failures';
 import {
@@ -41,7 +41,7 @@ import {
   weekdayIndex,
 } from '../lib/format';
 import { formatMoney, monthBounds, type Category, type Outlook, type Summary } from '../lib/money';
-import { effectiveDate, today } from '../lib/tasks';
+import { effectiveDate, projectTitle, today } from '../lib/tasks';
 import { GoalBoard, hasGoal } from '../components/GoalBoard';
 import { BalancePanel } from '../components/BalancePanel';
 import { Page } from '../components/Page';
@@ -105,6 +105,29 @@ function TaskRow({
         to={`/tasks?open=${task.id}`}
         className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 transition-colors hover:bg-surface-2">
       <span className="min-w-0 flex-1 truncate text-sm text-ink">{task.title}</span>
+      {/* Width permitting (the card's own width — the agenda is a
+          container), the row grows what the task page would show:
+          the project, a line of the description, who it is on. */}
+      <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2 py-0.5 text-xs text-muted @4xl:inline-flex">
+        <span
+          className="size-1.5 rounded-full"
+          style={{ backgroundColor: task.project_color ?? 'var(--c-accent)' }}
+          aria-hidden
+        />
+        {projectTitle(task.project_id, task.project_title ?? '')}
+      </span>
+      <span className="hidden min-w-0 flex-1 truncate text-xs text-muted @4xl:block">
+        {task.description}
+      </span>
+      {task.assignee_name && (
+        <span
+          className="hidden size-5 shrink-0 place-items-center rounded-full text-[0.625rem] font-medium text-white @4xl:grid"
+          style={{ backgroundColor: task.assignee_color ?? 'var(--c-accent)' }}
+          title={task.assignee_name}
+        >
+          {task.assignee_name.slice(0, 1)}
+        </span>
+      )}
       {task.priority === 'urgent' && (
         <span className="shrink-0 rounded-full border border-urgent/40 bg-urgent/10 px-2 py-0.5 font-mono text-[0.625rem] tracking-wide text-urgent uppercase">
           {PRIORITY_LABEL.urgent}
@@ -135,6 +158,19 @@ function EventRow({ occurrence }: { occurrence: Occurrence }) {
       <span className="min-w-0 flex-1 truncate text-sm text-ink">
         {occurrence.title}
         {occurrence.age !== null && <span className="ml-2 text-muted">{occurrence.age}</span>}
+      </span>
+      {/* Same rule as the task row: a wide card earns the calendar's
+          name and a line of the description. */}
+      <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2 py-0.5 text-xs text-muted @4xl:inline-flex">
+        <span
+          className="size-1.5 rounded-full"
+          style={{ backgroundColor: occurrence.calendar_color }}
+          aria-hidden
+        />
+        {calendarName(occurrence.calendar_id, occurrence.calendar_name)}
+      </span>
+      <span className="hidden min-w-0 flex-1 truncate text-xs text-muted @4xl:block">
+        {occurrence.description}
       </span>
       {occurrence.participants.length > 0 && (
         <span

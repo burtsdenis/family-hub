@@ -93,14 +93,16 @@ export async function seedDemo(): Promise<void> {
     ).run(home, alex, trip, alex);
 
     const paint = id();
+    // Descriptions on the dated ones: the wide agenda shows a line of
+    // the description, and it should have something to show
     db.prepare(
-      `INSERT INTO tasks (id, project_id, level, title, status, priority, due_date, assignee_id, position, created_by) VALUES
-       (?, ?, 0, 'Repaint the hallway', 'in_progress', 'normal', ?, ?, 1, ?),
-       (?, ?, 1, 'Pick the colour together', 'done', 'normal', NULL, ?, 2, ?),
-       (?, ?, 1, 'Buy paint and tape', 'todo', 'high', ?, ?, 3, ?),
-       (?, ?, 0, 'Fix the dripping tap', 'todo', 'urgent', ?, ?, 4, ?),
-       (?, ?, 0, 'Book the ferry', 'todo', 'high', ?, ?, 5, ?),
-       (?, ?, 0, 'Renew passports', 'backlog', 'normal', NULL, NULL, 6, ?)`,
+      `INSERT INTO tasks (id, project_id, level, title, description, status, priority, due_date, assignee_id, position, created_by) VALUES
+       (?, ?, 0, 'Repaint the hallway', NULL, 'in_progress', 'normal', ?, ?, 1, ?),
+       (?, ?, 1, 'Pick the colour together', NULL, 'done', 'normal', NULL, ?, 2, ?),
+       (?, ?, 1, 'Buy paint and tape', 'Two cans of Misty Sage and the wide tape', 'todo', 'high', ?, ?, 3, ?),
+       (?, ?, 0, 'Fix the dripping tap', 'The kitchen one — the washer kit is in the garage', 'todo', 'urgent', ?, ?, 4, ?),
+       (?, ?, 0, 'Book the ferry', 'The evening crossing, the cabin with a window', 'todo', 'high', ?, ?, 5, ?),
+       (?, ?, 0, 'Renew passports', NULL, 'backlog', 'normal', NULL, NULL, 6, ?)`,
     ).run(
       paint, home, day(5), alex, alex,
       id(), home, sam, alex,
@@ -139,10 +141,10 @@ export async function seedDemo(): Promise<void> {
     const dentist = id();
     const birthday = id();
     db.prepare(
-      `INSERT INTO events (id, calendar_id, title, location, starts_at, ends_at, all_day, recurrence_rule, remind_days_before, created_by) VALUES
-       (?, ?, 'Gym', 'Iron Temple', ?, ?, 0, 'FREQ=WEEKLY;INTERVAL=1', NULL, ?),
-       (?, ?, 'Dentist', 'Dr. Molar', ?, ?, 0, NULL, 1, ?),
-       (?, ?, 'Grandma''s birthday', NULL, ?, ?, 1, 'FREQ=YEARLY;INTERVAL=1', 7, ?)`,
+      `INSERT INTO events (id, calendar_id, title, description, location, starts_at, ends_at, all_day, recurrence_rule, remind_days_before, created_by) VALUES
+       (?, ?, 'Gym', 'Legs and the sauna after', 'Iron Temple', ?, ?, 0, 'FREQ=WEEKLY;INTERVAL=1', NULL, ?),
+       (?, ?, 'Dentist', 'The crown on the left, ask about a night guard', 'Dr. Molar', ?, ?, 0, NULL, 1, ?),
+       (?, ?, 'Grandma''s birthday', NULL, NULL, ?, ?, 1, 'FREQ=YEARLY;INTERVAL=1', 7, ?)`,
     ).run(
       gym, shared, `${day(1)}T18:30`, `${day(1)}T20:00`, alex,
       dentist, shared, `${day(3)}T11:00`, `${day(3)}T11:45`, sam,
