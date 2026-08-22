@@ -140,19 +140,25 @@ export async function seedDemo(): Promise<void> {
     const gym = id();
     const dentist = id();
     const birthday = id();
+    const movie = id();
+    // The movie lands on "today": the wide agenda unfolds today's rows
+    // (description, calendar), and the template must always have one
+    // event there to unfold
     db.prepare(
       `INSERT INTO events (id, calendar_id, title, description, location, starts_at, ends_at, all_day, recurrence_rule, remind_days_before, created_by) VALUES
+       (?, ?, 'Movie night', 'The new Miyazaki — tickets are in the mail', 'Odeon', ?, ?, 0, NULL, NULL, ?),
        (?, ?, 'Gym', 'Legs and the sauna after', 'Iron Temple', ?, ?, 0, 'FREQ=WEEKLY;INTERVAL=1', NULL, ?),
        (?, ?, 'Dentist', 'The crown on the left, ask about a night guard', 'Dr. Molar', ?, ?, 0, NULL, 1, ?),
        (?, ?, 'Grandma''s birthday', NULL, NULL, ?, ?, 1, 'FREQ=YEARLY;INTERVAL=1', 7, ?)`,
     ).run(
+      movie, shared, `${day(0)}T20:00`, `${day(0)}T22:30`, sam,
       gym, shared, `${day(1)}T18:30`, `${day(1)}T20:00`, alex,
       dentist, shared, `${day(3)}T11:00`, `${day(3)}T11:45`, sam,
       birthday, shared, day(9), day(9), alex,
     );
     db.prepare(
-      `INSERT INTO event_participants (event_id, user_id) VALUES (?, ?), (?, ?), (?, ?)`,
-    ).run(gym, alex, gym, sam, dentist, sam);
+      `INSERT INTO event_participants (event_id, user_id) VALUES (?, ?), (?, ?), (?, ?), (?, ?), (?, ?)`,
+    ).run(gym, alex, gym, sam, dentist, sam, movie, alex, movie, sam);
 
     // ── Family mail ──
     // A believable paperwork inbox; one message is already a task, so

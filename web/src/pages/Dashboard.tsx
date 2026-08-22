@@ -68,11 +68,14 @@ function TaskRow({
   task,
   showDate,
   overdue,
+  detailed,
   onChanged,
 }: {
   task: Task;
   showDate?: boolean;
   overdue?: boolean;
+  /** Width permitting, unfold description/project/assignee under the title. */
+  detailed?: boolean;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -92,106 +95,124 @@ function TaskRow({
   }
 
   return (
-    <li className="flex items-center border-b border-line last:border-0">
+    <li className="flex items-start border-b border-line last:border-0">
       <input
         type="checkbox"
         checked={busy}
         disabled={busy}
         onChange={() => void toggle()}
         aria-label={t('Mark as done')}
-        className="ml-4 size-4 shrink-0 accent-[var(--c-done)]"
+        className="mt-3 ml-4 size-4 shrink-0 accent-[var(--c-done)]"
       />
       <Link
         to={`/tasks?open=${task.id}`}
-        className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 transition-colors hover:bg-surface-2">
-      <span className="min-w-0 flex-1 truncate text-sm text-ink">{task.title}</span>
-      {/* Width permitting (the card's own width — the agenda is a
-          container), the row grows what the task page would show:
-          the project, a line of the description, who it is on. */}
-      <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2 py-0.5 text-xs text-muted @4xl:inline-flex">
-        <span
-          className="size-1.5 rounded-full"
-          style={{ backgroundColor: task.project_color ?? 'var(--c-accent)' }}
-          aria-hidden
-        />
-        {projectTitle(task.project_id, task.project_title ?? '')}
-      </span>
-      <span className="hidden min-w-0 flex-1 truncate text-xs text-muted @4xl:block">
-        {task.description}
-      </span>
-      {task.assignee_name && (
-        <span
-          className="hidden size-5 shrink-0 place-items-center rounded-full text-[0.625rem] font-medium text-white @4xl:grid"
-          style={{ backgroundColor: task.assignee_color ?? 'var(--c-accent)' }}
-          title={task.assignee_name}
-        >
-          {task.assignee_name.slice(0, 1)}
-        </span>
-      )}
-      {task.priority === 'urgent' && (
-        <span className="shrink-0 rounded-full border border-urgent/40 bg-urgent/10 px-2 py-0.5 font-mono text-[0.625rem] tracking-wide text-urgent uppercase">
-          {PRIORITY_LABEL.urgent}
-        </span>
-      )}
+        className="min-w-0 flex-1 px-3 py-2.5 transition-colors hover:bg-surface-2">
+      <span className="flex items-center gap-3">
+        <span className="min-w-0 flex-1 truncate text-sm text-ink">{task.title}</span>
+        {task.priority === 'urgent' && (
+          <span className="shrink-0 rounded-full border border-urgent/40 bg-urgent/10 px-2 py-0.5 font-mono text-[0.625rem] tracking-wide text-urgent uppercase">
+            {PRIORITY_LABEL.urgent}
+          </span>
+        )}
         {showDate && effectiveDate(task) && (
-          <span className={`font-mono text-xs ${overdue ? 'text-urgent' : 'text-muted'}`}>
+          <span className={`shrink-0 font-mono text-xs ${overdue ? 'text-urgent' : 'text-muted'}`}>
             {formatDate(effectiveDate(task)!)}
           </span>
         )}
+      </span>
+      {/* The now column of a wide card has room to breathe, so the
+          detail goes under the title, unhurried: the description in
+          full, then the project and who the task is on. The week-ahead
+          rows stay terse everywhere — a whole week of detail is noise. */}
+      {detailed && (
+        <span className="mt-1 hidden @4xl:block">
+          {task.description && (
+            <span className="block text-xs leading-relaxed text-muted">{task.description}</span>
+          )}
+          <span className="mt-1.5 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2 py-0.5 text-xs text-muted">
+              <span
+                className="size-1.5 rounded-full"
+                style={{ backgroundColor: task.project_color ?? 'var(--c-accent)' }}
+                aria-hidden
+              />
+              {projectTitle(task.project_id, task.project_title ?? '')}
+            </span>
+            {task.assignee_name && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+                <span
+                  className="grid size-4 place-items-center rounded-full text-[0.5625rem] font-medium text-white"
+                  style={{ backgroundColor: task.assignee_color ?? 'var(--c-accent)' }}
+                >
+                  {task.assignee_name.slice(0, 1)}
+                </span>
+                {task.assignee_name}
+              </span>
+            )}
+          </span>
+        </span>
+      )}
       </Link>
     </li>
   );
 }
 
-function EventRow({ occurrence }: { occurrence: Occurrence }) {
+function EventRow({ occurrence, detailed }: { occurrence: Occurrence; detailed?: boolean }) {
   const time = timeOf(occurrence.starts_at);
   return (
     <li className="border-b border-line last:border-0">
       <Link
         to={`/calendar?date=${occurrence.date}`}
-        className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-2">
-      <span
-        className="size-2 shrink-0 rounded-full"
-        style={{ backgroundColor: occurrence.calendar_color }}
-        aria-hidden
-      />
-      <span className="min-w-0 flex-1 truncate text-sm text-ink">
-        {occurrence.title}
-        {occurrence.age !== null && <span className="ml-2 text-muted">{occurrence.age}</span>}
-      </span>
-      {/* Same rule as the task row: a wide card earns the calendar's
-          name and a line of the description. */}
-      <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2 py-0.5 text-xs text-muted @4xl:inline-flex">
+        className="block px-4 py-2.5 transition-colors hover:bg-surface-2">
+      <span className="flex items-center gap-3">
         <span
-          className="size-1.5 rounded-full"
+          className="size-2 shrink-0 rounded-full"
           style={{ backgroundColor: occurrence.calendar_color }}
           aria-hidden
         />
-        {calendarName(occurrence.calendar_id, occurrence.calendar_name)}
+        <span className="min-w-0 flex-1 truncate text-sm text-ink">
+          {occurrence.title}
+          {occurrence.age !== null && <span className="ml-2 text-muted">{occurrence.age}</span>}
+        </span>
+        {occurrence.participants.length > 0 && (
+          <span
+            className="flex shrink-0 -space-x-1"
+            title={occurrence.participants.map((p) => p.name).join(', ')}
+          >
+            {occurrence.participants.slice(0, 3).map((p) => (
+              <span
+                key={p.id}
+                className="grid size-5 place-items-center rounded-full text-[0.625rem] font-medium text-white ring-1 ring-surface"
+                style={{ backgroundColor: p.color }}
+              >
+                {p.name.slice(0, 1)}
+              </span>
+            ))}
+          </span>
+        )}
+        {occurrence.location && (
+          <span className="hidden truncate text-xs text-muted sm:inline">{occurrence.location}</span>
+        )}
+        <span className="shrink-0 font-mono text-xs text-muted">{time || t('all day')}</span>
       </span>
-      <span className="hidden min-w-0 flex-1 truncate text-xs text-muted @4xl:block">
-        {occurrence.description}
-      </span>
-      {occurrence.participants.length > 0 && (
-        <span
-          className="flex shrink-0 -space-x-1"
-          title={occurrence.participants.map((p) => p.name).join(', ')}
-        >
-          {occurrence.participants.slice(0, 3).map((p) => (
-            <span
-              key={p.id}
-              className="grid size-5 place-items-center rounded-full text-[0.625rem] font-medium text-white ring-1 ring-surface"
-              style={{ backgroundColor: p.color }}
-            >
-              {p.name.slice(0, 1)}
+      {/* Same rule as the task row: today's rows on a wide card unfold. */}
+      {detailed && (
+        <span className="mt-1 hidden pl-5 @4xl:block">
+          {occurrence.description && (
+            <span className="block text-xs leading-relaxed text-muted">
+              {occurrence.description}
             </span>
-          ))}
+          )}
+          <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2 py-0.5 text-xs text-muted">
+            <span
+              className="size-1.5 rounded-full"
+              style={{ backgroundColor: occurrence.calendar_color }}
+              aria-hidden
+            />
+            {calendarName(occurrence.calendar_id, occurrence.calendar_name)}
+          </span>
         </span>
       )}
-      {occurrence.location && (
-        <span className="hidden truncate text-xs text-muted sm:inline">{occurrence.location}</span>
-      )}
-        <span className="font-mono text-xs text-muted">{time || t('all day')}</span>
       </Link>
     </li>
   );
@@ -301,7 +322,7 @@ function Agenda({
           <GroupHeader label={t('Overdue')} count={data.overdue.length} alarm />
           <ul>
             {data.overdue.map((task) => (
-              <TaskRow key={task.id} task={task} showDate overdue onChanged={onChanged} />
+              <TaskRow key={task.id} task={task} showDate overdue detailed onChanged={onChanged} />
             ))}
           </ul>
         </>
@@ -319,10 +340,10 @@ function Agenda({
       ) : (
         <ul>
           {data.todayEvents.map((o) => (
-            <EventRow key={o.id} occurrence={o} />
+            <EventRow key={o.id} occurrence={o} detailed />
           ))}
           {data.dueToday.map((task) => (
-            <TaskRow key={task.id} task={task} onChanged={onChanged} />
+            <TaskRow key={task.id} task={task} detailed onChanged={onChanged} />
           ))}
         </ul>
       )}
