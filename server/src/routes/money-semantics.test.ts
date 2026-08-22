@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildTestApp, type Harness } from '../test-harness.js';
-import { runWithDb } from '../db/index.js';
+import { runWithDb, today } from '../db/index.js';
+import { shiftDays } from '../lib/dates.js';
 import { runAutoCreate } from './budgets.js';
 
 /*
@@ -275,5 +276,139 @@ describe('tasks nest three levels deep and no further', () => {
 
     const cycle = await hub.as(cookie, 'PATCH', `/api/tasks/${story}`, { parent_id: subtask });
     expect(cycle.statusCode).toBe(400);
+  });
+});
+
+
+/*
+  The outlook: balance minus what is already spoken for before the next
+  money arrives. Every test here uses a currency of its own — the hub
+  shows every visible account, and the other tests in this file are all
+  in euros.
+*/
+interface Outlook {
+  currencies: {
+    currency: string;
+    balance: number;
+    next_income: { title: string; date: string; amount: number } | null;
+    until: string;
+    bills: { title: string; date: string; amount: number }[];
+    bills_total: number;
+    left: number;
+  }[];
+}
+
+async function accountIn(
+  currency: string,
+  name: string,
+  opening: number,
+  kind = 'card',
+): Promise<string> {
+  const res = await hub.as(cookie, 'POST', '/api/accounts', {
+    name,
+    currency,
+    kind,
+    opening_balance: opening,
+  });
+  return res.json<{ id: string }>().id;
+}
+
+async function recur(rule: Record<string, unknown>): Promise<void> {
+  const res = await hub.as(cookie, 'POST', '/api/recurring', {
+    recurrence_rule: 'FREQ=MONTHLY',
+    ...rule,
+  });
+  expect(res.statusCode, res.body).toBe(201);
+}
+
+async function outlookFor(currency: string): Promise<Outlook['currencies'][number]> {
+  const res = await hub.as(cookie, 'GET', '/api/money/outlook');
+  expect(res.statusCode).toBe(200);
+  return res.json<Outlook>().currencies.find((c) => c.currency === currency)!;
+}
+
+describe('the outlook says what is left until the next money arrives', () => {
+  it('stops at the next income, skips the piggy bank and internal moves', async () => {
+    const on = (days: number) => shiftDays(today(), days);
+
+    const main = await accountIn('CHF', 'Runway', 200_000);
+    const piggy = await accountIn('CHF', 'Runway piggy', 50_000, 'savings');
+    const spare = await accountIn('CHF', 'Runway cash', 0, 'cash');
+
+    await recur({ title: 'Pay day', kind: 'income', amount: 300_000, account_id: main, start_on: on(10) });
+    await recur({ title: 'Rent', kind: 'expense', amount: 95_000, account_id: main, start_on: on(3) });
+    // Falls after the income: next month's problem, not this window's
+    await recur({ title: 'Gym', kind: 'expense', amount: 5_000, account_id: main, start_on: on(20) });
+    // Leaves the spendable pool even though it stays in the family
+    await recur({
+      title: 'Into the piggy bank', kind: 'transfer', amount: 10_000,
+      account_id: main, to_account_id: piggy, to_amount: 10_000, start_on: on(5),
+    });
+    // Moves between two spendable accounts of the same currency: a wash
+    await recur({
+      title: 'Cash for the week', kind: 'transfer', amount: 20_000,
+      account_id: main, to_account_id: spare, to_amount: 20_000, start_on: on(6),
+    });
+
+    const chf = await outlookFor('CHF');
+
+    expect(chf.balance).toBe(200_000);
+    expect(chf.next_income).toEqual({ title: 'Pay day', date: on(10), amount: 300_000 });
+    expect(chf.bills.map((b) => b.title)).toEqual(['Rent', 'Into the piggy bank']);
+    expect(chf.bills_total).toBe(105_000);
+    expect(chf.left).toBe(95_000);
+  });
+
+  it('an income that has not arrived is still the next one, and today is still in the window', async () => {
+    const on = (days: number) => shiftDays(today(), days);
+
+    const main = await accountIn('SEK', 'Late salary', 100_000);
+    // Due two days ago and never confirmed: the money is not here yet
+    await recur({ title: 'Salary', kind: 'income', amount: 500_000, account_id: main, start_on: on(-2) });
+    await recur({ title: 'Water', kind: 'expense', amount: 30_000, account_id: main, start_on: on(0) });
+    await recur({ title: 'Later', kind: 'expense', amount: 70_000, account_id: main, start_on: on(1) });
+
+    const sek = await outlookFor('SEK');
+
+    expect(sek.next_income?.date).toBe(on(-2));
+    // The window does not collapse into the past: today's bill counts,
+    // tomorrow's waits for the next look
+    expect(sek.until).toBe(today());
+    expect(sek.bills.map((b) => b.title)).toEqual(['Water']);
+    expect(sek.left).toBe(70_000);
+  });
+
+  it('forgets occurrences too old to be about the week ahead', async () => {
+    const on = (days: number) => shiftDays(today(), days);
+
+    const main = await accountIn('DKK', 'Long forgotten', 400_000);
+    // Never confirmed since spring: stale bookkeeping, not the next money
+    await recur({ title: 'Old salary', kind: 'income', amount: 500_000, account_id: main, start_on: on(-40) });
+    await recur({ title: 'Old rent', kind: 'expense', amount: 100_000, account_id: main, start_on: on(-40) });
+
+    const dkk = await outlookFor('DKK');
+
+    // The monthly rules step forward: what counts is the occurrence
+    // inside the window, not the ones nobody confirmed since spring.
+    // Asserted relationally — months are not all the same length.
+    expect(dkk.next_income!.date > today()).toBe(true);
+    expect(dkk.bills).toHaveLength(1);
+    expect(dkk.bills[0]!.date >= on(-7)).toBe(true);
+    expect(dkk.left).toBe(300_000);
+  });
+
+  it('with no income scheduled it still shows the month ahead', async () => {
+    const on = (days: number) => shiftDays(today(), days);
+
+    const main = await accountIn('NOK', 'No salary here', 90_000);
+    await recur({ title: 'Storage unit', kind: 'expense', amount: 20_000, account_id: main, start_on: on(4) });
+    await recur({ title: 'Far away', kind: 'expense', amount: 60_000, account_id: main, start_on: on(45) });
+
+    const nok = await outlookFor('NOK');
+
+    expect(nok.next_income).toBeNull();
+    expect(nok.until).toBe(on(30));
+    expect(nok.bills.map((b) => b.title)).toEqual(['Storage unit']);
+    expect(nok.left).toBe(70_000);
   });
 });

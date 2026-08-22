@@ -47,7 +47,7 @@ describe('normalizeLayout', () => {
   it('falls back to the default column for a missing or absurd one', () => {
     const layout = normalizeLayout([
       { id: 'month', size: 2, hidden: false }, // pre-column layout
-      { id: 'money', size: 2, col: 99, hidden: false },
+      { id: 'balance', size: 2, col: 99, hidden: false },
     ]);
     expect(layout[0]!.col).toBe(4);
     expect(layout[1]!.col).toBe(6);

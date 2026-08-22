@@ -2,8 +2,10 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { db, id, now } from '../db/index.js';
+import { db, id, now, today } from '../db/index.js';
 import { paths } from '../env.js';
+import { shiftDays } from '../lib/dates.js';
+import { dueOccurrences } from './budgets.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -13,6 +15,21 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
  * no privacy flag of its own — it inherits it from the account.
  */
 const ACCOUNT_VISIBLE = '(a.shared = 1 OR a.owner_id = ?)';
+
+/**
+ * The balance is computed, not stored: opening balance plus movements.
+ * A stored balance drifts from history after any backdated edit — so the
+ * expression lives here once, for everyone who needs a balance.
+ */
+const BALANCE_SQL = `a.opening_balance
+  - coalesce((SELECT sum(t.amount) FROM transactions t
+       WHERE t.account_id = a.id AND t.kind = 'expense'), 0)
+  + coalesce((SELECT sum(t.amount) FROM transactions t
+       WHERE t.account_id = a.id AND t.kind = 'income'), 0)
+  - coalesce((SELECT sum(t.amount) FROM transactions t
+       WHERE t.account_id = a.id AND t.kind = 'transfer'), 0)
+  + coalesce((SELECT sum(t.to_amount) FROM transactions t
+       WHERE t.to_account_id = a.id AND t.kind = 'transfer'), 0)`;
 
 const accountInput = z.object({
   name: z.string().min(1, 'Enter an account name').max(100),
@@ -107,10 +124,6 @@ function visibleAccountIds(userId: string): Set<string> {
 export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
   // ── Accounts ────────────────────────────────────────────────────────────
 
-  /**
-   * The balance is computed, not stored: opening balance plus movements.
-   * A stored balance drifts from history after any backdated edit.
-   */
   app.get('/api/accounts', (req) => {
     const { archived } = z
       .object({ archived: z.enum(['true', 'false']).optional() })
@@ -120,16 +133,7 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
     const rows = db
       .prepare(
         `SELECT a.*, u.name AS owner_name,
-                a.opening_balance
-                  - coalesce((SELECT sum(t.amount) FROM transactions t
-                       WHERE t.account_id = a.id AND t.kind = 'expense'), 0)
-                  + coalesce((SELECT sum(t.amount) FROM transactions t
-                       WHERE t.account_id = a.id AND t.kind = 'income'), 0)
-                  - coalesce((SELECT sum(t.amount) FROM transactions t
-                       WHERE t.account_id = a.id AND t.kind = 'transfer'), 0)
-                  + coalesce((SELECT sum(t.to_amount) FROM transactions t
-                       WHERE t.to_account_id = a.id AND t.kind = 'transfer'), 0)
-                AS balance,
+                ${BALANCE_SQL} AS balance,
                 (SELECT count(*) FROM transactions t
                   WHERE t.account_id = a.id OR t.to_account_id = a.id) AS tx_count,
                 (SELECT r.actual_balance FROM reconciliations r
@@ -727,5 +731,111 @@ export async function registerMoneyRoutes(app: FastifyInstance): Promise<void> {
       .all(userId, from, to);
 
     return { from, to, byCurrency, byCategory };
+  });
+
+  // ── Outlook: what is left to live on ────────────────────────────────────
+
+  /*
+    The question the accounts screen answers badly: not "how much is
+    there" but "how much of it is already spoken for before the next
+    money arrives".
+
+    Per currency, because nothing here is ever converted — a euro balance
+    says nothing about a dinar salary. Spendable only: a piggy bank is
+    not this month's money, the same rule the accounts screen uses.
+
+    The next income is whichever recurring income comes first, by its own
+    title — this hub has no notion of a salary, only of money that
+    arrives on a schedule.
+
+    The window opens a week before today, not at today: a salary can run
+    a few days late and an unpaid bill is still money about to leave, and
+    both belong in the count. Older unconfirmed occurrences do not —
+    those are stale bookkeeping (the pending list in Money is where they
+    get resolved), and left unbounded a rule nobody ever confirms drags
+    months of ghosts onto the dashboard.
+  */
+  app.get('/api/money/outlook', (req) => {
+    const userId = req.user?.id ?? '';
+    const day = today();
+    // Far enough ahead that a monthly income always falls inside, near
+    // enough that expanding every rule stays cheap.
+    const horizon = shiftDays(day, 62);
+    // With no income scheduled at all, the bills of the coming month are
+    // still worth seeing — there is simply nothing to count down to.
+    const WINDOW_WITHOUT_INCOME = 30;
+    // How far back a late payment is still part of what lies ahead
+    const GRACE_DAYS = 7;
+    const from = shiftDays(day, -GRACE_DAYS);
+
+    const accounts = db
+      .prepare(
+        `SELECT a.id, a.currency, a.kind, ${BALANCE_SQL} AS balance
+           FROM accounts a
+          WHERE ${ACCOUNT_VISIBLE} AND a.archived_at IS NULL`,
+      )
+      .all(userId) as { id: string; currency: string; kind: string; balance: number }[];
+
+    const byId = new Map(accounts.map((a) => [a.id, a]));
+    const balances = new Map<string, number>();
+    for (const a of accounts) {
+      if (a.kind === 'savings') continue;
+      balances.set(a.currency, (balances.get(a.currency) ?? 0) + a.balance);
+    }
+
+    const dues = dueOccurrences(userId, horizon);
+
+    /*
+      A transfer only leaves the pool when it lands outside it: moving
+      money between two spendable accounts of the same currency changes
+      nothing about what the family can spend, while the standing order
+      into the piggy bank very much does. A destination this person
+      cannot see counts as leaving — for them, it has left.
+    */
+    const isOutflow = (due: (typeof dues)[number], currency: string): boolean => {
+      if (due.kind === 'expense') return true;
+      if (due.kind !== 'transfer') return false;
+      const dest = due.to_account_id ? byId.get(due.to_account_id) : undefined;
+      return !dest || dest.kind === 'savings' || dest.currency !== currency;
+    };
+
+    const currencies = [...balances.entries()]
+      .map(([currency, balance]) => {
+        const mine = dues.filter((d) => d.currency === currency && d.occurred_on >= from);
+        // dueOccurrences returns them in date order, so the first income is the next one
+        const income = mine.find((d) => d.kind === 'income') ?? null;
+        // A late income must not shrink the window to nothing: bills
+        // falling today are still bills to pay before it arrives.
+        const until = income
+          ? income.occurred_on > day
+            ? income.occurred_on
+            : day
+          : shiftDays(day, WINDOW_WITHOUT_INCOME);
+
+        const bills = mine
+          .filter((d) => d.occurred_on <= until && isOutflow(d, currency))
+          .map((d) => ({
+            recurring_id: d.recurring_id,
+            title: d.title,
+            date: d.occurred_on,
+            amount: d.amount,
+          }));
+        const bills_total = bills.reduce((sum, b) => sum + b.amount, 0);
+
+        return {
+          currency,
+          balance,
+          next_income: income
+            ? { title: income.title, date: income.occurred_on, amount: income.amount }
+            : null,
+          until,
+          bills,
+          bills_total,
+          left: balance - bills_total,
+        };
+      })
+      .sort((a, b) => b.balance - a.balance);
+
+    return { today: day, currencies };
   });
 }

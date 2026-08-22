@@ -39,9 +39,10 @@ import {
   timeOf,
   weekdayIndex,
 } from '../lib/format';
-import { formatMoney, monthBounds, type Category, type Summary } from '../lib/money';
+import { formatMoney, monthBounds, type Category, type Outlook, type Summary } from '../lib/money';
 import { effectiveDate, today } from '../lib/tasks';
 import { GoalBoard, hasGoal } from '../components/GoalBoard';
+import { BalancePanel } from '../components/BalancePanel';
 import { Page } from '../components/Page';
 
 const PRIORITY_LABEL: Record<Task['priority'], string> = {
@@ -628,6 +629,7 @@ export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [monthEvents, setMonthEvents] = useState<Occurrence[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [outlook, setOutlook] = useState<Outlook | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [layout, setLayout] = useState<WidgetSlot[]>(() =>
@@ -700,13 +702,15 @@ export function Dashboard() {
         ),
         api.get<Summary>(`/money/summary?from=${bounds.from}&to=${bounds.to}`),
         api.get<Category[]>('/categories'),
+        api.get<Outlook>('/money/outlook'),
       ])
-        .then(([d, events, sum, cats]) => {
+        .then(([d, events, sum, cats, out]) => {
           if (!alive) return;
           setData(d);
           setMonthEvents(events);
           setSummary(sum);
           setCategories(cats);
+          setOutlook(out);
           setError(null);
         })
         .catch((e: Error) => {
@@ -764,6 +768,8 @@ export function Dashboard() {
     ) : null,
     agenda: <Agenda data={data} monthEvents={monthEvents} today={data.today} />,
     month: <MiniMonth today={data.today} occurrences={monthEvents} />,
+    balance:
+      outlook && outlook.currencies.length > 0 ? <BalancePanel outlook={outlook} /> : null,
     money: summary ? <MoneyMonth summary={summary} categories={categories} /> : null,
     soon: soon.length > 0 ? <SoonPanel items={soon} /> : null,
     notes: <NotesPanel notes={data.recentNotes} />,

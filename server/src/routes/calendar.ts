@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db, id, now } from '../db/index.js';
 import { expandOccurrences, isValidRecurrence } from '../lib/recurrence.js';
+import { daysBetween, shiftDays } from '../lib/dates.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -81,18 +82,6 @@ interface EventRow {
 
 /** A calendar is visible if it is shared or belongs to the asker. */
 const CALENDAR_VISIBLE = '(c.shared = 1 OR c.owner_id = ?)';
-
-function shiftDays(date: string, days: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function daysBetween(from: string, to: string): number {
-  return Math.round(
-    (new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / 86_400_000,
-  );
-}
 
 export interface Occurrence {
   id: string;
