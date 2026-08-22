@@ -134,7 +134,7 @@ export const ru: Record<string, string> = {
   'Attachments': 'Вложения',
   'B': 'Ж',
   'Back': 'Назад',
-  'Balance': 'Остаток',
+  'Balance': 'Баланс',
   'Belongs to': 'Входит в',
   'Board': 'Доска',
   'Board and widgets': 'Табло и виджеты',
