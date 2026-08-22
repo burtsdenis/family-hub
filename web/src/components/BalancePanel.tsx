@@ -130,7 +130,7 @@ function CurrencyBlock({
                       onClick={() => void post(b)}
                       disabled={posting === billKey(b)}
                       title={t('Post')}
-                      className="group/bill -mx-2 flex w-full items-start gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
+                      className="group/bill -mx-2 flex w-[calc(100%+1rem)] items-start gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
                     >
                       {/* The hub's tick-off affordance: an empty circle
                           that shows its check under the pointer (always,
