@@ -62,14 +62,6 @@ export function daysUntil(targetDate: string): number | null {
   return Math.round((target.getTime() - today.getTime()) / 86_400_000);
 }
 
-export function formatEur(value: number): string {
-  return new Intl.NumberFormat(intlLocale, {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
 // ── Calendar dates ────────────────────────────────────────────────────────
 
 function capitalize(s: string): string {

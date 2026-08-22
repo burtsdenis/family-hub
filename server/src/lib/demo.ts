@@ -277,14 +277,15 @@ export async function seedDemo(): Promise<void> {
     // ── Dashboard ──
     db.prepare(
       `INSERT INTO settings (key, value, updated_at) VALUES
-       ('move.label', 'Trip countdown', ?),
-       ('move.target_date', ?, ?),
-       ('savings.label', 'Saved for the trip', ?),
-       ('savings.goal_eur', '3000', ?),
-       ('savings.amount_eur', '1250', ?),
+       ('goal.title', 'Trip to Japan', ?),
+       ('goal.date', ?, ?),
+       ('goal.saved_label', 'Saved for the trip', ?),
+       ('goal.target', '300000', ?),
+       ('goal.saved', '125000', ?),
+       ('goal.currency', 'EUR', ?),
        ('money.default_currency', 'EUR', ?)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-    ).run(now(), day(45), now(), now(), now(), now(), now());
+    ).run(now(), day(45), now(), now(), now(), now(), now(), now());
   });
 
   seed();

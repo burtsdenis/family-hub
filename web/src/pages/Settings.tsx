@@ -9,7 +9,7 @@ import { plural } from '../lib/format';
 import { Page } from '../components/Page';
 import { onEnter } from '../lib/keys';
 import { PALETTE, addToPalette, loadCustomPalette, removeFromPalette } from '../lib/palette';
-import { COMMON_CURRENCIES } from '../lib/money';
+import { COMMON_CURRENCIES, formatAmountInput, parseAmount } from '../lib/money';
 import { PeopleSection } from '../components/PeopleSection';
 import { MailSection } from '../components/MailSection';
 import { TotpSection } from '../components/TotpSection';
@@ -432,13 +432,14 @@ function SignInSection() {
 }
 
 const FIELDS: { key: string; label: string; hint: string; type: string }[] = [
-  { key: 'move.label', label: t('Event name'), hint: t('Board title'), type: 'text' },
-  { key: 'move.target_date', label: t('Moving date'), hint: t('The countdown counts from it'), type: 'date' },
-  { key: 'savings.label', label: t('Savings caption'), hint: '', type: 'text' },
-  { key: 'savings.goal_eur', label: t('Goal, €'), hint: t('Zero — hide the progress bar'), type: 'number' },
+  { key: 'goal.title', label: t('Goal name'), hint: t('A move, a trip, a new bike — the widget title'), type: 'text' },
+  { key: 'goal.date', label: t('Target date'), hint: t('The countdown counts down to it'), type: 'date' },
+  { key: 'goal.saved_label', label: t('Savings caption'), hint: '', type: 'text' },
 ];
 
 const CURRENCY_KEY = 'money.default_currency';
+const GOAL_TARGET_KEY = 'goal.target';
+const GOAL_CURRENCY_KEY = 'goal.currency';
 
 export function Settings() {
   const { user } = useAuth();
@@ -447,9 +448,18 @@ export function Settings() {
   const [usage, setUsage] = useState<{ used: number; files: number; budget: number } | null>(
     null,
   );
+  /*
+    The goal's target is stored in minor units like every other amount,
+    but it is typed in whole ones. Kept beside `values` rather than in
+    it: the field holds what was typed until save parses it.
+  */
+  const [goalTarget, setGoalTarget] = useState('');
 
   useEffect(() => {
-    void api.get<Record<string, string>>('/settings').then(setValues);
+    void api.get<Record<string, string>>('/settings').then((loaded) => {
+      setValues(loaded);
+      setGoalTarget(formatAmountInput(Number(loaded[GOAL_TARGET_KEY] ?? 0) || 0));
+    });
     void api
       .get<{ used: number; files: number; budget: number }>('/attachments/usage')
       .then(setUsage);
@@ -458,14 +468,24 @@ export function Settings() {
   async function save() {
     if (!values) return;
     setStatus(null);
+    const target = goalTarget.trim() === '' ? 0 : parseAmount(goalTarget);
+    if (target === null) {
+      setStatus(t('Enter an amount, e.g. 4500'));
+      return;
+    }
     // A hand-typed "eur " must still match account currencies
-    const payload =
-      CURRENCY_KEY in values
-        ? { ...values, [CURRENCY_KEY]: (values[CURRENCY_KEY] ?? '').trim().toUpperCase() }
-        : values;
+    const payload = {
+      ...values,
+      ...(CURRENCY_KEY in values
+        ? { [CURRENCY_KEY]: (values[CURRENCY_KEY] ?? '').trim().toUpperCase() }
+        : {}),
+      [GOAL_TARGET_KEY]: String(target),
+      [GOAL_CURRENCY_KEY]: (values[GOAL_CURRENCY_KEY] ?? '').trim().toUpperCase(),
+    };
     try {
       await api.patch('/settings', payload);
       setValues(payload);
+      setGoalTarget(formatAmountInput(target));
       setStatus(t('Saved'));
     } catch {
       setStatus(t('Could not save'));
@@ -503,6 +523,37 @@ export function Settings() {
             {f.hint && <span className="mt-1 block text-xs text-muted">{f.hint}</span>}
           </label>
         ))}
+
+        {/* The goal carries its own currency: nothing here is ever
+            converted, so an amount that borrowed the default currency
+            would silently change meaning when that default changes. */}
+        <div>
+          <span className="mb-1.5 block text-sm font-medium text-ink">{t('Target amount')}</span>
+          <div className="flex items-center gap-2">
+            <input
+              inputMode="decimal"
+              value={goalTarget}
+              onChange={(e) => setGoalTarget(e.target.value)}
+              onKeyDown={onEnter(() => void save())}
+              aria-label={t('Target amount')}
+              className="w-full min-w-0 rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-sm tabular-nums text-ink outline-none focus:border-accent"
+            />
+            <input
+              value={values[GOAL_CURRENCY_KEY] ?? ''}
+              placeholder={(values[CURRENCY_KEY] ?? '').trim().toUpperCase() || 'EUR'}
+              maxLength={3}
+              onChange={(e) =>
+                setValues({ ...values, [GOAL_CURRENCY_KEY]: e.target.value.toUpperCase() })
+              }
+              onKeyDown={onEnter(() => void save())}
+              aria-label={t('Goal currency')}
+              className="w-20 shrink-0 rounded-lg border border-line bg-surface-2 px-3 py-2 text-center font-mono text-sm text-ink uppercase outline-none focus:border-accent"
+            />
+          </div>
+          <span className="mt-1 block text-xs text-muted">
+            {t('Zero — the goal is only a countdown')}
+          </span>
+        </div>
 
         {/* The same chip picker as the account dialog: two different
             inputs for one concept invited typos ("EUr", a Cyrillic Е) */}

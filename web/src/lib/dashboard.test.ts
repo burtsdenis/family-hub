@@ -31,6 +31,14 @@ describe('normalizeLayout', () => {
     expect(layout.map((s) => s.id).sort()).toEqual(Object.keys(WIDGET_DEFS).sort());
   });
 
+  it('keeps the place of a widget that was renamed between releases', () => {
+    // A phone that has not been opened since the move board became a
+    // general goal still stores the old id.
+    const layout = normalizeLayout([{ id: 'move', size: 4, col: 2, hidden: false }]);
+    expect(layout[0]).toEqual({ id: 'goal', size: 4, col: 2, hidden: false });
+    expect(layout.filter((s) => s.id === 'goal')).toHaveLength(1);
+  });
+
   it('snaps a size the widget does not support to its default', () => {
     const layout = normalizeLayout([{ id: 'month', size: 8, col: 4, hidden: false }]);
     expect(layout[0]).toMatchObject({ id: 'month', size: 2 });
@@ -81,14 +89,14 @@ describe('packBoard', () => {
     const { boxes } = pack([
       { id: 'money', units: 2, col: 0, height: 100 },
       { id: 'notes', units: 2, col: 4, height: 300 },
-      { id: 'move', units: 8, col: 0, height: 160 },
+      { id: 'goal', units: 8, col: 0, height: 160 },
     ]);
-    expect(boxes.get('move')!.top).toBe(300 + 20);
+    expect(boxes.get('goal')!.top).toBe(300 + 20);
   });
 
   it('snaps near-equal bottoms so the next band starts on one line', () => {
     const { boxes } = pack([
-      { id: 'move', units: 4, col: 0, height: 215 },
+      { id: 'goal', units: 4, col: 0, height: 215 },
       { id: 'money', units: 2, col: 4, height: 230 },
       { id: 'notes', units: 2, col: 6, height: 225 },
       { id: 'agenda', units: 4, col: 0, height: 500 },
@@ -104,17 +112,17 @@ describe('packBoard', () => {
   it('clamps a column that no longer fits the board', () => {
     // Stored col 6 with a 4-unit widget on a 4-unit board → col 0.
     const { boxes } = packBoard(
-      [{ id: 'move', units: 4, col: 6, height: 160 }],
+      [{ id: 'goal', units: 4, col: 6, height: 160 }],
       4,
       600,
       20,
       32,
     );
-    expect(boxes.get('move')!.left).toBe(0);
+    expect(boxes.get('goal')!.left).toBe(0);
   });
 
   it('board height is the deepest column without the trailing gap', () => {
-    const { height } = pack([{ id: 'move', units: 8, col: 0, height: 160 }]);
+    const { height } = pack([{ id: 'goal', units: 8, col: 0, height: 160 }]);
     expect(height).toBe(160);
   });
 });

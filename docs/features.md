@@ -206,9 +206,17 @@ Attached to a transaction with the same machinery as note attachments. The image
 
 ## The Today board
 
-The home screen is a board of widgets: the move board (countdown and
-savings), the agenda, a mini month, a money pulse, reminders and recent
-notes.
+The home screen is a board of widgets: the goal board (a countdown and
+a savings bar), the agenda, a mini month, a money pulse, reminders and
+recent notes.
+
+The **goal** is whatever the family is heading towards — a move, a trip,
+a bike. Give it a date and it counts the days down; give it a target
+amount and it draws a bar, with the saved amount typed on the board
+itself. Zero as the target means no money half at all — a plain
+countdown, small enough to sit in a quarter of the row. The gear in its
+corner leads to the rest of the fields, and with neither a date nor a
+target the widget is simply not there.
 
 The **agenda** is the week in one card — overdue, then today (events
 with times and tasks together), then only the days ahead that actually
