@@ -7,7 +7,7 @@ import { t } from './i18n';
  * and the phone in the pocket want different boards, so the layout lives
  * in localStorage, not in shared settings.
  */
-export type WidgetId = 'goal' | 'agenda' | 'month' | 'money' | 'soon' | 'notes';
+export type WidgetId = 'goal' | 'agenda' | 'month' | 'balance' | 'money' | 'soon' | 'notes';
 
 export type WidgetSize = 2 | 4 | 8;
 
@@ -27,6 +27,7 @@ export const WIDGET_DEFS: Record<WidgetId, { title: string; sizes: WidgetSize[] 
   goal: { title: t('Goal'), sizes: [2, 4, 8] },
   agenda: { title: t('Agenda'), sizes: [4, 8] },
   month: { title: t('Month'), sizes: [2, 4] },
+  balance: { title: t('Balance'), sizes: [2, 4] },
   money: { title: t('Money'), sizes: [2, 4] },
   soon: { title: t('Soon'), sizes: [2, 4] },
   notes: { title: t('Recent notes'), sizes: [2, 4] },
@@ -36,9 +37,10 @@ export const DEFAULT_LAYOUT: WidgetSlot[] = [
   { id: 'goal', size: 8, col: 0, hidden: false },
   { id: 'agenda', size: 4, col: 0, hidden: false },
   { id: 'month', size: 2, col: 4, hidden: false },
-  { id: 'money', size: 2, col: 6, hidden: false },
-  { id: 'soon', size: 2, col: 4, hidden: false },
-  { id: 'notes', size: 2, col: 6, hidden: false },
+  { id: 'balance', size: 2, col: 6, hidden: false },
+  { id: 'money', size: 2, col: 4, hidden: false },
+  { id: 'soon', size: 2, col: 6, hidden: false },
+  { id: 'notes', size: 2, col: 4, hidden: false },
 ];
 
 export const LAYOUT_KEY = 'hub.dashboard.layout';

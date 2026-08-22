@@ -22,6 +22,26 @@ export interface Account {
   checked_balance: number | null;
 }
 
+/**
+ * What is left to live on until the next money arrives — one entry per
+ * currency, because nothing here is converted. `until` is the day the
+ * outlook runs to: the next income, or a month ahead when nothing is
+ * scheduled to arrive.
+ */
+export interface Outlook {
+  today: string;
+  currencies: {
+    currency: string;
+    /** Spendable accounts only — a piggy bank is not this month's money. */
+    balance: number;
+    next_income: { title: string; date: string; amount: number } | null;
+    until: string;
+    bills: { recurring_id: string; title: string; date: string; amount: number }[];
+    bills_total: number;
+    left: number;
+  }[];
+}
+
 export interface Category {
   id: string;
   name: string;

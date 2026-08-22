@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { openDatabase, runWithDb } from '../db/index.js';
+import { openDatabase, runWithDb, today } from '../db/index.js';
+import { shiftDays } from './dates.js';
 import { migrate } from '../db/migrate.js';
 import { seedDemo } from './demo.js';
 
@@ -24,6 +25,28 @@ describe('seedDemo', () => {
     expect(n('SELECT count(*) AS n FROM wishes WHERE claimed_by_name IS NOT NULL')).toBe(1);
     // The derived birthday events carry the back-reference the routes use
     expect(n('SELECT count(*) AS n FROM events WHERE profile_user_id IS NOT NULL')).toBe(2);
+
+    /*
+      The balance widget's showcase, and the reason these dates are
+      relative: a visitor must always find a bill already due — the one
+      the widget lets them tick off — and money arriving later, rather
+      than months of pay days nobody ever confirmed.
+    */
+    const rules = db
+      .prepare(
+        `SELECT title, kind, start_on, auto_create FROM recurring_transactions WHERE active = 1`,
+      )
+      .all() as { title: string; kind: string; start_on: string; auto_create: number }[];
+    const dueNow = rules.filter(
+      (r) =>
+        r.kind === 'expense' &&
+        r.auto_create === 0 &&
+        r.start_on <= today() &&
+        r.start_on >= shiftDays(today(), -7),
+    );
+    expect(dueNow.length, 'no bill a visitor could confirm').toBeGreaterThan(0);
+    const income = rules.find((r) => r.kind === 'income');
+    expect(income && income.start_on > today(), 'the next pay day is not ahead').toBe(true);
 
     // Idempotence: a second run on a non-empty database is a no-op
     await runWithDb(db, () => seedDemo());

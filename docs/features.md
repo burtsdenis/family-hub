@@ -207,8 +207,8 @@ Attached to a transaction with the same machinery as note attachments. The image
 ## The Today board
 
 The home screen is a board of widgets: the goal board (a countdown and
-a savings bar), the agenda, a mini month, a money pulse, reminders and
-recent notes.
+a savings bar), the agenda, a mini month, the balance, a money pulse,
+reminders and recent notes.
 
 The **goal** is whatever the family is heading towards — a move, a trip,
 a bike. Give it a date and it counts the days down; give it a target
@@ -222,7 +222,19 @@ The **agenda** is the week in one card — overdue, then today (events
 with times and tasks together), then only the days ahead that actually
 hold something. An empty day is silence, not an empty panel. The **mini
 month** marks days with dots in calendar colours; a day click opens the
-calendar there. The **money pulse** shows this month's spending per
+calendar there. The **balance** answers the question the accounts screen
+answers badly — not how much is there, but how much of it is already
+spoken for: the spendable total, the wait for the next scheduled income,
+and the standing payments that fall in between, with what is left after
+them. One block per currency, nothing converted; a piggy bank stays out
+of it, and so does a transfer that only moves money between spendable
+accounts. The window opens a week back — a late salary and an unpaid
+bill are still ahead of you, while older unconfirmed occurrences belong
+to the pending list in Money. A payment whose day has come can be ticked
+off right there — one click posts it at the planned amount, the same
+confirmation the pending list does; an amount that turned out different
+is a trip to Money. The remainder does not move when a bill is posted:
+the money leaves the balance and the list at once. The **money pulse** shows this month's spending per
 currency with the three heaviest categories (subcategories roll up into
 their parent, same as the Money summary). A widget with nothing to say
 renders nothing.

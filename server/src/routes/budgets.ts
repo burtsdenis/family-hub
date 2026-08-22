@@ -43,6 +43,8 @@ export interface DueItem {
   amount: number;
   currency: string;
   account_name: string;
+  /** Where a transfer lands — the outlook needs it to tell an internal move from an outflow. */
+  to_account_id: string | null;
   category_name: string | null;
   auto_create: number;
 }
@@ -93,6 +95,7 @@ export function dueOccurrences(userId: string, horizon = today()): DueItem[] {
         amount: rule.amount,
         currency: rule.currency,
         account_name: rule.account_name,
+        to_account_id: rule.to_account_id,
         category_name: rule.category_name,
         auto_create: rule.auto_create,
       });
