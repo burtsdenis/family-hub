@@ -220,7 +220,12 @@ target the widget is simply not there.
 
 The **agenda** is the week in one card — overdue, then today (events
 with times and tasks together), then only the days ahead that actually
-hold something. An empty day is silence, not an empty panel. The **mini
+hold something. An empty day is silence, not an empty panel. A task
+wears a checkbox — tickable right on the board — an event its
+calendar-coloured dot. At full row width the card splits in two — the
+now (overdue and today) beside the week ahead. Today's rows unfold
+there: the description in full, the project or calendar, who a task is
+on. The week ahead stays terse — a whole week of detail is noise. The **mini
 month** marks days with dots in calendar colours; a day click opens the
 calendar there. The **balance** answers the question the accounts screen
 answers badly — not how much is there, but how much of it is already

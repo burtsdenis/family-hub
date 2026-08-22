@@ -13,7 +13,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { api, ApiError, type Dashboard as DashboardData, type Task } from '../lib/api';
-import type { Occurrence } from '../lib/calendar';
+import { calendarName, type Occurrence } from '../lib/calendar';
 import { loadLocal, saveLocal } from '../lib/storage';
 import { reportFailure } from '../lib/failures';
 import {
@@ -41,7 +41,7 @@ import {
   weekdayIndex,
 } from '../lib/format';
 import { formatMoney, monthBounds, type Category, type Outlook, type Summary } from '../lib/money';
-import { effectiveDate, today } from '../lib/tasks';
+import { effectiveDate, projectTitle, today } from '../lib/tasks';
 import { GoalBoard, hasGoal } from '../components/GoalBoard';
 import { BalancePanel } from '../components/BalancePanel';
 import { Page } from '../components/Page';
@@ -57,71 +57,165 @@ const PRIORITY_LABEL: Record<Task['priority'], string> = {
   Every dashboard row leads to where something can be done about it.
   A task opens its card, an event the calendar at the right date, a note
   the note itself. Showing a list with nowhere to go is a dead end.
+
+  A task wears the hub's own task marker — a checkbox, tickable right
+  here — while an event keeps its calendar-coloured dot. The two used to
+  share the dot and were indistinguishable at a glance (the colours mean
+  project vs calendar, which nobody remembers).
 */
 // showDate: whether a date renders at all; overdue: whether it's alarming.
-function TaskRow({ task, showDate, overdue }: { task: Task; showDate?: boolean; overdue?: boolean }) {
+function TaskRow({
+  task,
+  showDate,
+  overdue,
+  detailed,
+  onChanged,
+}: {
+  task: Task;
+  showDate?: boolean;
+  overdue?: boolean;
+  /** Width permitting, unfold description/project/assignee under the title. */
+  detailed?: boolean;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  // The row disappears on reload rather than flipping to a "done" state:
+  // the agenda lists only open work. `checked` follows busy so the tick
+  // is visible for the moment the save takes.
+  async function toggle() {
+    setBusy(true);
+    try {
+      await api.patch(`/tasks/${task.id}`, { status: 'done' });
+      onChanged();
+    } catch (err) {
+      reportFailure(err instanceof Error ? err.message : t('Could not save'));
+      setBusy(false);
+    }
+  }
+
   return (
-    <li className="border-b border-line last:border-0">
+    <li className="flex items-start border-b border-line last:border-0">
+      <input
+        type="checkbox"
+        checked={busy}
+        disabled={busy}
+        onChange={() => void toggle()}
+        aria-label={t('Mark as done')}
+        className="mt-3 ml-4 size-4 shrink-0 accent-[var(--c-done)]"
+      />
       <Link
         to={`/tasks?open=${task.id}`}
-        className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-2">
-      <span
-        className="size-2 shrink-0 rounded-full"
-        style={{ backgroundColor: task.project_color ?? 'var(--c-accent)' }}
-        aria-hidden
-      />
-      <span className="min-w-0 flex-1 truncate text-sm text-ink">{task.title}</span>
-      {task.priority === 'urgent' && (
-        <span className="shrink-0 rounded-full border border-urgent/40 bg-urgent/10 px-2 py-0.5 font-mono text-[0.625rem] tracking-wide text-urgent uppercase">
-          {PRIORITY_LABEL.urgent}
-        </span>
-      )}
+        className="min-w-0 flex-1 px-3 py-2.5 transition-colors hover:bg-surface-2">
+      <span className="flex items-center gap-3">
+        <span className="min-w-0 flex-1 truncate text-sm text-ink">{task.title}</span>
+        {task.priority === 'urgent' && (
+          <span className="shrink-0 rounded-full border border-urgent/40 bg-urgent/10 px-2 py-0.5 font-mono text-[0.625rem] tracking-wide text-urgent uppercase">
+            {PRIORITY_LABEL.urgent}
+          </span>
+        )}
         {showDate && effectiveDate(task) && (
-          <span className={`font-mono text-xs ${overdue ? 'text-urgent' : 'text-muted'}`}>
+          <span className={`shrink-0 font-mono text-xs ${overdue ? 'text-urgent' : 'text-muted'}`}>
             {formatDate(effectiveDate(task)!)}
           </span>
         )}
+      </span>
+      {/* The now column of a wide card has room to breathe, so the
+          detail goes under the title, unhurried: the description in
+          full, then the project and who the task is on. The week-ahead
+          rows stay terse everywhere — a whole week of detail is noise. */}
+      {detailed && (
+        <span className="mt-1 hidden @4xl:block">
+          {task.description && (
+            <span className="block text-xs leading-relaxed text-muted">{task.description}</span>
+          )}
+          <span className="mt-1.5 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2 py-0.5 text-xs text-muted">
+              <span
+                className="size-1.5 rounded-full"
+                style={{ backgroundColor: task.project_color ?? 'var(--c-accent)' }}
+                aria-hidden
+              />
+              {projectTitle(task.project_id, task.project_title ?? '')}
+            </span>
+            {task.assignee_name && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+                <span
+                  className="grid size-4 place-items-center rounded-full text-[0.5625rem] font-medium text-white"
+                  style={{ backgroundColor: task.assignee_color ?? 'var(--c-accent)' }}
+                >
+                  {task.assignee_name.slice(0, 1)}
+                </span>
+                {task.assignee_name}
+              </span>
+            )}
+          </span>
+        </span>
+      )}
       </Link>
     </li>
   );
 }
 
-function EventRow({ occurrence }: { occurrence: Occurrence }) {
+function EventRow({ occurrence, detailed }: { occurrence: Occurrence; detailed?: boolean }) {
   const time = timeOf(occurrence.starts_at);
   return (
     <li className="border-b border-line last:border-0">
       <Link
         to={`/calendar?date=${occurrence.date}`}
-        className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-2">
-      <span
-        className="size-2 shrink-0 rounded-full"
-        style={{ backgroundColor: occurrence.calendar_color }}
-        aria-hidden
-      />
-      <span className="min-w-0 flex-1 truncate text-sm text-ink">
-        {occurrence.title}
-        {occurrence.age !== null && <span className="ml-2 text-muted">{occurrence.age}</span>}
+        className="block px-4 py-2.5 transition-colors hover:bg-surface-2">
+      <span className="flex items-center gap-3">
+        {/* The dot sits in a checkbox-sized box: mixed lists put events
+            and tasks under each other, and the titles must share a column */}
+        <span className="grid size-4 shrink-0 place-items-center" aria-hidden>
+          <span
+            className="size-2 rounded-full"
+            style={{ backgroundColor: occurrence.calendar_color }}
+          />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-sm text-ink">
+          {occurrence.title}
+          {occurrence.age !== null && <span className="ml-2 text-muted">{occurrence.age}</span>}
+        </span>
+        {occurrence.participants.length > 0 && (
+          <span
+            className="flex shrink-0 -space-x-1"
+            title={occurrence.participants.map((p) => p.name).join(', ')}
+          >
+            {occurrence.participants.slice(0, 3).map((p) => (
+              <span
+                key={p.id}
+                className="grid size-5 place-items-center rounded-full text-[0.625rem] font-medium text-white ring-1 ring-surface"
+                style={{ backgroundColor: p.color }}
+              >
+                {p.name.slice(0, 1)}
+              </span>
+            ))}
+          </span>
+        )}
+        {occurrence.location && (
+          <span className="hidden truncate text-xs text-muted sm:inline">{occurrence.location}</span>
+        )}
+        <span className="shrink-0 font-mono text-xs text-muted">{time || t('all day')}</span>
       </span>
-      {occurrence.participants.length > 0 && (
-        <span
-          className="flex shrink-0 -space-x-1"
-          title={occurrence.participants.map((p) => p.name).join(', ')}
-        >
-          {occurrence.participants.slice(0, 3).map((p) => (
-            <span
-              key={p.id}
-              className="grid size-5 place-items-center rounded-full text-[0.625rem] font-medium text-white ring-1 ring-surface"
-              style={{ backgroundColor: p.color }}
-            >
-              {p.name.slice(0, 1)}
+      {/* Same rule as the task row: today's rows on a wide card unfold. */}
+      {detailed && (
+        <span className="mt-1 hidden pl-7 @4xl:block">
+          {occurrence.description && (
+            <span className="block text-xs leading-relaxed text-muted">
+              {occurrence.description}
             </span>
-          ))}
+          )}
+          <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2 py-0.5 text-xs text-muted">
+            <span
+              className="size-1.5 rounded-full"
+              style={{ backgroundColor: occurrence.calendar_color }}
+              aria-hidden
+            />
+            {calendarName(occurrence.calendar_id, occurrence.calendar_name)}
+          </span>
         </span>
       )}
-      {occurrence.location && (
-        <span className="hidden truncate text-xs text-muted sm:inline">{occurrence.location}</span>
-      )}
-        <span className="font-mono text-xs text-muted">{time || t('all day')}</span>
       </Link>
     </li>
   );
@@ -209,10 +303,12 @@ function Agenda({
   data,
   monthEvents,
   today: t0,
+  onChanged,
 }: {
   data: DashboardData;
   monthEvents: Occurrence[];
   today: string;
+  onChanged: () => void;
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(t0, i + 1)).map((date) => ({
     date,
@@ -222,14 +318,14 @@ function Agenda({
   const busyDays = days.filter((d) => d.events.length + d.tasks.length > 0);
   const nothingToday = data.dueToday.length === 0 && data.todayEvents.length === 0;
 
-  return (
-    <section className="overflow-hidden rounded-card border border-line bg-surface">
+  const now = (
+    <div>
       {data.overdue.length > 0 && (
         <>
           <GroupHeader label={t('Overdue')} count={data.overdue.length} alarm />
           <ul>
             {data.overdue.map((task) => (
-              <TaskRow key={task.id} task={task} showDate overdue />
+              <TaskRow key={task.id} task={task} showDate overdue detailed onChanged={onChanged} />
             ))}
           </ul>
         </>
@@ -247,14 +343,18 @@ function Agenda({
       ) : (
         <ul>
           {data.todayEvents.map((o) => (
-            <EventRow key={o.id} occurrence={o} />
+            <EventRow key={o.id} occurrence={o} detailed />
           ))}
           {data.dueToday.map((task) => (
-            <TaskRow key={task.id} task={task} />
+            <TaskRow key={task.id} task={task} detailed onChanged={onChanged} />
           ))}
         </ul>
       )}
+    </div>
+  );
 
+  const ahead = (
+    <div>
       {busyDays.map((d, i) => (
         <div key={d.date}>
           <GroupHeader
@@ -270,7 +370,7 @@ function Agenda({
               <EventRow key={o.id} occurrence={o} />
             ))}
             {d.tasks.map((task) => (
-              <TaskRow key={task.id} task={task} />
+              <TaskRow key={task.id} task={task} onChanged={onChanged} />
             ))}
           </ul>
         </div>
@@ -278,6 +378,19 @@ function Agenda({
       {busyDays.length === 0 && (
         <p className="px-4 py-3 text-sm text-muted">{t('The week ahead is clear.')}</p>
       )}
+    </div>
+  );
+
+  return (
+    <section className="@container overflow-hidden rounded-card border border-line bg-surface">
+      {/* Width buys structure, not just wider rows: once the card itself
+          is wide enough (the full row of a big screen), the now and the
+          week ahead sit side by side. A container query, not a viewport
+          one — the same widget can be a half-row on the same screen. */}
+      <div className="@4xl:grid @4xl:grid-cols-2 @4xl:divide-x @4xl:divide-line">
+        {now}
+        {ahead}
+      </div>
     </section>
   );
 }
@@ -706,6 +819,12 @@ export function Dashboard() {
     setAdding(false);
   }
 
+  // Ticking a task off the agenda changes every bucket at once (overdue,
+  // today, the week). Bumping the tick re-runs the loading effect — one
+  // refetch, and the interval restarts with it.
+  const [tick, setTick] = useState(0);
+  const refresh = useCallback(() => setTick((n) => n + 1), []);
+
   useEffect(() => {
     let alive = true;
     const load = () => {
@@ -753,7 +872,7 @@ export function Dashboard() {
       alive = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [tick]);
 
   if (error && !data) {
     return (
@@ -786,7 +905,7 @@ export function Dashboard() {
         }
       />
     ) : null,
-    agenda: <Agenda data={data} monthEvents={monthEvents} today={data.today} />,
+    agenda: <Agenda data={data} monthEvents={monthEvents} today={data.today} onChanged={refresh} />,
     month: <MiniMonth today={data.today} occurrences={monthEvents} />,
     balance:
       outlook && outlook.currencies.length > 0 ? (
