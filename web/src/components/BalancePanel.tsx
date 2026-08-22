@@ -130,12 +130,12 @@ function CurrencyBlock({
                       onClick={() => void post(b)}
                       disabled={posting === billKey(b)}
                       title={t('Post')}
-                      className="group/bill -mx-2 flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
+                      className="group/bill -mx-2 flex w-full items-start gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
                     >
                       {/* The hub's tick-off affordance: an empty circle
                           that shows its check under the pointer (always,
                           where there is no pointer to hover with) */}
-                      <span className="grid size-4.5 shrink-0 place-items-center rounded-full border border-accent text-accent">
+                      <span className="mt-px grid size-4.5 shrink-0 place-items-center rounded-full border border-accent text-accent">
                         <span className="opacity-0 transition-opacity group-hover/bill:opacity-100 [@media(hover:none)]:opacity-100">
                           <CheckIcon />
                         </span>
@@ -143,8 +143,8 @@ function CurrencyBlock({
                       {body}
                     </button>
                   ) : (
-                    <div className="-mx-2 flex items-center gap-2.5 px-2 py-1.5">
-                      <span className="grid size-4.5 shrink-0 place-items-center" aria-hidden>
+                    <div className="-mx-2 flex items-start gap-2.5 px-2 py-1.5">
+                      <span className="mt-px grid size-4.5 shrink-0 place-items-center" aria-hidden>
                         <span className="size-1.5 rounded-full bg-surface-3" />
                       </span>
                       {body}
