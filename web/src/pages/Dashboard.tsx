@@ -41,7 +41,7 @@ import {
 } from '../lib/format';
 import { formatMoney, monthBounds, type Category, type Summary } from '../lib/money';
 import { effectiveDate, today } from '../lib/tasks';
-import { MoveBoard } from '../components/MoveBoard';
+import { GoalBoard, hasGoal } from '../components/GoalBoard';
 import { Page } from '../components/Page';
 
 const PRIORITY_LABEL: Record<Task['priority'], string> = {
@@ -754,14 +754,14 @@ export function Dashboard() {
   // A widget with nothing to say renders nothing — unless the board is
   // being edited: then every widget must be visible to be arrangeable.
   const content: Record<WidgetId, React.ReactNode | null> = {
-    move: (
-      <MoveBoard
+    goal: hasGoal(data.settings) ? (
+      <GoalBoard
         settings={data.settings}
         onChange={(patch) =>
           setData((d) => (d ? { ...d, settings: { ...d.settings, ...patch } } : d))
         }
       />
-    ),
+    ) : null,
     agenda: <Agenda data={data} monthEvents={monthEvents} today={data.today} />,
     month: <MiniMonth today={data.today} occurrences={monthEvents} />,
     money: summary ? <MoneyMonth summary={summary} categories={categories} /> : null,

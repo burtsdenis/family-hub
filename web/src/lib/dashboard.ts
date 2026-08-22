@@ -7,7 +7,7 @@ import { t } from './i18n';
  * and the phone in the pocket want different boards, so the layout lives
  * in localStorage, not in shared settings.
  */
-export type WidgetId = 'move' | 'agenda' | 'month' | 'money' | 'soon' | 'notes';
+export type WidgetId = 'goal' | 'agenda' | 'month' | 'money' | 'soon' | 'notes';
 
 export type WidgetSize = 2 | 4 | 8;
 
@@ -24,7 +24,7 @@ export interface WidgetSlot {
 }
 
 export const WIDGET_DEFS: Record<WidgetId, { title: string; sizes: WidgetSize[] }> = {
-  move: { title: t('The move'), sizes: [4, 8] },
+  goal: { title: t('Goal'), sizes: [4, 8] },
   agenda: { title: t('Agenda'), sizes: [4, 8] },
   month: { title: t('Month'), sizes: [2, 4] },
   money: { title: t('Money'), sizes: [2, 4] },
@@ -33,7 +33,7 @@ export const WIDGET_DEFS: Record<WidgetId, { title: string; sizes: WidgetSize[] 
 };
 
 export const DEFAULT_LAYOUT: WidgetSlot[] = [
-  { id: 'move', size: 8, col: 0, hidden: false },
+  { id: 'goal', size: 8, col: 0, hidden: false },
   { id: 'agenda', size: 4, col: 0, hidden: false },
   { id: 'month', size: 2, col: 4, hidden: false },
   { id: 'money', size: 2, col: 6, hidden: false },
@@ -44,18 +44,28 @@ export const DEFAULT_LAYOUT: WidgetSlot[] = [
 export const LAYOUT_KEY = 'hub.dashboard.layout';
 
 /**
+ * Widgets renamed between releases. The layout is per device and never
+ * migrated by the server, so a phone that has not been opened in months
+ * still arrives with the old id — and a renamed widget must keep the
+ * place its owner gave it, not reappear at the default position.
+ */
+const RENAMED: Record<string, WidgetId> = { move: 'goal' };
+
+/**
  * Whatever localStorage holds becomes a valid layout: unknown widgets are
- * dropped, duplicates collapse into the first, a size outside the
- * widget's range snaps to its default, a missing or absurd column falls
- * back to the default's, and widgets missing from the stored list (added
- * in a later release) are appended with defaults.
+ * dropped, renamed ones keep their place, duplicates collapse into the
+ * first, a size outside the widget's range snaps to its default, a
+ * missing or absurd column falls back to the default's, and widgets
+ * missing from the stored list (added in a later release) are appended
+ * with defaults.
  */
 export function normalizeLayout(raw: unknown): WidgetSlot[] {
   const out: WidgetSlot[] = [];
   if (Array.isArray(raw)) {
     for (const item of raw) {
       if (!item || typeof item !== 'object') continue;
-      const { id, size, col, hidden } = item as Partial<WidgetSlot>;
+      const { id: stored, size, col, hidden } = item as Partial<WidgetSlot>;
+      const id = stored && stored in RENAMED ? RENAMED[stored] : stored;
       if (!id || !(id in WIDGET_DEFS) || out.some((s) => s.id === id)) continue;
       const def = WIDGET_DEFS[id];
       const fallback = DEFAULT_LAYOUT.find((s) => s.id === id)!;

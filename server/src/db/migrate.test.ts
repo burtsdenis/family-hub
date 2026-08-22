@@ -174,4 +174,66 @@ describe('migrations', () => {
     ).toBe(migrationFiles().length);
     db.close();
   });
+
+  /*
+    022 renames settings keys and rescales amounts. Both are destructive
+    edits to rows a family has typed into, so what matters is a database
+    already in use: an untouched seed and a customized one behave
+    differently on purpose.
+  */
+  const GOAL = '022_goal_widget.sql';
+
+  const settingsOf = (db: ReturnType<typeof openDatabase>): Record<string, string> =>
+    Object.fromEntries(
+      (db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[]).map(
+        (r) => [r.key, r.value],
+      ),
+    );
+
+  it('022 turns the move board into a goal, keeping what the family typed', () => {
+    const db = openDatabase(':memory:');
+    applyBefore(db, GOAL);
+
+    const set = db.prepare('UPDATE settings SET value = ? WHERE key = ?');
+    set.run('Moving to Belgrade', 'move.label');
+    set.run('2026-09-01', 'move.target_date');
+    set.run('Saved for the flat', 'savings.label');
+    set.run('1250', 'savings.amount_eur');
+    set.run('3000', 'savings.goal_eur');
+
+    applyOnly(db, GOAL);
+    const settings = settingsOf(db);
+
+    expect(settings['goal.title']).toBe('Moving to Belgrade');
+    expect(settings['goal.date']).toBe('2026-09-01');
+    expect(settings['goal.saved_label']).toBe('Saved for the flat');
+    // Whole euros become minor units, like every other amount here
+    expect(settings['goal.saved']).toBe('125000');
+    expect(settings['goal.target']).toBe('300000');
+    // Empty: follow the default currency until told otherwise
+    expect(settings['goal.currency']).toBe('');
+    for (const gone of [
+      'move.label',
+      'move.target_date',
+      'savings.label',
+      'savings.amount_eur',
+      'savings.goal_eur',
+    ]) {
+      expect(settings, `${gone} should be gone`).not.toHaveProperty(gone);
+    }
+    db.close();
+  });
+
+  it('022 rewords the untouched seed, which was about a move', () => {
+    const db = openDatabase(':memory:');
+    applyBefore(db, GOAL);
+    applyOnly(db, GOAL);
+    const settings = settingsOf(db);
+
+    expect(settings['goal.title']).toBe('Goal');
+    expect(settings['goal.date']).toBe('');
+    expect(settings['goal.saved']).toBe('0');
+    expect(settings['goal.target']).toBe('0');
+    db.close();
+  });
 });
