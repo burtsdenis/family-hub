@@ -1,5 +1,6 @@
 import { t } from '../lib/i18n';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { daysUntil, formatDate, plural } from '../lib/format';
 import { formatAmountInput, formatMoney, parseAmount } from '../lib/money';
@@ -80,7 +81,30 @@ export function GoalBoard({ settings, onChange }: Props) {
   }
 
   return (
-    <section className="overflow-hidden rounded-card border border-line bg-surface shadow-sm">
+    <section className="group relative overflow-hidden rounded-card border border-line bg-surface shadow-sm">
+      {/* The goal is the one widget with something to configure, and the
+          settings page is where its fields live. Quiet until the pointer
+          is on the card — and always there on a touch screen, which has
+          no hover to reveal it with. */}
+      <Link
+        to="/settings"
+        aria-label={t('Goal settings')}
+        title={t('Goal settings')}
+        className="absolute top-2.5 right-2.5 rounded-md p-1.5 text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface-2 hover:text-ink focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="size-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M18 6l-1.6 1.6M7.6 16.4 6 18M18 18l-1.6-1.6M7.6 7.6 6 6" />
+        </svg>
+      </Link>
       <div
         className={`grid divide-y divide-line ${
           showCountdown && showMoney

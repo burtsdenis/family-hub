@@ -249,6 +249,7 @@ export const ru: Record<string, string> = {
   'Goal': 'Цель',
   'Goal currency': 'Валюта цели',
   'Goal name': 'Название цели',
+  'Goal settings': 'Настройки цели',
   'Overdue counts from this date': 'Просрочка считается от этой даты',
   'Edit': 'Изменить',
   'Edit the saved amount': 'Изменить накопленную сумму',

@@ -213,7 +213,8 @@ recent notes.
 The **goal** is whatever the family is heading towards — a move, a trip,
 a bike. Give it a date and it counts the days down; give it a target
 amount and it draws a bar, with the saved amount typed on the board
-itself. Set neither and the widget is simply not there.
+itself. The gear in its corner leads to the rest of the fields. Set
+neither a date nor an amount and the widget is simply not there.
 
 The **agenda** is the week in one card — overdue, then today (events
 with times and tasks together), then only the days ahead that actually
