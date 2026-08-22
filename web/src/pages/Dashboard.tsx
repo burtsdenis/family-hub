@@ -165,11 +165,14 @@ function EventRow({ occurrence, detailed }: { occurrence: Occurrence; detailed?:
         to={`/calendar?date=${occurrence.date}`}
         className="block px-4 py-2.5 transition-colors hover:bg-surface-2">
       <span className="flex items-center gap-3">
-        <span
-          className="size-2 shrink-0 rounded-full"
-          style={{ backgroundColor: occurrence.calendar_color }}
-          aria-hidden
-        />
+        {/* The dot sits in a checkbox-sized box: mixed lists put events
+            and tasks under each other, and the titles must share a column */}
+        <span className="grid size-4 shrink-0 place-items-center" aria-hidden>
+          <span
+            className="size-2 rounded-full"
+            style={{ backgroundColor: occurrence.calendar_color }}
+          />
+        </span>
         <span className="min-w-0 flex-1 truncate text-sm text-ink">
           {occurrence.title}
           {occurrence.age !== null && <span className="ml-2 text-muted">{occurrence.age}</span>}
@@ -197,7 +200,7 @@ function EventRow({ occurrence, detailed }: { occurrence: Occurrence; detailed?:
       </span>
       {/* Same rule as the task row: today's rows on a wide card unfold. */}
       {detailed && (
-        <span className="mt-1 hidden pl-5 @4xl:block">
+        <span className="mt-1 hidden pl-7 @4xl:block">
           {occurrence.description && (
             <span className="block text-xs leading-relaxed text-muted">
               {occurrence.description}
